@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0c1220"><title>LHM Ads AI — Ads Command Center</title>
+<link rel="stylesheet" href="/static/style.css"></head>
+<body>
+<div id="toast" class="toast" role="status"></div>
+<div id="login" class="login-screen hidden"><div class="login-card">
+  <div class="brand-mark">✦</div><div class="eyebrow">LHM ADS AI / PRIVATE CLOUD</div>
+  <h1>Quản lý quảng cáo.<br><em>Thông minh hơn.</em></h1>
+  <p>Trung tâm điều khiển quảng cáo đa nền tảng với bảo mật và phê duyệt trước khi thay đổi.</p>
+  <form id="login-form"><label>Email quản trị<input type="email" id="login-email" autocomplete="username" placeholder="admin@example.com" required></label>
+  <label>Mật khẩu<input type="password" id="login-pass" autocomplete="current-password" required></label>
+  <button class="primary full" type="submit">Đăng nhập <span>→</span></button></form>
+  <div id="login-error" class="form-error"></div>
+  <div class="login-note">Không có tài khoản mặc định. Tạo admin bằng CLI trước khi đăng nhập.</div>
+</div></div>
+<div id="app" class="shell hidden">
+<aside class="sidebar">
+  <div class="logo"><div class="logo-symbol">✦</div><div><strong>LHM ADS <i>AI</i></strong><small>COMMAND CENTER</small></div></div>
+  <div class="side-section">WORKSPACE</div>
+  <nav class="nav">
+    <button class="nav-item active" data-page="overview"><span>◫</span> Tổng quan</button>
+    <button class="nav-item" data-page="accounts"><span>▤</span> Tài khoản quảng cáo</button>
+    <button class="nav-item" data-page="approvals"><span>◇</span> Chờ phê duyệt <b id="pending-count" class="nav-pill hidden">0</b></button>
+    <button class="nav-item" data-page="audit"><span>≡</span> Nhật ký hoạt động</button>
+  </nav>
+  <div class="side-section">INTEGRATIONS</div>
+  <nav class="nav"><button class="nav-item" data-page="mcp"><span>⌘</span> Kết nối AI / MCP</button></nav>
+  <div class="sidebar-bottom"><div class="live-state"><span class="dot"></span> Private self-hosted <span>· VPS</span></div>
+    <div class="profile"><div class="avatar">AD</div><div class="profile-text"><strong id="profile-email">Quản trị viên</strong><small id="profile-role">ADMIN</small></div><button id="logout" title="Đăng xuất">↗</button></div>
+  </div>
+</aside>
+<div class="pagewrap"><header class="topbar"><button id="mobile-menu" aria-label="Mở menu">☰</button><div class="crumb">Workspace <span>/</span> <b id="crumb-current">Tổng quan</b></div><div class="topbar-right"><span class="status-chip"><span class="dot"></span> Hệ thống hoạt động</span><div class="avatar mini">AD</div></div></header>
+<main class="content">
+<section id="page-overview" class="page"><div class="page-head"><div><div class="eyebrow">PERFORMANCE OVERVIEW</div><h1>Tổng quan quảng cáo <span class="head-star">✦</span></h1><p>Theo dõi và kiểm soát hiệu suất từ một nơi duy nhất.</p></div><div class="head-actions"><select id="period"><option value="last_7d">7 ngày gần nhất</option><option value="yesterday">Hôm qua</option></select><button class="secondary" id="refresh">↻ Làm mới</button></div></div>
+ <div id="demo-warning" class="warning hidden">⚑ Dữ liệu minh họa đang được hiển thị. Không phải số liệu quảng cáo thực tế.</div>
+ <div class="statgrid">
+  <article class="stat"><div class="stat-top"><span>Tổng chi tiêu</span><span class="stat-icon purple">◈</span></div><strong id="s-spend">—</strong><div class="stat-sub">Tài khoản kết nối</div></article>
+  <article class="stat"><div class="stat-top"><span>Lượt hiển thị</span><span class="stat-icon blue">▤</span></div><strong id="s-impressions">—</strong><div class="stat-sub">Tổng impressions</div></article>
+  <article class="stat"><div class="stat-top"><span>Lượt nhấp</span><span class="stat-icon green">↗</span></div><strong id="s-clicks">—</strong><div class="stat-sub">Tổng clicks</div></article>
+  <article class="stat"><div class="stat-top"><span>CTR trung bình</span><span class="stat-icon orange">◉</span></div><strong id="s-ctr">—</strong><div class="stat-sub">Tỷ lệ click / impressions</div></article>
+ </div>
+ <div class="main-grid"><article class="panel"><div class="panel-header"><div><div class="eyebrow">ANALYTICS</div><h2>Chi tiêu theo ngày</h2></div><div class="legend"><i></i> Spend</div></div><div id="chart" class="chart"><div class="empty">Kết nối tài khoản hoặc tạo demo để hiển thị số liệu.</div></div></article>
+ <article class="panel overview-side"><div class="panel-header"><div><div class="eyebrow">CONNECTED CHANNELS</div><h2>Nền tảng</h2></div></div>
+ <div class="channel"><span class="channel-icon meta">f</span><div><strong>Meta Ads</strong><small>Facebook · Instagram</small></div><b id="count-meta">0</b></div>
+ <div class="channel"><span class="channel-icon google">G</span><div><strong>Google Ads</strong><small>Search · Display</small></div><b id="count-google">0</b></div>
+ <div class="channel"><span class="channel-icon tiktok">♪</span><div><strong>TikTok Ads</strong><small>Video · Performance</small></div><b id="count-tiktok">0</b></div>
+ <div class="channel"><span class="channel-icon openai">✳</span><div><strong>OpenAI Ads</strong><small>Sắp hỗ trợ</small></div><b id="count-openai">0</b></div>
+ <div class="channel"><span class="channel-icon demo">◇</span><div><strong>Demo</strong><small>Dữ liệu minh họa</small></div><b id="count-demo">0</b></div>
+ </article></div>
+ <article class="panel"><div class="panel-header"><div><div class="eyebrow">ACCOUNT HEALTH</div><h2>Hiệu suất theo tài khoản</h2></div><button class="plain" data-goto="accounts">Xem tất cả →</button></div><div id="overview-accounts" class="tablewrap"></div></article>
+ </section>
+<section id="page-accounts" class="page hidden"><div class="page-head"><div><div class="eyebrow">ACCOUNT MANAGEMENT</div><h1>Tài khoản quảng cáo</h1><p>Quản lý nhiều tài khoản, token lưu mã hóa và không trả về trình duyệt sau khi kết nối.</p></div><button class="primary admin-only" id="add-account">+ Thêm tài khoản</button></div><div class="notice">Meta Ads: đọc báo cáo thật và duyệt lệnh tạm dừng đã triển khai. Google Ads: đã dựng adapter báo cáo API v25 (chưa thử với token thật). TikTok, OpenAI: adapter chưa hoàn thiện.</div><article class="panel"><div id="accounts-table" class="tablewrap"></div></article></section>
+<section id="page-approvals" class="page hidden"><div class="page-head"><div><div class="eyebrow">HUMAN IN THE LOOP</div><h1>Phê duyệt lệnh AI</h1><p>AI chỉ được gửi yêu cầu; việc thay đổi quảng cáo cần quản trị viên xác nhận trên web.</p></div><button class="secondary" id="refresh-actions">↻ Cập nhật</button></div><div class="notice">Chỉ hỗ trợ tạm dừng chiến dịch Meta có API token hợp lệ. Không có lệnh tăng ngân sách tự động trong phiên bản này.</div><article class="panel"><div id="actions-table" class="tablewrap"></div></article></section>
+<section id="page-audit" class="page hidden"><div class="page-head"><div><div class="eyebrow">SECURITY & COMPLIANCE</div><h1>Nhật ký hoạt động</h1><p>Theo dõi ai đã đăng nhập, kết nối tài khoản và yêu cầu hay duyệt thao tác.</p></div></div><article class="panel"><div id="audit-table" class="tablewrap"></div></article></section>
+<section id="page-mcp" class="page hidden"><div class="page-head"><div><div class="eyebrow">AI TOOL CONNECTION</div><h1>Kết nối AI / MCP</h1><p>Sử dụng khóa riêng với phạm vi chỉ đọc hoặc cho phép tạo yêu cầu tạm dừng.</p></div></div>
+ <div class="mcp-grid"><article class="panel"><h2>01. Tạo API key</h2><p class="muted">Key được hiển thị đúng một lần. Không nhập key này vào ứng dụng hoặc nguồn không đáng tin.</p><div class="formrow"><label>Tên key<input id="key-label" value="AI trợ lý nội bộ" maxlength="80"></label><label>Quyền<select id="key-scope"><option value="reader">Chỉ đọc dữ liệu</option><option value="operator">Đọc + yêu cầu tạm dừng</option></select></label></div><button id="create-key" class="primary admin-only">Tạo API key</button><div id="key-result" class="key-box hidden"><div>API key — chỉ hiển thị lần này:</div><code id="key-value"></code><button id="copy-key" class="secondary">Sao chép</button></div><div id="keys-list" class="key-list"></div></article>
+ <article class="panel"><h2>02. Kết nối MCP qua stdio</h2><p class="muted">Bản starter đã có MCP chạy bằng stdio, dùng API key nội bộ. Remote HTTPS MCP “một link” cần triển khai và kiểm thử riêng.</p><pre>export LHM_ADS_URL=http://127.0.0.1:8080
+export LHM_ADS_API_KEY='lhm_...'
+python -m ads_mcp.mcp_stdio</pre><h3>Công cụ MCP</h3><div class="tools"><span>list_accounts</span><span>get_insights</span><span>request_pause_campaign</span><span>list_actions</span></div><div class="notice">Không có công cụ approve trong MCP. Duyệt thay đổi chỉ từ phiên admin trên website.</div></article></div>
+ </section>
+</main><footer class="foot">© LHM Ads AI · Self-hosted starter · <span>Chỉ dùng API chính thức</span></footer></div>
+</div>
+<div id="modal" class="modal-backdrop hidden"><div class="modal"><div class="modal-head"><h2>Thêm tài khoản quảng cáo</h2><button id="close-modal" aria-label="Đóng">✕</button></div><form id="account-form">
+ <label>Nền tảng<select name="platform" id="account-platform"><option value="demo">Demo (thử giao diện)</option><option value="meta">Meta Ads — kết nối thật</option><option value="google">Google Ads — báo cáo thử nghiệm</option><option value="tiktok">TikTok Ads — chưa tích hợp</option><option value="openai">OpenAI Ads — chưa tích hợp</option></select></label>
+ <label>Tên hiển thị<input name="label" required minlength="2" maxlength="100" placeholder="Ví dụ: Meta Shop LHM"></label>
+ <label>ID tài khoản<input name="external_id" required placeholder="act_123456789"></label>
+ <label>Đơn vị tiền tệ<select name="currency"><option value="VND">VND</option><option value="USD">USD</option></select></label>
+ <label>Thông tin API chính thức<input name="token" type="password" autocomplete="off" placeholder="Không áp dụng cho demo"><small id="token-help">Token được mã hóa AES-256-GCM. Không nhập mật khẩu Facebook hoặc Google.</small></label>
+ <div class="modal-actions"><button id="cancel-account" class="secondary" type="button">Hủy</button><button class="primary" type="submit">Lưu tài khoản</button></div>
+ </form></div></div>
+<script src="/static/app.js" defer></script>
+</body></html>

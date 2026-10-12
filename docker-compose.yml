@@ -1,0 +1,16 @@
+services:
+  ads-ai:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:8080:8080" # HTTPS reverse proxy required for production
+    volumes:
+      - ads_data:/app/data
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+volumes:
+  ads_data:
