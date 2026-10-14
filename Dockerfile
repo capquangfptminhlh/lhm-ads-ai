@@ -8,4 +8,4 @@ COPY static ./static
 RUN mkdir -p /app/data && chown -R app:app /app/data
 USER app
 EXPOSE 8080
-CMD ["uvicorn", "ads_mcp.app:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]
+CMD ["uvicorn", "ads_mcp.extended:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]

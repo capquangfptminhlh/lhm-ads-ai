@@ -92,3 +92,13 @@ Read-only reporting uses Google Ads API `v25` SearchStream with `segments.date`,
 ## Fast Docker bootstrap
 
 Instead of manually editing secrets, run `./setup.sh` to generate `.env` safely. Then run `docker compose up -d --build` and `docker compose exec ads-ai python -m ads_mcp.cli create-admin --email YOUR_EMAIL`. This creates a new locally managed admin account and prompts for a password; no default password is shipped. Change any provider settings in `.env` and restart the container as needed.
+
+---
+
+## Studio v0.2 — upgraded interface and remote MCP
+
+The upgraded Docker image serves the new responsive management interface at **`/studio`** (the home page redirects there). The previous UI remains available at `/classic`.
+
+Added: report-grounded Vietnamese AI chat (optional `OPENAI_API_KEY`, deterministic analysis fallback), multi-user admin/reader/operator management, revoke keys, rotate passwords, CSV reports, and stateless authenticated Streamable HTTP MCP at `/mcp` with human approval for Meta pause requests.
+
+See [Studio setup, security limitations and provider coverage](docs/STUDIO.md) before deploying. This is a pilot, **not** a tested production-grade multi-platform advertising replacement; TikTok and OpenAI Ads live integration remain unimplemented and OAuth onboarding / OAuth remote MCP still require development. Never expose the app without HTTPS, secrets management, reverse proxy rate limiting, backups and security review.
