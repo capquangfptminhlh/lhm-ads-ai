@@ -1,4 +1,4 @@
-"""LHM Ads AI: login, tenant-bound accounts, reporting, approvals and MCP tool backing API."""
+"""LHM Ads AI: login, tenant-bound accounts, reporting and human-approved changes."""
 import os
 import re
 import time
@@ -51,17 +51,7 @@ login_failures = defaultdict(list)
 
 def identify(request: Request):
     token = request.cookies.get('lhm_session')
-    auth = request.headers.get('authorization','')
-    raw = auth[7:] if auth.lower().startswith('bearer ') else None
     with connection() as db:
-        if raw and raw.startswith('lhm_'):
-            row = db.execute('''SELECT u.id,u.email,u.role,u.org_id,u.disabled,k.scope
-                 FROM api_keys k JOIN users u ON u.id=k.user_id WHERE k.hash=?''',
-                 (hash_secret(raw),)).fetchone()
-            if row and not row['disabled']:
-                ident = dict(row); ident['auth_type']='key'
-                ident['role'] = 'reader' if ident['scope']=='reader' else ('operator' if ident['role'] in ('operator','admin') else 'reader')
-                return ident
         if token:
             row = db.execute('''SELECT u.id,u.email,u.role,u.org_id,u.disabled,s.csrf
                  FROM sessions s JOIN users u ON u.id=s.user_id
@@ -69,13 +59,13 @@ def identify(request: Request):
             if row and not row['disabled']:
                 ident = dict(row); ident['auth_type']='browser'
                 return ident
-    raise HTTPException(401, 'Cần đăng nhập hoặc cung cấp API key hợp lệ')
+    raise HTTPException(401, 'Cần đăng nhập tài khoản nội bộ')
 
 def require(*roles):
     def checker(request: Request, ident=Depends(identify)):
         if ident['role'] not in roles:
             raise HTTPException(403, 'Không đủ quyền')
-        if request.method not in ('GET','HEAD') and ident['auth_type']=='browser':
+        if request.method not in ('GET','HEAD'):
             if request.headers.get('x-csrf-token') != ident['csrf']:
                 raise HTTPException(403, 'CSRF không hợp lệ')
         return ident
@@ -310,55 +300,3 @@ def audit_feed(ident=Depends(require('admin'))):
         rows=db.execute('''SELECT id,actor_id,event,detail,created_at FROM audit WHERE org_id=?
                            ORDER BY id DESC LIMIT 100''',(ident['org_id'],)).fetchall()
         return [dict(r) for r in rows]
-
-class NewKey(BaseModel):
-    label: str = Field(min_length=2,max_length=80)
-    scope:Literal['reader','operator']='reader'
-
-@app.post('/api/keys')
-def new_key(data:NewKey,ident=Depends(browser_admin)):
-    raw=make_secret('lhm_')
-    with connection() as db:
-        db.execute('INSERT INTO api_keys(hash,user_id,label,scope) VALUES(?,?,?,?)',
-                   (hash_secret(raw),ident['id'],data.label,data.scope))
-        audit(db,ident,'mcp.key_created',f'Created {data.scope} key labeled {data.label[:30]}')
-    return {'api_key':raw,'warning':'Chìa khóa chỉ hiển thị một lần. Không đưa lên GitHub.'}
-
-@app.get('/api/keys')
-def keys(ident=Depends(browser_admin)):
-    with connection() as db:
-        return [dict(row) for row in db.execute('''SELECT label,scope,created_at,substr(hash,1,10) as key_id
-          FROM api_keys WHERE user_id=? ORDER BY created_at DESC''',(ident['id'],)).fetchall()]
-
-# Minimal authenticated tool API consumed by mcp_stdio.py. All output is bounded and tenant-scoped.
-class MCPCall(BaseModel):
-    name: Literal['list_accounts','get_insights','request_pause_campaign','list_actions']
-    arguments:dict = Field(default_factory=dict)
-
-@app.post('/api/mcp/call')
-async def mcp_call(body:MCPCall,ident=Depends(require('admin','operator','reader'))):
-    if ident['auth_type']!='key':
-        raise HTTPException(403,'MCP chỉ được dùng qua API key riêng')
-    a=body.arguments
-    if body.name=='list_accounts':
-        return {'accounts':accounts(ident)}
-    if body.name=='get_insights':
-        try:
-            aid=int(a['account_id'])
-            period=a.get('period','last_7d')
-        except (ValueError,TypeError,KeyError):
-            raise HTTPException(422,'account_id không hợp lệ')
-        if period not in ('last_7d','yesterday'):
-            raise HTTPException(422,'period không hợp lệ')
-        return await fetch_report(get_account(aid,ident['org_id']),period)
-    if body.name=='list_actions':
-        return {'actions':list_actions(ident)}
-    if body.name=='request_pause_campaign':
-        if ident['role']=='reader':
-            raise HTTPException(403,'API key chỉ có quyền xem')
-        try:
-            item=ActionRequest(**a)
-        except Exception:
-            raise HTTPException(422,'account_id và campaign_id bắt buộc')
-        return request_pause(item,ident)
-    raise HTTPException(404,'Tool không tồn tại')

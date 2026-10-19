@@ -15,5 +15,4 @@ jobs:
           node-version: '22'
       - run: pip install -r requirements.txt pytest
       - run: python -m pytest -q
-      - run: node --check static/app.js
       - run: node --check static/studio.js

@@ -1,9 +1,9 @@
-"""Offline tests: isolation, API auth, no approved action through MCP, source labels."""
+"""Offline tests: isolation, browser-only auth, approval guard, source labels."""
 import os,base64,pytest
 from fastapi.testclient import TestClient
-from ads_mcp.db import init_db,connection
-from ads_mcp.security import hash_password,make_secret,hash_secret,seal,unseal
-from ads_mcp.app import app
+from ads_core.db import init_db,connection
+from ads_core.security import hash_password,make_secret,hash_secret,seal,unseal
+from ads_core.app import app
 
 @pytest.fixture
 def client(tmp_path,monkeypatch):
@@ -57,15 +57,11 @@ def test_csrf_and_separate_tenant(client):
     assert client.get('/api/report',params={'account_id':other_id}).status_code==404
     assert client.get('/api/accounts').json()==[]
 
-def test_mcp_key_is_scoped_and_cannot_approve(client):
-    h=logged_in(client)
-    key=client.post('/api/keys',headers=h,json={'label':'Read-only assistant','scope':'reader'}).json()['api_key']
-    req={'name':'list_accounts','arguments':{}}
-    assert client.post('/api/mcp/call',json=req).status_code==403
-    assert client.post('/api/mcp/call',json=req,headers={'Authorization':'Bearer '+key}).status_code==200
-    pa={'name':'request_pause_campaign','arguments':{'account_id':1,'campaign_id':'123456'}}
-    assert client.post('/api/mcp/call',json=pa,headers={'Authorization':'Bearer '+key}).status_code==403
-    assert client.post('/api/actions/1/approve',headers={'Authorization':'Bearer '+key}).status_code==403
+def test_bearer_cannot_authenticate_or_approve(client):
+    h={'Authorization':'Bearer lhm_legacy_value'}
+    assert client.get('/api/accounts',headers=h).status_code==401
+    assert client.get('/api/summary',headers=h).status_code==401
+    assert client.post('/api/actions/1/approve',headers=h).status_code==401
 
 def test_non_meta_returns_501(client):
     h=logged_in(client)
@@ -81,7 +77,7 @@ def test_google_requires_json_bundle(client):
     assert r.status_code==422
 
 def test_meta_pause_request_requires_browser_approval(client, monkeypatch):
-    import ads_mcp.app as mod
+    import ads_core.app as mod
     h=logged_in(client)
     r=client.post('/api/accounts',headers=h,json={'platform':'meta','label':'Meta test',
         'external_id':'act_1234567890','currency':'VND','token':'placeholder_token_for_offline_test'})
@@ -102,7 +98,7 @@ def test_meta_pause_request_requires_browser_approval(client, monkeypatch):
 def test_google_read_adapter_offline_mock(client, monkeypatch):
     import asyncio
     import httpx
-    from ads_mcp.providers import google_report
+    from ads_core.providers import google_report
     monkeypatch.setenv('GOOGLE_ADS_DEVELOPER_TOKEN','fake_dev_token')
     token=__import__('json').dumps({'client_id':'x','client_secret':'y','refresh_token':'z'})
     acc={'id':1,'org_id':'test-org','platform':'google','external_id':'1234567890',

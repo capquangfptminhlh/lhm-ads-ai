@@ -43,13 +43,6 @@ def init_db():
             csrf TEXT NOT NULL,
             expires_at INTEGER NOT NULL
         );
-        CREATE TABLE IF NOT EXISTS api_keys (
-            hash TEXT PRIMARY KEY,
-            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            label TEXT NOT NULL,
-            scope TEXT NOT NULL CHECK (scope IN ('reader','operator')),
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
         CREATE TABLE IF NOT EXISTS accounts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             org_id TEXT NOT NULL,
@@ -86,6 +79,8 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_actions_org ON actions(org_id, status);
         CREATE INDEX IF NOT EXISTS idx_audit_org ON audit(org_id, id DESC);
         """)
+        # Migration: revoke all previously issued third-party tool keys at startup.
+        db.execute("DROP TABLE IF EXISTS api_keys")
 
 
 def audit(db, ident, event, detail):
