@@ -152,8 +152,28 @@ def start_oauth(provider: Literal['google','meta'], request: Request, ident=Depe
 
 
 def redirect_status(value):
-    return RedirectResponse('/studio?oauth='+value, status_code=303,
+    route = ('/oauth/finished?status='+value if os.getenv('LHM_DESKTOP_MODE')=='1'
+             else '/studio?oauth='+value)
+    return RedirectResponse(route, status_code=303,
                             headers={'Cache-Control':'no-store','Referrer-Policy':'no-referrer'})
+
+
+@app.get('/oauth/finished', include_in_schema=False)
+def oauth_finished(request: Request, status: str='ready'):
+    # The system browser only displays this confirmation; imported accounts
+    # remain accessible exclusively from the native window's signed-in session.
+    if os.getenv('LHM_DESKTOP_MODE')!='1' or request.client is None or request.client.host not in ('127.0.0.1','::1'):
+        raise HTTPException(404, 'Not found')
+    from fastapi.responses import HTMLResponse
+    success = status == 'ready'
+    message = 'Đã nhận quyền truy cập. Quay lại cửa sổ LHM Ads AI để chọn tài khoản.' if success else 'Chưa hoàn thành kết nối. Quay lại ứng dụng để thử lại.'
+    html = ("<!doctype html><html lang='vi'><meta charset='utf-8'><title>LHM Ads AI</title>"
+            "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+            "<body style='background:#f6ede6;color:#211d1b;font:16px Segoe UI,Arial,sans-serif;max-width:590px;margin:15vh auto;padding:30px'>"
+            "<h1 style='color:#d77240'>LHM Ads AI</h1><h2>"+
+            ('Kết nối thành công' if success else 'Chưa kết nối được')+
+            "</h2><p>"+message+"</p><p>Bạn có thể đóng tab trình duyệt này.</p></body></html>")
+    return HTMLResponse(html,headers={'Cache-Control':'no-store'})
 
 
 async def google_exchange(client, code, redirect_uri, verifier, cid, secret):
@@ -256,21 +276,38 @@ async def meta_candidates(client, token):
 @app.get('/api/oauth/{provider}/callback',include_in_schema=False)
 async def oauth_callback(provider: Literal['google','meta'], request:Request,
                          state:str='',code:str='',error:str=''):
-    # Cookie is SameSite=Lax: top-level provider -> callback redirects include session.
-    from .app import identify
-    ident=identify(request)
-    if ident['role']!='admin':
-        raise HTTPException(403,'Chỉ admin có quyền kết nối quảng cáo')
+    # Native WebView2 has a cookie jar separate from the SYSTEM BROWSER.
+    # For local desktop OAuth, the random one-time state is the callback proof.
+    # The state must correspond to a still-valid administrator session initiated
+    # in the app. Never create a session for the external browser.
     if not state or len(state)>256:
         raise HTTPException(400,'OAuth state không hợp lệ')
     init_oauth_tables()
     state_hash=hash_secret(state)
+    desktop = os.getenv('LHM_DESKTOP_MODE') == '1'
+    if desktop and (request.client is None or request.client.host not in ('127.0.0.1','::1')):
+        raise HTTPException(403,'OAuth callback chỉ nhận từ máy cục bộ')
     with connection() as db:
         row=db.execute('SELECT * FROM oauth_flows WHERE state_hash=?', (state_hash,)).fetchone()
-        # Consume exactly once BEFORE exchanging tokens.
+        # Consume exactly once BEFORE exchanging provider authorization codes.
         db.execute('DELETE FROM oauth_flows WHERE state_hash=?',(state_hash,))
-        if not row or row['expires_at']<=int(time.time()) or row['provider']!=provider or row['org_id']!=ident['org_id'] or row['user_id']!=ident['id'] or row['session_hash']!=session_hash(request):
+        if not row or row['expires_at']<=int(time.time()) or row['provider']!=provider:
             raise HTTPException(400,'OAuth state hết hạn hoặc không thuộc phiên đăng nhập')
+        if desktop:
+            if request.cookies.get('lhm_session') and session_hash(request)!=row['session_hash']:
+                raise HTTPException(400,'Phiên trình duyệt không trùng với ứng dụng')
+            user=db.execute('''SELECT u.id,u.org_id,u.role,u.disabled,s.expires_at
+                FROM sessions s JOIN users u ON u.id=s.user_id
+                WHERE s.hash=? AND s.user_id=? AND s.expires_at>?''',
+                (row['session_hash'],row['user_id'],int(time.time()))).fetchone()
+            if not user or user['disabled'] or user['role']!='admin' or user['org_id']!=row['org_id']:
+                raise HTTPException(403,'Phiên quản trị đã hết hạn hoặc không hợp lệ')
+            ident=dict(user)
+        else:
+            from .app import identify
+            ident=identify(request)
+            if ident['role']!='admin' or row['org_id']!=ident['org_id'] or row['user_id']!=ident['id'] or row['session_hash']!=session_hash(request):
+                raise HTTPException(400,'OAuth state không thuộc phiên đăng nhập')
     if error or not code or len(code)>4096:
         return redirect_status('cancelled')
     cid, secret, ready=provider_config(provider,ident['org_id'])
@@ -293,7 +330,7 @@ async def oauth_callback(provider: Literal['google','meta'], request:Request,
     pending_id=secrets.token_urlsafe(24)
     with connection() as db:
         db.execute('INSERT INTO oauth_pending VALUES (?,?,?,?,?,?,?,?)',
-                   (pending_id,ident['org_id'],ident['id'],session_hash(request),provider,
+                   (pending_id,ident['org_id'],ident['id'],row['session_hash'],provider,
                     seal(private,f'oauth-pending:{pending_id}'),json.dumps(candidates),int(time.time())+TTL))
         audit(db,ident,'oauth.ready',f'{provider}: {len(candidates)} accounts discovered; awaiting selection')
     return redirect_status('ready')

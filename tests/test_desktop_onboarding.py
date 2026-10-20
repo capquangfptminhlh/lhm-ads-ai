@@ -77,5 +77,10 @@ def test_windows_workflow_builds_windowed_exe():
     launcher = (root/'windows/launcher.py').read_text(encoding='utf-8')
     assert '--windowed' in workflow
     assert 'getpass.getpass(' not in launcher
-    assert '/setup#token=' in launcher
+    shell=(root/'windows/desktop_window.py').read_text(encoding='utf-8')
+    assert '/setup#token=' in shell
+    assert 'webview.create_window(' in shell
+    assert 'webview.start(' in shell
+    assert "gui='edgechromium'" in shell
+    assert 'open_browser_after_start' not in launcher
     assert "host='127.0.0.1'" in launcher

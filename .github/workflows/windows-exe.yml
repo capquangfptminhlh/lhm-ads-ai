@@ -27,7 +27,7 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt pytest pyinstaller pillow
+          python -m pip install -r requirements.txt pytest pyinstaller pillow pywebview==5.4
       - name: Run Python tests on Windows
         shell: pwsh
         run: python -m pytest -q
@@ -37,17 +37,34 @@ jobs:
       - name: Build EXE with NO console window
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --name LHM-Ads-AI --icon windows/lhm-ads-ai.ico --paths . --add-data "static;static" --collect-submodules uvicorn --collect-submodules ads_core --collect-all cryptography windows/launcher.py
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name LHM-Ads-AI --icon windows/lhm-ads-ai.ico --paths . --add-data "static;static" --collect-submodules uvicorn --collect-submodules ads_core --collect-all cryptography --collect-all webview --collect-all clr_loader --collect-all pythonnet --hidden-import clr --collect-submodules windows windows/launcher.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Test-Path dist/LHM-Ads-AI.exe)) { throw 'EXE not generated' }
       - name: Launch actual Windows EXE and check onboarding
         shell: pwsh
         run: ./windows/smoke-test.ps1
+      - name: Validate native WebView2 desktop dependencies
+        shell: pwsh
+        run: python -c "import webview, clr; print('WebView2 bridge dependencies available')"
+      - name: Smoke-test the real native window (WebView2)
+        shell: pwsh
+        run: |
+          $env:LHM_DATA_DIR = Join-Path $env:RUNNER_TEMP 'lhm-ads-native-gui-smoke'
+          $proc = Start-Process -FilePath (Join-Path $PWD 'dist\LHM-Ads-AI.exe') -ArgumentList @('--window-smoke','--port','18766') -PassThru
+          try {
+            if (-not $proc.WaitForExit(60000)) { throw 'Native desktop window did not exit on time' }
+            if ($proc.ExitCode -ne 0) { throw "Native window failed, exit code $($proc.ExitCode)" }
+            Write-Host 'PASS: standalone Windows WebView2 window starts and closes'
+          } finally {
+            if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
+            $log = Join-Path $env:LHM_DATA_DIR 'logs\startup.log'
+            if (Test-Path $log) { Get-Content $log -Tail 40 }
+          }
       - name: Upload tested EXE
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: LHM-Ads-AI-Windows-Beautiful-Onboarding
+          name: LHM-Ads-AI-Native-Window
           path: dist/LHM-Ads-AI.exe
           if-no-files-found: error
           retention-days: 14

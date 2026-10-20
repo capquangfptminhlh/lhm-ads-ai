@@ -15,7 +15,7 @@ try {
         } catch { }
     }
     if (-not $healthy) { throw 'EXE failed the HTTP health check' }
-    Write-Host 'PASS: actual windowed EXE responds'
+    Write-Host 'PASS: packaged Windows EXE responds in headless mode'
     $setup = Invoke-WebRequest -Uri "http://127.0.0.1:$port/setup" -TimeoutSec 10
     if ($setup.StatusCode -ne 200 -or $setup.Content -notmatch 'Tạo tài khoản quản trị') { throw 'Onboarding page missing' }
     Write-Host 'PASS: first-run onboarding page returned 200'

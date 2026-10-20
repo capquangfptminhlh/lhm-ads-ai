@@ -68,3 +68,24 @@ The Windows executable now uses PyInstaller `--windowed` (no black console windo
 The one-time setup endpoint is enabled only in desktop mode, accessible only on loopback, requires an ephemeral random token delivered via the browser URL fragment, and refuses any second administrator bootstrap after one account exists. User data stays in `%LOCALAPPDATA%\\LHMAdsAI`. Browser-based interface remains local at `http://localhost:8765`; no VPS or MCP. Credentials for Google/Meta OAuth and OpenRouter must still be configured by the user.
 
 The EXE is portable, not an MSI installer, and is not yet code-signed. To stop the background process, close LHM Ads AI using Windows Task Manager. For troubleshooting, inspect the local `%LOCALAPPDATA%\\LHMAdsAI\\logs\\startup.log`.
+
+## Native-window desktop shell (Windows)
+
+LHM Ads AI now launches a **standalone Windows desktop window** using the
+Microsoft Edge WebView2 engine, rather than opening the Chrome/Edge browser
+for its primary UI. It is technically a *hybrid desktop application*:
+the rich existing HTML/CSS dashboard renders inside the native window, with
+the Python API and encrypted database confined to 127.0.0.1 on the user's PC.
+This is not a fully rewritten Qt/WinUI user interface and not a remote website.
+It requires the Microsoft Edge WebView2 Runtime on Windows.
+
+Double-click `LHM-Ads-AI.exe`. On first use, the local window opens the
+Vietnamese admin onboarding screen. On later uses it opens the dashboard in
+the same standalone window. Closing the window shuts down its local API.
+No browser tab, address bar, VPS, external MCP route, or bundled customer API key.
+
+**Official Google/Meta OAuth consent deliberately opens the system browser**:
+Google blocks OAuth logins from embedded webviews. After consent the browser
+shows a confirmation and the desktop app retrieves the pending account list;
+ad account data/tokens stay in the authenticated desktop session. This
+hand-off requires a valid Google/Meta developer app and provider-granted scopes.

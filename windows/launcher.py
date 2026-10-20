@@ -11,7 +11,6 @@ import sys
 import threading
 import time
 import urllib.request
-import webbrowser
 
 if not getattr(sys, 'frozen', False):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -62,24 +61,6 @@ def configure_windowed_logs(folder: Path):
             stream.reconfigure(encoding='utf-8', errors='replace')
 
 
-def open_browser_after_start(port: int, setup_token: str | None):
-    origin = f'http://localhost:{port}'
-    # Fragment tokens never go to the FastAPI server, proxy logs or referrers.
-    url = origin + ('/setup#token=' + setup_token if setup_token else '/studio')
-    def worker():
-        health = f'http://127.0.0.1:{port}/healthz'
-        for _ in range(100):
-            try:
-                with urllib.request.urlopen(health, timeout=1) as resp:
-                    if resp.status == 200:
-                        webbrowser.open(url)
-                        return
-            except Exception:
-                pass
-            time.sleep(.25)
-    threading.Thread(target=worker, name='open-dashboard', daemon=True).start()
-
-
 def show_startup_error(message: str):
     if sys.platform == 'win32':
         try:
@@ -95,7 +76,8 @@ def show_startup_error(message: str):
 
 def main():
     p = argparse.ArgumentParser(description='LHM Ads AI - Windows desktop')
-    p.add_argument('--headless', action='store_true', help='CI only; do not open browser')
+    p.add_argument('--headless', action='store_true', help='CI only; do not open GUI')
+    p.add_argument('--window-smoke', action='store_true', help='Short native-window test on Windows')
     p.add_argument('--port', type=int, default=8765, help='Local-only port')
     args = p.parse_args()
     if not 1024 <= args.port <= 65535:
@@ -109,9 +91,13 @@ def main():
     # Import routes after the onboarding token is created.
     from ads_core.extended import app
     import uvicorn
-    if not args.headless:
-        open_browser_after_start(args.port, setup_token)
-    uvicorn.run(app, host='127.0.0.1', port=args.port, log_level='warning', workers=1)
+    if args.headless:
+        # CI tests the local HTTP API without opening a desktop window.
+        uvicorn.run(app, host='127.0.0.1', port=args.port, log_level='warning', workers=1)
+    else:
+        from windows.desktop_window import run_window
+        run_window(app, port=args.port, setup_token=setup_token,
+                   data_folder=folder, smoke_window=args.window_smoke)
 
 
 if __name__ == '__main__':

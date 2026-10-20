@@ -108,7 +108,20 @@ for(const provider of ['google','meta'])$('oauth-'+provider).onclick=async()=>{
     const reply=await api('/api/oauth/'+provider+'/start',{method:'POST'});
     const url=new URL(reply.authorization_url);
     if(!['https://accounts.google.com','https://www.facebook.com'].includes(url.origin))throw Error('URL OAuth không đáng tin cậy');
-    location.assign(url.href);
+    // External system browser is REQUIRED for Google/Meta OAuth.
+    // Embedded WebView2 login is unsupported by Google's OAuth policy.
+    if(window.pywebview?.api?.open_oauth_url){
+      const launched=await window.pywebview.api.open_oauth_url(url.href);
+      if(!launched)throw Error('Không mở được trình duyệt đăng nhập OAuth.');
+      notify('Trình duyệt đăng nhập đã mở. Khi hoàn tất, quay lại ứng dụng để chọn tài khoản.');
+      const waitForAccounts=setInterval(()=>{
+        if(!session||current!=='accounts'){clearInterval(waitForAccounts);return}
+        loadOAuthStatusAndPending();
+      },6000);
+      setTimeout(()=>clearInterval(waitForAccounts),10*60*1000);
+    } else {
+      location.assign(url.href);
+    }
   }catch(e){notify(e.message,true)}
 };
 
