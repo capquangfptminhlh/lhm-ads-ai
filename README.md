@@ -52,3 +52,10 @@ See [security and upgrade notes](docs/STUDIO.md).
 ## 1-click OAuth: Google Ads / Meta Ads
 
 A login-and-select-account OAuth flow is now implemented using server-side Google Ads and Meta credentials. The Google developer token and both providers' app client ID/secret must be configured on the server. Nothing has been pre-authorized with customer accounts. Authenticated admin only, state+session bound, expiring encrypted tokens, PKCE for Google. No MCP endpoint. See [docs/OAUTH_CONNECT.md](docs/OAUTH_CONNECT.md) for setup and callback URL registration. Production requires HTTPS and approved API permissions. For Windows local testing the EXE uses its configured loopback origin; Meta may require an HTTPS callback depending on app settings.
+
+
+## Internet tự động trên Windows (không cần VPS)
+
+Khi mở EXE, chương trình dùng mạng Internet sẵn có của Windows, không cần kết nối qua VPS và không cần cấu hình địa chỉ máy chủ. Giao diện và API vẫn chỉ chạy ở `127.0.0.1:8765`. Sau khi đăng nhập, ứng dụng kiểm tra truy cập Internet qua hai địa chỉ HTTPS công khai cố định (Google và Cloudflare) bằng cách gọi từ máy cục bộ khoảng 45 giây/lần. Không gửi cookies, token Ads, API keys hay dữ liệu khách hàng tới hai địa chỉ kiểm tra. Nếu hai địa chỉ không truy cập được, ứng dụng hiển thị 'Chưa xác nhận Internet' (có thể vẫn có Internet nếu firewall chặn các địa chỉ đó).
+
+Khi đường truyền phục hồi và người dùng đang xem Dashboard/Tài khoản Ads, ứng dụng tự tải lại dữ liệu; không tự đăng nhập hay xin thêm quyền thay người dùng. Google/Meta yêu cầu người dùng cấp OAuth một lần và cấu hình ứng dụng phù hợp; OpenRouter cần khóa hợp lệ và quyền chia sẻ dữ liệu do người dùng chủ động bật. Khi offline, giao diện cục bộ vẫn mở được nhưng không thể lấy báo cáo mới hoặc gọi AI trực tuyến. Đây là ứng dụng EXE portable, không phải bộ cài tự khởi động cùng Windows.

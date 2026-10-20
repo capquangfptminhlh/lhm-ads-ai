@@ -10,8 +10,8 @@ const names={dashboard:'Tổng quan',accounts:'Tài khoản Ads',assistant:'Tr�
 let session=null, cache=[], current='dashboard', actions=[], toastTimeout;
 function notify(msg,error=false){const el=$('toast');el.textContent=msg;el.classList.remove('hidden');el.classList.toggle('error',error);clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>el.classList.add('hidden'),5500)}
 async function api(url,options={}){const headers={'Accept':'application/json',...options.headers};if(options.body)headers['Content-Type']='application/json';if(session?.csrf&&options.method&&!['GET','HEAD'].includes(options.method))headers['X-CSRF-Token']=session.csrf;let r;try{r=await fetch(url,{credentials:'same-origin',...options,headers})}catch{throw Error('Không thể kết nối server')};const ct=r.headers.get('content-type')||'';const data=ct.includes('application/json')?await r.json():await r.text();if(!r.ok){if(r.status===401){session=null;showLogin()}throw Error(typeof data==='object'?(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||data)):String(data).slice(0,220))}return data}
-function isAdmin(){return session?.role==='admin'}function showLogin(){$('shell').classList.add('hidden');$('login').classList.remove('hidden')}
-function showApp(){$('login').classList.add('hidden');$('shell').classList.remove('hidden');$('user-name').textContent=session.email;document.querySelectorAll('.admin-only').forEach(x=>x.classList.toggle('hidden',!isAdmin()));const oauth=new URLSearchParams(location.search).get('oauth');history.replaceState(null,'','/studio');go(oauth?'accounts':'dashboard');if(oauth&&oauth!=='ready')notify(({cancelled:'Đã hủy đăng nhập OAuth',no_accounts:'Không tìm thấy tài khoản quảng cáo được cấp quyền',provider_error:'Không kết nối được API quảng cáo. Kiểm tra quyền OAuth và ứng dụng.'})[oauth]||'Không hoàn thành kết nối OAuth',true)}
+function isAdmin(){return session?.role==='admin'}function showLogin(){stopNetworkMonitor();$('shell').classList.add('hidden');$('login').classList.remove('hidden')}
+function showApp(){$('login').classList.add('hidden');$('shell').classList.remove('hidden');$('user-name').textContent=session.email;document.querySelectorAll('.admin-only').forEach(x=>x.classList.toggle('hidden',!isAdmin()));const oauth=new URLSearchParams(location.search).get('oauth');history.replaceState(null,'','/studio');go(oauth?'accounts':'dashboard');beginNetworkMonitor();if(oauth&&oauth!=='ready')notify(({cancelled:'Đã hủy đăng nhập OAuth',no_accounts:'Không tìm thấy tài khoản quảng cáo được cấp quyền',provider_error:'Không kết nối được API quảng cáo. Kiểm tra quyền OAuth và ứng dụng.'})[oauth]||'Không hoàn thành kết nối OAuth',true)}
 function go(page){if(!names[page])return;if(['team','audit'].includes(page)&&!isAdmin())return;current=page;$('page-title').textContent=names[page];document.querySelectorAll('.view').forEach(el=>el.classList.toggle('hidden',el.id!=='page-'+page));document.querySelectorAll('.nav-link').forEach(el=>el.classList.toggle('active',el.dataset.page===page));$('sidebar').classList.remove('open');({dashboard:loadDashboard,accounts:loadAccounts,approvals:loadActions,team:loadTeam,audit:loadAudit,settings:()=>{loadAISettings();loadDesktopProviders()},assistant:loadAISettings})[page]?.()}
 async function initialize(){try{session=await api('/api/studio/me');showApp()}catch{showLogin()}}
 async function loadDashboard(){const chart=$('chart');chart.textContent='Đang đọc dữ liệu...';try{const [s,accounts]=await Promise.all([api('/api/summary?period='+encodeURIComponent($('period').value)),api('/api/accounts')]);cache=accounts;const t=s.totals;$('k-spend').textContent=t.spend===null?'Đa tiền tệ':fmt(t.spend)+(t.currency?' '+t.currency:'');$('k-currency').textContent=t.currency?'Đơn vị '+t.currency:'Không cộng chi phí khác loại';$('k-impressions').textContent=fmt(t.impressions);$('k-clicks').textContent=fmt(t.clicks);$('k-ctr').textContent=fmt(t.ctr)+'%';const bad=s.accounts.filter(x=>x.error);const note=$('source-warning');note.classList.toggle('hidden',!(t.contains_demo||bad.length));note.textContent=[t.contains_demo?'DỮ LIỆU DEMO được đánh dấu riêng, không phải hiệu suất thật.':'',bad.length?`${bad.length} nguồn không lấy được dữ liệu / chưa hỗ trợ.`:''].filter(Boolean).join(' ');
@@ -138,3 +138,61 @@ for(const p of ['google','meta']){
     try{await api('/api/desktop/providers/'+p,{method:'DELETE'});notify('Đã xóa cấu hình '+p);loadDesktopProviders();loadOAuthStatusAndPending()}catch(ex){notify(ex.message,true)}
   };
 }
+
+
+// The Windows EXE uses the current Windows Internet connection automatically.
+// This monitor only calls our local backend, which checks fixed public HTTPS URLs
+// without sending advertising credentials, session cookies or provider tokens.
+let networkTimer = null;
+let networkInFlight = false;
+let networkWasOnline = null;
+function renderNetworkStatus(online) {
+  const badge = $('network-status');
+  if (!badge) return;
+  const label = badge.querySelector('[data-network-label]');
+  badge.classList.toggle('offline', online === false);
+  badge.classList.toggle('checking', online === null);
+  label.textContent = online === null ? 'ĐANG KIỂM TRA MẠNG' :
+     (online ? 'INTERNET ONLINE' : 'CHƯA XÁC NHẬN INTERNET');
+  badge.title = online === null ? 'Đang kiểm tra Internet bằng HTTPS' :
+      (online ? 'Máy tính đang truy cập được Internet' :
+       'Không truy cập được các điểm kiểm tra HTTPS; giao diện cục bộ vẫn sử dụng được.');
+}
+async function checkInternet() {
+  if (!session || networkInFlight) return;
+  networkInFlight = true;
+  try {
+    const result = await api('/api/network/status');
+    const online = result.online === true;
+    const wasOnline = networkWasOnline;
+    networkWasOnline = online;
+    renderNetworkStatus(online);
+    if (wasOnline === false && online) {
+      notify('Internet đã kết nối lại. Đang cập nhật dữ liệu quảng cáo.');
+      if (current === 'dashboard') await loadDashboard();
+      else if (current === 'accounts') await loadAccounts();
+    }
+  } catch {
+    if (session) {
+      networkWasOnline = false;
+      renderNetworkStatus(false);
+    }
+  } finally {
+    networkInFlight = false;
+  }
+}
+function stopNetworkMonitor() {
+  if (networkTimer !== null) clearInterval(networkTimer);
+  networkTimer = null;
+  networkWasOnline = null;
+}
+function beginNetworkMonitor() {
+  stopNetworkMonitor();
+  renderNetworkStatus(null);
+  checkInternet();
+  networkTimer = setInterval(checkInternet, 45000);
+}
+window.addEventListener('online', () => { if (session) checkInternet(); });
+window.addEventListener('offline', () => {
+  if (session) { networkWasOnline = false; renderNetworkStatus(false); }
+});

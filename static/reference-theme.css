@@ -116,3 +116,9 @@ td strong{color:#29231e}
 @media(prefers-reduced-motion:reduce){.btn,.kpi-card,.nav-link{transition:none}}
 
 .oauth-buttons{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.oauth-choice-box{border:1px solid #eadfd1;padding:16px;border-radius:16px;margin:12px 0;background:#fffcf8}.oauth-choice-list{max-height:240px;overflow:auto;display:grid;gap:8px;margin:12px 0}.oauth-choice{display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px}.oauth-choice input{accent-color:#d97332}.oauth-panel{margin-bottom:18px}
+
+/* Live Internet indicator: local service status is different from Internet access. */
+.live-tag.offline{background:#fff1ea!important;color:#a34a2a!important}
+.live-tag.offline .online-dot{background:#e36c45!important;box-shadow:none!important}
+.live-tag.checking{background:#f6eee0!important;color:#9b835b!important}
+.live-tag.checking .online-dot{background:#ccae70!important;box-shadow:none!important}
