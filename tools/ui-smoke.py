@@ -19,6 +19,7 @@ from playwright.sync_api import sync_playwright
 
 BASE = 'http://127.0.0.1:18798'
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 ARTIFACTS = ROOT / 'artifacts' / 'ui-preview'
 ARTIFACTS.mkdir(parents=True, exist_ok=True)
 
