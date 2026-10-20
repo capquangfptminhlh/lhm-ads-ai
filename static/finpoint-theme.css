@@ -81,12 +81,12 @@ body,.shell,.main{background:var(--fp-bg)!important;color:var(--fp-fg)!important
 .panel{background:var(--fp-card)!important;border:1px solid var(--fp-edge)!important;border-radius:19px;padding:22px;box-shadow:none;margin-bottom:17px;color:var(--fp-fg)}
 .panel h3{color:#f0f0ef!important;font-weight:720;font-size:16px;letter-spacing:-.3px}
 .panel-title{gap:16px}.panel-title>div{min-width:0}
-.chart-panel{background:linear-gradient(118deg,#ff522a 0%,#f9401d 68%,#d92e16 110%)!important;border:0!important;box-shadow:0 19px 46px #fb4b2625!important;min-height:362px;position:relative;overflow:hidden}
+.chart-panel{background:linear-gradient(125deg,#202126 0%,#16171c 70%,#211a18 110%)!important;border:1px solid #34363d!important;box-shadow:0 19px 46px #0003!important;min-height:362px;position:relative;overflow:hidden}
 .chart-panel:before{content:"";position:absolute;width:410px;height:410px;right:-225px;top:-270px;border:75px solid #ffffff0a;border-radius:50%;pointer-events:none}
 .chart-panel h3{color:white!important;font-size:19px}
 .chart-panel .panel-title{position:relative;z-index:1}
-.chart-panel .muted,.chart-panel .legend{color:#ffe1d5!important}
-.chart-panel .legend i{background:#fff3eb}
+.chart-panel .muted,.chart-panel .legend{color:#adb0b9!important}
+.chart-panel .legend i{background:#ff7046}
 .chart-panel .chart{height:253px;margin-top:13px;padding:22px 0 0;gap:10px}
 .chart-panel .chart:before{background:repeating-linear-gradient(to top,transparent,transparent calc(25% - 1px),#ffffff20 calc(25% - 1px),#ffffff20 25%);inset:20px 0 35px}
 .chart-panel .chart-date{color:#ffdfd1;font-size:10px}
@@ -97,7 +97,7 @@ body,.shell,.main{background:var(--fp-bg)!important;color:var(--fp-fg)!important
 .fp-chart .trendline{fill:none;stroke:#ff8a50;stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 4px 5px #9d260641);stroke-dasharray:1200;stroke-dashoffset:1200;animation:fp-line 1.5s ease forwards}
 .fp-chart .area{fill:url(#fpArea)}
 .fp-chart .dot{fill:#fff5e8;stroke:#ff6033;stroke-width:2}
-.fp-chart text{font-size:11px;fill:#ffdfd5;font-family:inherit}
+.fp-chart text{font-size:11px;fill:#bec0ca;font-family:inherit}
 .fp-chart .chart-highlight{fill:#fff;stroke:#fff;stroke-width:2}
 .platform-panel{min-height:362px;display:flex;flex-direction:column}
 .platform-panel .platform-stats{margin:18px 0 13px;gap:8px;flex:1}
