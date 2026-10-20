@@ -18,6 +18,7 @@ jobs:
       - run: node --check static/studio.js
       - run: node --check static/provider-studio.js
       - run: node --check static/finpoint-accounts-ai.js
+      - run: node --check static/goal-settings.js
       - run: node --check static/workspace-pages.js
       - name: Install Playwright browser for UI smoke test
         run: |
