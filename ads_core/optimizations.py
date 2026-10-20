@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import math
 
 import httpx
 from fastapi import Depends, HTTPException
@@ -103,6 +104,23 @@ async def google_campaigns(acc, client):
         raise HTTPException(502, 'Không đọc được chiến dịch Google Ads; kiểm tra quyền API.') from None
 
 
+def _meta_action_number(rows, action_type):
+    """Return exactly one event's value; absent or ambiguous is not zero."""
+    if not isinstance(rows,list):
+        return None
+    matches=[r for r in rows if isinstance(r,dict) and r.get('action_type')==action_type]
+    if len(matches)!=1:
+        return None
+    try:
+        raw=matches[0].get('7d_click',matches[0].get('value'))
+        if raw is None or isinstance(raw,bool):
+            return None
+        value=float(raw)
+        return value if math.isfinite(value) and value>=0 else None
+    except (TypeError,ValueError,OverflowError):
+        return None
+
+
 async def meta_campaigns(acc, client):
     aid = str(acc['external_id']).removeprefix('act_')
     if not re.fullmatch(r'\d{4,30}', aid):
@@ -112,6 +130,9 @@ async def meta_campaigns(acc, client):
         raise HTTPException(503, 'Meta Graph version không hợp lệ')
     headers = {'Authorization': 'Bearer ' + account_token(acc)}
     base = f'https://graph.facebook.com/{version}/act_{aid}'
+    from .goals import goal_for
+    goal=goal_for(acc['org_id'],acc['id'])
+    chosen_action=goal.get('meta_action_type') if goal and goal['enabled'] else None
     try:
         response = await client.get(base + '/campaigns', headers=headers,
                                     params={'fields': 'id,name,status,effective_status', 'limit': MAX_CAMPAIGNS})
@@ -132,19 +153,44 @@ async def meta_campaigns(acc, client):
                 break
         # Insights may fail independently; don't falsely report zero spent.
         try:
-            insights = await client.get(base + '/insights', headers=headers,
-                                        params={'level': 'campaign', 'fields': 'campaign_id,spend,clicks,impressions',
-                                                'date_preset': 'last_7d', 'limit': MAX_CAMPAIGNS})
+            fields='campaign_id,spend,clicks,impressions'
+            params={'level':'campaign','fields':fields,'date_preset':'last_7d','limit':MAX_CAMPAIGNS}
+            if chosen_action:
+                # One exact conversion event; explicit click attribution window.
+                params['fields']+=',actions,action_values,account_currency'
+                params['action_attribution_windows']='["7d_click"]'
+                params['action_report_time']='conversion'
+            insights=await client.get(base+'/insights',headers=headers,params=params)
             if insights.status_code == 200:
-                values = {str(i.get('campaign_id')): i for i in insights.json().get('data', [])}
+                values={str(i.get('campaign_id')):i for i in insights.json().get('data',[])
+                        if isinstance(i,dict)}
                 for c in found:
-                    row = values.get(c['id'])
+                    row=values.get(c['id'])
                     if not row:
                         continue
-                    c['spend'] = round(float(row.get('spend') or 0), 2)
-                    c['clicks'] = int(row.get('clicks') or 0)
-                    c['impressions'] = int(row.get('impressions') or 0)
-                    c['ctr_percent'] = round(100*c['clicks']/c['impressions'],2) if c['impressions'] else None
+                    spend=float(row['spend'])
+                    clicks=int(row['clicks'])
+                    impressions=int(row['impressions'])
+                    if not math.isfinite(spend) or spend<0 or clicks<0 or impressions<0:
+                        continue
+                    c['spend']=round(spend,2)
+                    c['clicks']=clicks
+                    c['impressions']=impressions
+                    c['ctr_percent']=round(100*clicks/impressions,2) if impressions else None
+                    if chosen_action and row.get('account_currency')==acc['currency']:
+                        count=_meta_action_number(row.get('actions'),chosen_action)
+                        if count is None:
+                            continue
+                        c['conversions']=round(count,2)
+                        c['conversion_action_type']=chosen_action
+                        c['conversion_source']='meta_actions_7d_click'
+                        c['cpa']=round(spend/count,2) if count>0 else None
+                        from .goals import META_PURCHASE_ACTIONS
+                        if chosen_action in META_PURCHASE_ACTIONS:
+                            value=_meta_action_number(row.get('action_values'),chosen_action)
+                            if value is not None:
+                                c['conversion_value']=round(value,2)
+                                c['roas']=round(value/spend,3) if spend>0 else None
         except (httpx.HTTPError, ValueError, TypeError, KeyError):
             pass
         return found
@@ -181,5 +227,5 @@ async def campaign_insights(account_id:int, ident=Depends(require('admin','opera
     return {'account_id':acc['id'],'platform':acc['platform'],'currency':acc['currency'],
             'period':'last_7d','campaigns':campaigns,
             'recommendations':rule_suggestions(campaigns,acc['platform'],acc['currency']),
-            'note': 'Chỉ đọc API. Google chuyển đổi theo số liệu API; Meta chưa có mục tiêu chuyển đổi chuẩn hóa, không hiển thị CPA/ROAS giả. '
-                    'Đề xuất quy tắc để kiểm tra thủ công, không phải lệnh tự động chỉnh giá thầu.'}
+            'note': 'Chỉ đọc API. Meta CPA/ROAS chỉ tính cho một sự kiện được chọn, cửa sổ 7d_click, '
+                    'đúng tiền tệ và có actions/action_values hợp lệ. Không đủ dữ liệu thì để trống; không tự chỉnh Ads.'}
