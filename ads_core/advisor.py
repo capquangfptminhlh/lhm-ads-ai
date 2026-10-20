@@ -17,6 +17,7 @@ from .app import app, browser_admin, get_account, require
 from .db import audit, connection
 from .licensing import license_required
 from .optimizations import list_live_campaigns, rule_suggestions
+from .goals import goal_for, evaluate_goals
 
 DAY = 86400
 RETRY = 3600
@@ -47,6 +48,9 @@ def init_advisor_db():
           last_seen_at INTEGER NOT NULL,
           mode TEXT NOT NULL DEFAULT 'monitor_only');
         ''')
+        existing={r['name'] for r in db.execute('PRAGMA table_info(advisor_findings)')}
+        if 'resolved_at' not in existing:
+            db.execute('ALTER TABLE advisor_findings ADD COLUMN resolved_at INTEGER')
 
 
 def heartbeat(now=None):
@@ -95,7 +99,10 @@ async def scan_account(acc, *, now=None, min_interval=DAY):
             return {'scanned':False,'reason':'concurrent_scan','recommendations':0}
     try:
         campaigns = await list_live_campaigns(acc)
-        suggestions = rule_suggestions(campaigns,acc['platform'],acc['currency'])[:MAX_FINDINGS]
+        findings = rule_suggestions(campaigns,acc['platform'],acc['currency'])
+        objective = goal_for(acc['org_id'],acc['id'])
+        findings += evaluate_goals(campaigns,acc['platform'],acc['currency'],objective)
+        suggestions = findings[:MAX_FINDINGS]
     except Exception:
         # Do not store upstream response bodies or provider token-bearing error text.
         with connection() as db:
@@ -104,15 +111,32 @@ async def scan_account(acc, *, now=None, min_interval=DAY):
         return {'scanned':False,'reason':'provider_unavailable','recommendations':0}
     with connection() as db:
         for r in suggestions:
-            if r.get('code') not in ('low_ctr','no_reported_conversions'):
+            if r.get('code') not in ('low_ctr','no_reported_conversions','cpa_above_goal','roas_below_goal'):
                 continue
             db.execute('''INSERT INTO advisor_findings(org_id,account_id,campaign_id,rule_code,
                           severity,message,first_seen_at,last_seen_at) VALUES(?,?,?,?,?,?,?,?)
                     ON CONFLICT(org_id,account_id,campaign_id,rule_code) DO UPDATE SET
-                      last_seen_at=excluded.last_seen_at,
-                      message=excluded.message''',
+                      last_seen_at=excluded.last_seen_at, message=excluded.message,
+                      severity=excluded.severity,
+                      acknowledged_at=CASE WHEN advisor_findings.resolved_at IS NOT NULL
+                                           THEN NULL ELSE advisor_findings.acknowledged_at END,
+                      acknowledged_by=CASE WHEN advisor_findings.resolved_at IS NOT NULL
+                                           THEN NULL ELSE advisor_findings.acknowledged_by END,
+                      resolved_at=NULL''',
                        (acc['org_id'],acc['id'],str(r['campaign_id']),r['code'],
-                        'review',str(r['message'])[:450],now,now))
+                        'high' if r.get('level')=='high' else 'review',str(r['message'])[:450],now,now))
+        # Resolve a vanished issue only when its campaign is in this successful
+        # provider response. A truncated API page must NOT clear unseen campaigns.
+        if len(findings) <= MAX_FINDINGS:
+            observed_ids={str(c.get('id')) for c in campaigns}
+            active={(str(x['campaign_id']),x['code']) for x in suggestions}
+            current=db.execute('''SELECT id,campaign_id,rule_code FROM advisor_findings
+                WHERE org_id=? AND account_id=? AND resolved_at IS NULL''',
+                (acc['org_id'],acc['id'])).fetchall()
+            for previous in current:
+                if previous['campaign_id'] in observed_ids and (previous['campaign_id'],previous['rule_code']) not in active:
+                    db.execute('UPDATE advisor_findings SET resolved_at=? WHERE id=? AND org_id=?',
+                               (now,previous['id'],acc['org_id']))
         db.execute('''UPDATE advisor_scan_runs SET last_success_at=?,error_code=''
                       WHERE org_id=? AND account_id=?''',(now,acc['org_id'],acc['id']))
     return {'scanned':True,'reason':'ok','recommendations':len(suggestions),
@@ -125,10 +149,10 @@ def advisor_status(ident=Depends(require('admin','operator','reader'))):
     with connection() as db:
         rows=db.execute('''SELECT a.id,a.account_id,ac.label AS account_label,ac.platform,
             a.campaign_id,a.rule_code,a.severity,a.message,a.first_seen_at,a.last_seen_at,
-            a.acknowledged_at FROM advisor_findings a
+            a.acknowledged_at,a.resolved_at FROM advisor_findings a
             JOIN accounts ac ON ac.id=a.account_id AND ac.org_id=a.org_id
-            WHERE a.org_id=? ORDER BY a.acknowledged_at IS NOT NULL,
-            a.last_seen_at DESC, a.id DESC LIMIT 80''',(ident['org_id'],)).fetchall()
+            WHERE a.org_id=? ORDER BY a.resolved_at IS NOT NULL,
+            a.acknowledged_at IS NOT NULL,a.last_seen_at DESC, a.id DESC LIMIT 80''',(ident['org_id'],)).fetchall()
         scans=db.execute('''SELECT account_id,last_success_at,last_attempt_at,error_code
                             FROM advisor_scan_runs WHERE org_id=? ORDER BY last_attempt_at DESC LIMIT 80''',
                          (ident['org_id'],)).fetchall()
