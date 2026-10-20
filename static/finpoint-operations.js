@@ -10,7 +10,7 @@
   function renderAlerts(a,m){
     const root=e('fp-v2-alerts');if(!root)return;root.replaceChildren();
     if(!a&&!m){info('fp-v2-note','Không truy vấn được nguồn cảnh báo.');return}
-    const items=(a?.findings||[]).filter(x=>!x.acknowledged_at).map(x=>({name:x.account_label,msg:x.message,at:x.last_seen_at}))
+    const items=(a?.findings||[]).filter(x=>!x.acknowledged_at&&!x.resolved_at).map(x=>({name:x.account_label,msg:x.message,at:x.last_seen_at}))
       .concat((m?.alerts||[]).filter(x=>!x.resolved_at).map(x=>({name:x.label,msg:x.message,at:x.created_at})))
       .sort((x,y)=>Number(y.at||0)-Number(x.at||0)).slice(0,4);
     if(!items.length){const p=document.createElement('p');p.textContent='Chưa có cảnh báo cần xử lý.';p.className='muted';root.append(p);return}
@@ -28,7 +28,7 @@
       notice('fp-v2-license',license?.active?'Giấy phép còn hạn':license?'Giấy phép hết hạn/chưa kích hoạt':'Chưa xác định bản quyền',license?.active?'good':'warn');
       info('fp-v2-scan',dt(adv?.agent?.last_seen_at));
       info('fp-v2-sample',mon?.samples?.length?dt(mon.samples[0].observed_at):'Chưa đồng bộ');
-      info('fp-v2-alert-count',adv?(adv.findings||[]).filter(x=>!x.acknowledged_at).length:'—');
+      info('fp-v2-alert-count',adv?(adv.findings||[]).filter(x=>!x.acknowledged_at&&!x.resolved_at).length:'—');
       info('fp-v2-approve-count',Array.isArray(act)&&Array.isArray(plans)?act.concat(plans).filter(x=>x.status==='pending').length:'—');
       info('fp-v2-cycle',mon?.settings?.poll_minutes?mon.settings.poll_minutes+' phút':'Chưa cấu hình');
       renderAlerts(adv,mon);
