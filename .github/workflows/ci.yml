@@ -17,3 +17,17 @@ jobs:
       - run: python -m pytest -q
       - run: node --check static/studio.js
       - run: node --check static/provider-studio.js
+      - name: Install Playwright browser for UI smoke test
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Test provider selection with real Chromium and capture screenshots
+        run: python tools/ui-smoke.py
+      - name: Upload UI screenshots
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: LHM-Ads-AI-UI-Screenshots
+          path: artifacts/ui-preview/*.png
+          if-no-files-found: error
+          retention-days: 14
