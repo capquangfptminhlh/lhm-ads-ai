@@ -134,6 +134,7 @@ def test_background_scans_only_opted_in_org_and_throttles(sandbox,monkeypatch):
 def test_background_does_not_poll_more_than_limit(sandbox,monkeypatch):
     h,aid,pid=setup_plan(sandbox,monkeypatch)
     init_monitor_db()
+    rec.init_reconciliation_db()
     with connection() as db:
         db.execute('INSERT INTO monitor_settings(org_id,enabled,poll_minutes) VALUES (?,?,?)',
                    ('tenant-a',1,15))
