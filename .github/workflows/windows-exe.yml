@@ -6,6 +6,7 @@ on:
       - 'ads_core/**'
       - 'static/**'
       - 'windows/**'
+      - 'tests/**'
       - 'requirements.txt'
       - '.github/workflows/windows-exe.yml'
   workflow_dispatch:
