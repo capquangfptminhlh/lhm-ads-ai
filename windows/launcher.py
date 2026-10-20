@@ -70,22 +70,22 @@ def bootstrap_first_admin(*, headless: bool) -> None:
     if headless:
         print("No administrator configured (headless smoke test mode).")
         return
-    print("\nLẦN ĐẦU SỬ DỤNG — tạo tài khoản quản trị trên máy này")
+    print("\nFIRST RUN - Create the local administrator account")
     while True:
-        email = input("Email quản trị: ").strip().lower()
+        email = input("Admin email: ").strip().lower()
         if "@" in email and "." in email.split("@")[-1]:
             break
-        print("Email không hợp lệ. Vui lòng thử lại.")
+        print("Invalid email. Try again.")
     while True:
-        password = getpass.getpass("Mật khẩu (tối thiểu 12 ký tự): ")
-        confirm = getpass.getpass("Nhập lại mật khẩu: ")
+        password = getpass.getpass("Password (minimum 12 characters): ")
+        confirm = getpass.getpass("Confirm password: ")
         if password == confirm and len(password) >= 12:
             break
-        print("Hai mật khẩu chưa khớp hoặc quá ngắn.")
+        print("Passwords do not match or are too short.")
     with connection() as db:
         db.execute("INSERT INTO users(email,password_hash,org_id,role) VALUES (?,?,?,?)",
                    (email, hash_password(password), "main", "admin"))
-    print("Đã tạo tài khoản quản trị trên máy cục bộ.")
+    print("Local admin account created.")
 
 
 def open_browser_after_start(port: int) -> None:
@@ -102,18 +102,18 @@ def open_browser_after_start(port: int) -> None:
             except Exception:
                 pass
             time.sleep(.25)
-        print("Không thể mở trình duyệt tự động; truy cập:", url)
+        print("Open the dashboard manually:", url)
 
     threading.Thread(target=worker, name="open-dashboard", daemon=True).start()
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="LHM Ads AI - chạy dashboard an toàn trên máy Windows")
-    p.add_argument("--headless", action="store_true", help="Không tạo admin hay mở browser (dành cho CI)")
-    p.add_argument("--port", type=int, default=8765, help="Cổng localhost (mặc định 8765)")
+    p = argparse.ArgumentParser(description="LHM Ads AI - run the local dashboard on Windows")
+    p.add_argument("--headless", action="store_true", help="Skip admin setup and browser (CI mode)")
+    p.add_argument("--port", type=int, default=8765, help="Localhost port (default 8765)")
     args = p.parse_args()
     if not (1024 <= args.port <= 65535):
-        p.error("Cổng phải nằm trong khoảng 1024..65535")
+        p.error("Port must be between 1024 and 65535")
     os.environ.setdefault("PUBLIC_BASE_URL", f"http://127.0.0.1:{args.port}")
     configure_local_storage()
     bootstrap_first_admin(headless=args.headless)
@@ -122,8 +122,8 @@ def main() -> None:
 
     if not args.headless:
         open_browser_after_start(args.port)
-    print(f"LHM Ads AI đang chạy trên http://127.0.0.1:{args.port}/studio")
-    print("Chỉ máy này truy cập được. Nhấn Ctrl+C để dừng.")
+    print(f"LHM Ads AI listening on http://127.0.0.1:{args.port}/studio")
+    print("Local access only. Press Ctrl+C to stop.")
     uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning", workers=1)
 
 
