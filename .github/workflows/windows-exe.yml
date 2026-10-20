@@ -1,0 +1,50 @@
+name: Build and test Windows EXE
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ads_core/**'
+      - 'static/**'
+      - 'windows/**'
+      - 'requirements.txt'
+      - '.github/workflows/windows-exe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: 'x64'
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest pyinstaller
+      - name: Run Python tests on Windows
+        shell: pwsh
+        run: python -m pytest -q
+      - name: Build EXE (one-file Windows x64)
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --console --name LHM-Ads-AI --paths . --add-data "static;static" --collect-submodules uvicorn --collect-submodules ads_core --collect-all cryptography windows/launcher.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path dist/LHM-Ads-AI.exe)) { throw 'EXE not generated' }
+      - name: Launch Windows EXE and test HTTP login boundary
+        shell: pwsh
+        run: ./windows/smoke-test.ps1
+      - name: Upload tested EXE
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: LHM-Ads-AI-Windows-x64
+          path: dist/LHM-Ads-AI.exe
+          if-no-files-found: error
+          retention-days: 14
