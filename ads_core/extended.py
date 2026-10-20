@@ -176,3 +176,6 @@ from . import permissions  # noqa: E402,F401
 
 # Read-only campaign diagnostics; no automatic provider modifications.
 from . import optimizations  # noqa: E402,F401
+
+# Account-scoped Ads change plan endpoints; no unattended mutations.
+from . import autopilot  # noqa: E402,F401
