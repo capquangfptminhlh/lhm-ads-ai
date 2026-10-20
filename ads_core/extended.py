@@ -157,3 +157,6 @@ async def export_report(period:str='last_7d', ident=Depends(require('admin','ope
                                  safe(day['date']),day['spend'],day['impressions'],day['clicks'],''])
     return Response(content='\ufeff'+output.getvalue(),media_type='text/csv; charset=utf-8',
                     headers={'Content-Disposition':f'attachment; filename="lhm-ads-{period}.csv"'})
+
+# Register server-side first-party OAuth routes (does not expose an MCP interface).
+from . import oauth_connect  # noqa: E402,F401

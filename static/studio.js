@@ -11,7 +11,7 @@ let session=null, cache=[], current='dashboard', actions=[], toastTimeout;
 function notify(msg,error=false){const el=$('toast');el.textContent=msg;el.classList.remove('hidden');el.classList.toggle('error',error);clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>el.classList.add('hidden'),5500)}
 async function api(url,options={}){const headers={'Accept':'application/json',...options.headers};if(options.body)headers['Content-Type']='application/json';if(session?.csrf&&options.method&&!['GET','HEAD'].includes(options.method))headers['X-CSRF-Token']=session.csrf;let r;try{r=await fetch(url,{credentials:'same-origin',...options,headers})}catch{throw Error('Không thể kết nối server')};const ct=r.headers.get('content-type')||'';const data=ct.includes('application/json')?await r.json():await r.text();if(!r.ok){if(r.status===401){session=null;showLogin()}throw Error(typeof data==='object'?(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||data)):String(data).slice(0,220))}return data}
 function isAdmin(){return session?.role==='admin'}function showLogin(){$('shell').classList.add('hidden');$('login').classList.remove('hidden')}
-function showApp(){$('login').classList.add('hidden');$('shell').classList.remove('hidden');$('user-name').textContent=session.email;document.querySelectorAll('.admin-only').forEach(x=>x.classList.toggle('hidden',!isAdmin()));go('dashboard')}
+function showApp(){$('login').classList.add('hidden');$('shell').classList.remove('hidden');$('user-name').textContent=session.email;document.querySelectorAll('.admin-only').forEach(x=>x.classList.toggle('hidden',!isAdmin()));const oauth=new URLSearchParams(location.search).get('oauth');history.replaceState(null,'','/studio');go(oauth?'accounts':'dashboard');if(oauth&&oauth!=='ready')notify(({cancelled:'Đã hủy đăng nhập OAuth',no_accounts:'Không tìm thấy tài khoản quảng cáo được cấp quyền',provider_error:'Không kết nối được API quảng cáo. Kiểm tra quyền OAuth và ứng dụng.'})[oauth]||'Không hoàn thành kết nối OAuth',true)}
 function go(page){if(!names[page])return;if(['team','audit'].includes(page)&&!isAdmin())return;current=page;$('page-title').textContent=names[page];document.querySelectorAll('.view').forEach(el=>el.classList.toggle('hidden',el.id!=='page-'+page));document.querySelectorAll('.nav-link').forEach(el=>el.classList.toggle('active',el.dataset.page===page));$('sidebar').classList.remove('open');({dashboard:loadDashboard,accounts:loadAccounts,approvals:loadActions,team:loadTeam,audit:loadAudit,settings:loadAISettings,assistant:loadAISettings})[page]?.()}
 async function initialize(){try{session=await api('/api/studio/me');showApp()}catch{showLogin()}}
 async function loadDashboard(){const chart=$('chart');chart.textContent='Đang đọc dữ liệu...';try{const [s,accounts]=await Promise.all([api('/api/summary?period='+encodeURIComponent($('period').value)),api('/api/accounts')]);cache=accounts;const t=s.totals;$('k-spend').textContent=t.spend===null?'Đa tiền tệ':fmt(t.spend)+(t.currency?' '+t.currency:'');$('k-currency').textContent=t.currency?'Đơn vị '+t.currency:'Không cộng chi phí khác loại';$('k-impressions').textContent=fmt(t.impressions);$('k-clicks').textContent=fmt(t.clicks);$('k-ctr').textContent=fmt(t.ctr)+'%';const bad=s.accounts.filter(x=>x.error);const note=$('source-warning');note.classList.toggle('hidden',!(t.contains_demo||bad.length));note.textContent=[t.contains_demo?'DỮ LIỆU DEMO được đánh dấu riêng, không phải hiệu suất thật.':'',bad.length?`${bad.length} nguồn không lấy được dữ liệu / chưa hỗ trợ.`:''].filter(Boolean).join(' ');
@@ -19,7 +19,7 @@ const platformIcon={meta:'∞',google:'G',tiktok:'♪',openai:'✧',demo:'◈'};
 const dayMap={};for(const a of s.accounts){const r=a.result;if(!r||r.currency!==t.currency||!r.daily)continue;for(const d of r.daily){dayMap[d.date]=(dayMap[d.date]||0)+Number(d.spend)}}const entries=Object.entries(dayMap).sort(([a],[b])=>a.localeCompare(b));if(!entries.length){chart.innerHTML='<div class="empty">Không có dữ liệu biểu đồ đủ điều kiện cùng loại tiền tệ.</div>'}else{const max=Math.max(...entries.map(x=>x[1]),1);chart.innerHTML=entries.map(([d,v])=>`<div class="chart-col" title="${esc(d)}: ${esc(money(v,t.currency))}"><div class="chart-bar" style="height:${Math.max(3,Math.round(100*v/max))}%"></div><span class="chart-date">${esc(d.slice(5))}</span></div>`).join('')}
 const rows=s.accounts.map(a=>{const r=a.result;return `<tr><td><strong>${esc(a.label)}</strong></td><td>${esc(a.platform.toUpperCase())}</td><td>${r?esc(money(r.spend,r.currency)):'—'}</td><td>${r?fmt(r.clicks):'—'}</td><td>${r?fmt(r.ctr)+'%':'—'}</td><td>${r?status(r.source==='demo'?'Demo':'API thực',r.source==='demo'?'pending':'success'):status('Không khả dụng','error')}</td><td title="${esc(a.error||'')}">${esc((a.error||'').slice(0,70))}</td></tr>`});$('overview-table').innerHTML=table(['Tài khoản','Nền tảng','Chi tiêu','Clicks','CTR','Nguồn','Ghi chú'],rows)}catch(e){chart.textContent='';notify(e.message,true)}}
 function applyAccountSearch(){const el=$('global-account-search');const q=(el?.value||'').trim().toLocaleLowerCase('vi');document.querySelectorAll('#accounts-table tbody tr').forEach(tr=>{tr.hidden=!!q&&!tr.textContent.toLocaleLowerCase('vi').includes(q)})}
-async function loadAccounts(){try{cache=await api('/api/accounts');const rows=cache.map(a=>`<tr><td><strong>${esc(a.label)}</strong></td><td>${esc(a.platform.toUpperCase())}</td><td>${esc(a.external_id)}</td><td>${esc(a.currency)}</td><td>${status(a.platform==='demo'?'Demo':a.connected?'Đã lưu token':'Đã thu hồi',a.platform==='demo'?'pending':a.connected?'success':'error')}</td><td>${isAdmin()&&!a.label.startsWith('[REVOKED]')?`<button class="small-btn" data-revoke="${a.id}">Thu hồi</button>`:''}</td></tr>`);$('accounts-table').innerHTML=table(['Tài khoản','Nền tảng','ID','Tiền tệ','Trạng thái',''],rows);applyAccountSearch()}catch(e){notify(e.message,true)}}
+async function loadAccounts(){if(isAdmin())await loadOAuthStatusAndPending();try{cache=await api('/api/accounts');const rows=cache.map(a=>`<tr><td><strong>${esc(a.label)}</strong></td><td>${esc(a.platform.toUpperCase())}</td><td>${esc(a.external_id)}</td><td>${esc(a.currency)}</td><td>${status(a.platform==='demo'?'Demo':a.connected?'Đã lưu token':'Đã thu hồi',a.platform==='demo'?'pending':a.connected?'success':'error')}</td><td>${isAdmin()&&!a.label.startsWith('[REVOKED]')?`<button class="small-btn" data-revoke="${a.id}">Thu hồi</button>`:''}</td></tr>`);$('accounts-table').innerHTML=table(['Tài khoản','Nền tảng','ID','Tiền tệ','Trạng thái',''],rows);applyAccountSearch()}catch(e){notify(e.message,true)}}
 async function loadActions(){try{[actions,cache]=await Promise.all([api('/api/actions'),api('/api/accounts')]);const pending=actions.filter(x=>x.status==='pending').length;$('nav-pending').textContent=pending;$('nav-pending').classList.toggle('hidden',!pending);const names={pending:'Chờ duyệt',executing:'Đang xử lý',completed:'Đã xong',failed:'Thất bại',rejected:'Từ chối'};const rows=actions.map(a=>`<tr><td>#${a.id}</td><td><strong>${esc(a.account_label)}</strong></td><td>${esc(a.target_id)}</td><td>${esc(a.created_at)}</td><td>${status(names[a.status]||a.status,a.status==='completed'?'success':a.status==='pending'?'pending':'error')}</td><td>${isAdmin()&&a.status==='pending'?`<button class="btn primary" data-approve="${a.id}">Duyệt</button> <button class="small-btn" data-reject="${a.id}">Từ chối</button>`:esc(a.failure_reason||'')}</td></tr>`);$('actions-table').innerHTML=table(['Mã','Tài khoản','Campaign ID','Ngày tạo','Trạng thái','Thao tác'],rows);$('pause-account').innerHTML=cache.filter(x=>x.platform==='meta'&&x.connected).map(x=>`<option value="${x.id}">${esc(x.label)} (${esc(x.external_id)})</option>`).join('')}catch(e){notify(e.message,true)}}
 async function loadTeam(){try{const list=await api('/api/team');$('team-table').innerHTML=table(['ID','Email','Quyền','Trạng thái',''],list.map(u=>`<tr><td>#${u.id}</td><td><strong>${esc(u.email)}</strong></td><td>${esc(u.role)}</td><td>${status(u.disabled?'Đã khóa':'Đang hoạt động',u.disabled?'error':'success')}</td><td>${u.id!==session.id&&!u.disabled?`<button class="small-btn" data-disable="${u.id}">Khóa</button>`:''}</td></tr>`))}catch(e){notify(e.message,true)}}
 async function loadAudit(){try{const arr=await api('/api/audit');$('audit-table').innerHTML=table(['Ngày giờ','Sự kiện','Actor','Chi tiết'],arr.map(x=>`<tr><td>${esc(x.created_at)}</td><td><strong>${esc(x.event)}</strong></td><td>${esc(x.actor_id)}</td><td>${esc(x.detail)}</td></tr>`))}catch(e){notify(e.message,true)}}
@@ -64,4 +64,50 @@ $('ai-preview-btn').onclick=async()=>{
   try{const data=await api('/api/ai/preview',{method:'POST',body:JSON.stringify({message:question,period:$('period').value})});
     p.textContent=JSON.stringify(data,null,2);p.classList.remove('hidden');
   }catch(err){notify(err.message,true)}
+};
+
+// First-party OAuth connections with server-side provider credentials.
+async function loadOAuthStatusAndPending(){
+  try {
+    const [status,pending]=await Promise.all([api('/api/oauth/status'),api('/api/oauth/pending')]);
+    for(const provider of ['google','meta'])$('oauth-'+provider).disabled=!status[provider].configured;
+    const unavailable=['google','meta'].filter(p=>!status[p].configured);
+    $('oauth-status').textContent=unavailable.length?
+       'Cần cấu hình OAuth máy chủ: '+unavailable.map(p=>p==='google'?'Google Ads':'Meta Ads').join(', ')+'. Redirect URI: '+unavailable.map(p=>status[p].callback_url).join(' | '):
+       'Google và Meta đã cấu hình. Chọn nền tảng để đăng nhập và cấp quyền.';
+    const container=$('oauth-pending-list');container.textContent='';
+    for(const flow of pending){
+      const box=document.createElement('div');box.className='oauth-choice-box';
+      const title=document.createElement('strong');title.textContent='Chọn tài khoản '+(flow.provider==='google'?'Google Ads':'Meta Ads')+' để thêm';box.append(title);
+      const list=document.createElement('div');list.className='oauth-choice-list';
+      for(const account of flow.accounts){
+        const label=document.createElement('label');label.className='oauth-choice';
+        const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=true;checkbox.value=account.id;
+        const display=document.createElement('span');display.textContent=account.label+' ('+account.id+') — '+account.currency;
+        label.append(checkbox,display);list.append(label);
+      }
+      box.append(list);
+      const submit=document.createElement('button');submit.type='button';submit.className='btn primary';submit.textContent='Lưu tài khoản đã chọn';
+      submit.onclick=async()=>{
+        const ids=Array.from(list.querySelectorAll('input:checked')).map(x=>x.value);
+        if(!ids.length)return notify('Chọn ít nhất một tài khoản',true);
+        submit.disabled=true;
+        try{const response=await api('/api/oauth/pending/'+encodeURIComponent(flow.id)+'/import',
+          {method:'POST',body:JSON.stringify({account_ids:ids})});
+          notify('Đã kết nối '+response.imported+' tài khoản '+response.provider+'.');await loadAccounts();
+        }catch(e){notify(e.message,true);submit.disabled=false;}
+      };
+      const dismiss=document.createElement('button');dismiss.type='button';dismiss.className='btn secondary';dismiss.textContent='Hủy';
+      dismiss.onclick=async()=>{try{await api('/api/oauth/pending/'+encodeURIComponent(flow.id),{method:'DELETE'});await loadOAuthStatusAndPending();}catch(e){notify(e.message,true)}};
+      const row=document.createElement('div');row.className='oauth-buttons';row.append(submit,dismiss);box.append(row);container.append(box);
+    }
+  }catch(e){$('oauth-status').textContent=e.message}
+}
+for(const provider of ['google','meta'])$('oauth-'+provider).onclick=async()=>{
+  try{
+    const reply=await api('/api/oauth/'+provider+'/start',{method:'POST'});
+    const url=new URL(reply.authorization_url);
+    if(!['https://accounts.google.com','https://www.facebook.com'].includes(url.origin))throw Error('URL OAuth không đáng tin cậy');
+    location.assign(url.href);
+  }catch(e){notify(e.message,true)}
 };

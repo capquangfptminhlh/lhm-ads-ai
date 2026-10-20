@@ -100,7 +100,7 @@ def login(data: Login, request: Request):
         audit(db, dict(user),'auth.login','Browser session opened')
     from fastapi.responses import JSONResponse
     result = JSONResponse({'ok':True})
-    result.set_cookie('lhm_session', raw, httponly=True, samesite='strict',
+    result.set_cookie('lhm_session', raw, httponly=True, samesite='lax',
                       secure=os.environ.get('COOKIE_SECURE','true').lower()=='true', max_age=86400,
                       path='/')
     return result

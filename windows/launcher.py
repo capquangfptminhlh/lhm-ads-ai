@@ -1,4 +1,8 @@
-"""LHM Ads AI Windows desktop entry point. Localhost only, no MCP."""
+"""LHM Ads AI Windows desktop entry point.
+
+Runs the existing private web dashboard on the local machine ONLY. No MCP
+connection, no listener on public/LAN interfaces, no shipping API credentials.
+"""
 from __future__ import annotations
 
 import argparse
@@ -14,6 +18,7 @@ import time
 import urllib.request
 import webbrowser
 
+# Allow source-mode execution from the repository; PyInstaller provides its own bundle path.
 if not getattr(sys, "frozen", False):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -29,6 +34,7 @@ def data_directory() -> Path:
 
 
 def configure_local_storage() -> Path:
+    """Generate a persistent encryption key only on first use, per Windows user."""
     folder = data_directory()
     folder.mkdir(parents=True, exist_ok=True)
     settings_file = folder / "local-settings.json"
@@ -39,6 +45,7 @@ def configure_local_storage() -> Path:
             "MASTER_KEY": base64.b64encode(secrets.token_bytes(32)).decode("ascii"),
             "SESSION_SECRET": secrets.token_urlsafe(48),
         }
+        # Atomic creation; no world-readable secrets in printed logs.
         fd = os.open(settings_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(config, fh)
@@ -46,7 +53,8 @@ def configure_local_storage() -> Path:
         if not os.environ.get(name):
             os.environ[name] = config[name]
     os.environ.setdefault("DB_PATH", str(folder / "data" / "lhm-ads.sqlite3"))
-    os.environ["COOKIE_SECURE"] = "false"  # loopback HTTP only
+    # For loopback HTTP only. Do NOT change to false for a public deployment.
+    os.environ["COOKIE_SECURE"] = "false"
     return folder
 
 
@@ -100,16 +108,13 @@ def open_browser_after_start(port: int) -> None:
 
 
 def main() -> None:
-    # Redirected Windows runner output can default to cp1252, which breaks on Vietnamese.
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
-            stream.reconfigure(encoding="utf-8", errors="replace")
     p = argparse.ArgumentParser(description="LHM Ads AI - chạy dashboard an toàn trên máy Windows")
     p.add_argument("--headless", action="store_true", help="Không tạo admin hay mở browser (dành cho CI)")
     p.add_argument("--port", type=int, default=8765, help="Cổng localhost (mặc định 8765)")
     args = p.parse_args()
     if not (1024 <= args.port <= 65535):
         p.error("Cổng phải nằm trong khoảng 1024..65535")
+    os.environ.setdefault("PUBLIC_BASE_URL", f"http://127.0.0.1:{args.port}")
     configure_local_storage()
     bootstrap_first_admin(headless=args.headless)
     from ads_core.extended import app
