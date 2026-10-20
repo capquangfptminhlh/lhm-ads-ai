@@ -8,7 +8,7 @@ A private, Vietnamese advertising dashboard with a responsive black/cream/orange
 - Internal rule-based assistant, CSV exports, approval workflow for Meta pause requests.
 - Team roles, browser login sessions, CSRF protections, encrypted official provider tokens and audit log.
 - Global account search filters the actual loaded account table. No fake Ads reporting in production.
-- **No inbound or outbound MCP connections, no remote-control API keys, and no external AI report sharing.** Official advertising providers are contacted only for approved advertising API functionality.
+- **No inbound or outbound MCP endpoints or remote-control API keys.** Optional, admin-enabled OpenRouter AI sends a redacted question and aggregated statistics to external models through ZDR-only routing. Disabled by default; never sends platform tokens or account identifiers by backend design.
 
 ## Security and upgrades
 On startup, the app removes any legacy `api_keys`, `mcp_connections`, `agent_jobs`, and `agent_outputs` tables from previous pilots. **Back up your SQLite database before deployment:** removal deletes old MCP connection credentials and scheduled output records. Other advertising accounts and user tables remain.
@@ -29,3 +29,11 @@ pip install -r requirements.txt pytest
 python -m pytest -q
 node --check static/studio.js
 ```
+
+## OpenRouter AI (privacy + quotas)
+
+- Admin enters the API key only inside the app; encrypted at rest, never returned to the UI.
+- On-device preview of redacted prompts and aggregated statistics before sharing.
+- Provider routing requires `zdr=true` and `data_collection=deny`. Models without ZDR-eligible endpoints can fail; ZDR does **not** mean processing stays local.
+- Organization-wide usage quota defaults to 30 calls/day (UTC), editable from 1–200. Counts retries/errors too. This is NOT a spending cap; separately configure OpenRouter account/key budget limits.
+- For privacy details and remaining limitations, see [OpenRouter guide](docs/OPENROUTER.md). No advertising write permissions for the model.

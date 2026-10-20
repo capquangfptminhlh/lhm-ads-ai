@@ -43,16 +43,25 @@ async function loadAISettings(){
     $('ai-provider-label').textContent=r.enabled?'OPENROUTER: '+r.model:'PHÂN TÍCH NỘI BỘ';
     $('ai-model').value=r.model;
     $('ai-enabled').checked=r.enabled;
+    $('ai-daily-limit').value=r.daily_limit||30;
     $('ai-settings-status').textContent=r.configured?'Đã lưu API key an toàn (không hiển thị lại). '+(r.enabled?'OpenRouter đang bật.':'OpenRouter đang tắt.'):'Chưa lưu API key.';
+    $('ai-settings-status').textContent+=' Hôm nay (UTC): '+(r.used_today||0)+'/'+(r.daily_limit||30)+' lượt.';
     $('ai-disclaimer').textContent=r.enabled?'Đã bật OpenRouter: câu hỏi và thống kê tổng hợp sẽ gửi sang dịch vụ ngoài, phát sinh phí API. Không gửi token, tên hoặc ID tài khoản.':'Chế độ nội bộ; không gửi số liệu quảng cáo sang OpenRouter.';
   }catch(e){notify(e.message,true)}
 }
 $('ai-config-form').onsubmit=async e=>{e.preventDefault();if(!isAdmin())return;
   if($('ai-enabled').checked&&!confirm('Bạn đồng ý gửi câu hỏi và số liệu quảng cáo TỔNG HỢP tới OpenRouter (dịch vụ bên ngoài), có thể phát sinh chi phí?'))return;
-  try{await api('/api/ai/settings',{method:'PUT',body:JSON.stringify({api_key:$('ai-api-key').value,model:$('ai-model').value.trim(),enabled:$('ai-enabled').checked})});
+  try{await api('/api/ai/settings',{method:'PUT',body:JSON.stringify({api_key:$('ai-api-key').value,model:$('ai-model').value.trim(),enabled:$('ai-enabled').checked,daily_limit:Number($('ai-daily-limit').value)})});
     $('ai-api-key').value='';notify('Đã cập nhật OpenRouter');loadAISettings();
   }catch(ex){notify(ex.message,true)}
 };
 $('ai-revoke').onclick=async()=>{if(!isAdmin()||!confirm('Xóa API key OpenRouter và tắt AI bên ngoài?'))return;
   try{await api('/api/ai/settings',{method:'DELETE'});$('ai-api-key').value='';notify('Đã thu hồi khóa OpenRouter');loadAISettings()}catch(ex){notify(ex.message,true)}
+};
+
+$('ai-preview-btn').onclick=async()=>{
+  const p=$('ai-preview-output'); const question=$('chat-input').value.trim()||'Phân tích chi phí quảng cáo';
+  try{const data=await api('/api/ai/preview',{method:'POST',body:JSON.stringify({message:question,period:$('period').value})});
+    p.textContent=JSON.stringify(data,null,2);p.classList.remove('hidden');
+  }catch(err){notify(err.message,true)}
 };

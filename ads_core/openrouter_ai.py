@@ -7,6 +7,7 @@ import asyncio
 import json
 import re
 import time
+from datetime import datetime, timezone
 from collections import defaultdict
 
 import httpx
@@ -20,6 +21,9 @@ from .security import seal, unseal
 OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 MODEL_PATTERN = r'^[A-Za-z0-9][A-Za-z0-9._:-]*/[A-Za-z0-9][A-Za-z0-9._:-]*$'
 DEFAULT_MODEL = 'openai/gpt-4.1-mini'
+DEFAULT_DAILY_LIMIT = 30
+# Cap calls per tenant per UTC date to protect against bill spikes. Not a monetary budget.
+
 # Per-process limits: intended for desktop/one-worker VPS deployment.
 CALLS = defaultdict(list)
 SEM = asyncio.Semaphore(3)
@@ -33,21 +37,64 @@ def init_ai_settings():
             enabled INTEGER NOT NULL DEFAULT 0,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )''')
+        fields={r['name'] for r in db.execute('PRAGMA table_info(openrouter_settings)')}
+        if 'daily_limit' not in fields:
+            db.execute('ALTER TABLE openrouter_settings ADD COLUMN daily_limit INTEGER NOT NULL DEFAULT 30')
+        db.execute('''CREATE TABLE IF NOT EXISTS ai_daily_usage (
+            org_id TEXT NOT NULL, day_utc TEXT NOT NULL,
+            request_count INTEGER NOT NULL DEFAULT 0,
+            prompt_tokens INTEGER NOT NULL DEFAULT 0,
+            completion_tokens INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY(org_id,day_utc)
+        )''')
+
+
+def utc_day():
+    return datetime.now(timezone.utc).date().isoformat()
 
 
 def read_config(org_id):
     init_ai_settings()
     with connection() as db:
-        row = db.execute('SELECT * FROM openrouter_settings WHERE org_id=?', (org_id,)).fetchone()
-    if not row:
-        return {'model': DEFAULT_MODEL, 'enabled': False, 'configured': False}
-    return {'model': row['model'], 'enabled': bool(row['enabled']), 'configured': bool(row['token_ciphertext'])}
+        row=db.execute('SELECT * FROM openrouter_settings WHERE org_id=?',(org_id,)).fetchone()
+        usage=db.execute('SELECT request_count,prompt_tokens,completion_tokens FROM ai_daily_usage WHERE org_id=? AND day_utc=?',
+                         (org_id,utc_day())).fetchone()
+    return {'model': row['model'] if row else DEFAULT_MODEL,
+            'enabled': bool(row['enabled']) if row else False,
+            'configured': bool(row['token_ciphertext']) if row else False,
+            'daily_limit': row['daily_limit'] if row else DEFAULT_DAILY_LIMIT,
+            'used_today': usage['request_count'] if usage else 0,
+            'tokens_today': ((usage['prompt_tokens']+usage['completion_tokens']) if usage else 0),
+            'day_utc': utc_day(), 'privacy': 'zdr_required'}
+
+
+def reserve_daily_call(org_id, limit):
+    """Atomic per-tenant admission; counted even on upstream errors to avoid costly retry storms."""
+    day=utc_day()
+    with connection() as db:
+        db.execute('INSERT OR IGNORE INTO ai_daily_usage(org_id,day_utc) VALUES(?,?)',(org_id,day))
+        cur=db.execute('UPDATE ai_daily_usage SET request_count=request_count+1 WHERE org_id=? AND day_utc=? AND request_count<?',
+                       (org_id,day,limit))
+        if cur.rowcount!=1:
+            raise HTTPException(429, f'Đã dùng hết {limit} lượt OpenRouter trong ngày (UTC). Thử lại ngày mai.')
+
+
+def store_usage(org_id, usage):
+    try:
+        prompt=max(0,min(int(usage.get('prompt_tokens',0) or 0),10000000))
+        completion=max(0,min(int(usage.get('completion_tokens',0) or 0),10000000))
+    except (ValueError,TypeError,AttributeError):
+        return
+    with connection() as db:
+        db.execute('UPDATE ai_daily_usage SET prompt_tokens=prompt_tokens+?,completion_tokens=completion_tokens+? WHERE org_id=? AND day_utc=?',
+                   (prompt,completion,org_id,utc_day()))
 
 
 class AISettingsInput(BaseModel):
     model: str = Field(default=DEFAULT_MODEL, min_length=4, max_length=140, pattern=MODEL_PATTERN)
     api_key: str = Field(default='', max_length=512)
     enabled: bool = False
+    daily_limit: int = Field(default=DEFAULT_DAILY_LIMIT, ge=1, le=200)
 
 
 @app.get('/api/ai/settings')
@@ -66,11 +113,11 @@ def update_ai_settings(payload: AISettingsInput, ident=Depends(browser_admin)):
         ciphertext = seal(key, f'openrouter:{ident["org_id"]}') if key else old['token_ciphertext'] if old else None
         if payload.enabled and not ciphertext:
             raise HTTPException(422, 'Hãy thêm API key trước khi bật OpenRouter')
-        db.execute('''INSERT INTO openrouter_settings(org_id,token_ciphertext,model,enabled)
-                      VALUES(?,?,?,?) ON CONFLICT(org_id) DO UPDATE SET
+        db.execute('''INSERT INTO openrouter_settings(org_id,token_ciphertext,model,enabled,daily_limit)
+                      VALUES(?,?,?,?,?) ON CONFLICT(org_id) DO UPDATE SET
                       token_ciphertext=excluded.token_ciphertext,model=excluded.model,
-                      enabled=excluded.enabled,updated_at=CURRENT_TIMESTAMP''',
-                   (ident['org_id'], ciphertext, payload.model, int(payload.enabled)))
+                      enabled=excluded.enabled,daily_limit=excluded.daily_limit,updated_at=CURRENT_TIMESTAMP''',
+                   (ident['org_id'], ciphertext, payload.model, int(payload.enabled), payload.daily_limit))
         audit(db, ident, 'ai.settings', f'OpenRouter enabled={payload.enabled}; model={payload.model}')
     return read_config(ident['org_id'])
 
@@ -85,9 +132,17 @@ def disable_ai_settings(ident=Depends(browser_admin)):
 
 
 def scrub_user_message(text):
-    # Never relay accidentally pasted provider or OpenRouter keys.
-    return re.sub(r'(?i)(?:sk-or-[A-Za-z0-9._-]{8,}|sk-[A-Za-z0-9_-]{16,}|bearer\s+\S+|EA[A-Za-z0-9]{30,})',
-                  '[đã ẩn thông tin bí mật]', text)[:1200]
+    """Best-effort masking. Do not claim that arbitrary names or secrets are detected."""
+    patterns=(
+      r'(?i)\b(?:sk-or-[A-Za-z0-9._-]{8,}|sk-[A-Za-z0-9_-]{16,}|bearer\s+\S+|EA[A-Za-z0-9]{30,})',
+      r'(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b',
+      r'(?i)https?://\S+',
+      r'(?<![\w])(?:\+?\d[\d .()-]{8,}\d)(?![\w])',
+      r'\b\d{8,30}\b',
+    )
+    for pattern in patterns:
+        text=re.sub(pattern,'[đã ẩn thông tin nhạy cảm]',text)
+    return text[:1200]
 
 
 def sanitized_rollup(data):
@@ -141,8 +196,10 @@ async def openrouter_answer(ident, message, period):
     key = unseal(cfg['token_ciphertext'],f'openrouter:{org}')
     data = await summary(period=period, ident=ident)
     rollup = sanitized_rollup(data)
+    reserve_daily_call(org, cfg['daily_limit'])
     payload = {
       'model': cfg['model'],
+      'provider': {'zdr': True, 'data_collection': 'deny'},
       'messages': [{'role':'system','content':SYSTEM},
                    {'role':'user','content':json.dumps({'question':scrub_user_message(message),
                                   'statistics':rollup},ensure_ascii=False)}],
@@ -159,6 +216,8 @@ async def openrouter_answer(ident, message, period):
                     'X-Title': 'LHM Ads AI'}, json=payload)
         if resp.status_code == 401:
             raise HTTPException(502, 'API key OpenRouter không được chấp nhận. Kiểm tra lại trong Cài đặt.')
+        if resp.status_code == 400:
+            raise HTTPException(422, 'Model không hỗ trợ tuyến Zero Data Retention hoặc tham số không hợp lệ. Hãy chọn model có nhà cung cấp ZDR.')
         if resp.status_code == 429:
             raise HTTPException(429, 'OpenRouter đang giới hạn yêu cầu; thử lại sau.')
         if resp.status_code >= 400:
@@ -167,12 +226,28 @@ async def openrouter_answer(ident, message, period):
         response = body['choices'][0]['message']['content']
         if not isinstance(response, str) or not response.strip():
             raise ValueError('Empty model response')
+        store_usage(org, body.get('usage') or {})
         return {'reply': response[:12000], 'mode':'openrouter', 'model':cfg['model'],
                 'usage': {k:int(body.get('usage',{}).get(k,0) or 0)
                           for k in ('prompt_tokens','completion_tokens','total_tokens')},
-                'disclaimer':'Đã gửi câu hỏi và thống kê tổng hợp (KHÔNG gồm tên/ID tài khoản, token) sang OpenRouter. AI chỉ tư vấn, không tự chỉnh quảng cáo.'}
+                'disclaimer':'Đã gửi câu hỏi (lọc định dạng nhạy cảm) và thống kê tổng hợp tới OpenRouter qua ZDR. Có thể còn thông tin cá nhân người dùng tự gõ; đừng nhập bí mật. AI chỉ tư vấn.'}
     except HTTPException:
         raise
     except (httpx.HTTPError, ValueError, KeyError, TypeError, IndexError) as exc:
         # Don't expose provider response, credentials or raw request details to logs/browser.
         raise HTTPException(502, 'Không thể nhận phân tích từ OpenRouter. Kiểm tra mạng, model và tài khoản.') from None
+
+
+class PreviewRequest(BaseModel):
+    message: str = Field(min_length=2, max_length=1200)
+    period: str = Field(default='last_7d', pattern=r'^(last_7d|yesterday)$')
+
+
+@app.post('/api/ai/preview')
+async def privacy_preview(payload: PreviewRequest, ident=Depends(require('admin','operator','reader'))):
+    """Local-only preview of outgoing content. NEVER calls OpenRouter or uses AI quota."""
+    data=await summary(period=payload.period,ident=ident)
+    return {'question':scrub_user_message(payload.message),
+            'statistics':sanitized_rollup(data),
+            'routing':{'zdr':True,'data_collection':'deny'},
+            'notice':'Bản xem trước trên máy; văn bản có thể chứa tên riêng không được tự động nhận diện.'}
