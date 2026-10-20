@@ -82,6 +82,10 @@ def test_desktop_oauth_callback_external_browser_no_cookie(windows_app, monkeypa
         async def post(self,url,**kwargs):
             if url.endswith('/token'):
                 return MockResponse({'access_token':'test-access','refresh_token':'test-refresh'})
+            if url.endswith('googleAds:searchStream'):
+                return MockResponse([{'results':[{'customerClient':{
+                    'id':'1234567890','descriptiveName':'Test Ads','currencyCode':'VND'
+                }}]}])
             raise AssertionError(url)
         async def get(self,url,**kwargs):
             assert url.endswith('customers:listAccessibleCustomers')
