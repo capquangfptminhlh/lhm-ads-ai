@@ -14,6 +14,15 @@
     <form id="goal-form" class="form-row">
       <label>Tài khoản<select id="goal-account" required></select></label>
       <label>Mục tiêu<select id="goal-objective"><option value="cpa">CPA tối đa</option><option value="roas">ROAS tối thiểu (hệ số)</option></select></label>
+      <label id="goal-meta-wrapper" hidden>Chuyển đổi Meta (chọn 1 loại)
+        <select id="goal-meta-action">
+          <option value="">— Chưa chọn sự kiện —</option>
+          <option value="lead">Lead</option>
+          <option value="offsite_conversion.fb_pixel_lead">Pixel Lead</option>
+          <option value="purchase">Purchase</option>
+          <option value="offsite_conversion.fb_pixel_purchase">Pixel Purchase</option>
+          <option value="omni_purchase">Omni Purchase</option>
+        </select></label>
       <label>Giá trị mục tiêu<input id="goal-target" type="number" min="0.001" step="any" required placeholder="Ví dụ: 50000"></label>
       <label>Chuyển đổi tối thiểu<input id="goal-conversions" type="number" min="3" max="1000" value="5" required></label>
       <label>Clicks tối thiểu<input id="goal-clicks" type="number" min="20" max="100000" value="100" required></label>
@@ -25,6 +34,7 @@
     const sel=$('goal-account');
     sel.addEventListener('change',readGoal);
     $('goal-objective').addEventListener('change',updateHint);
+    $('goal-meta-action').addEventListener('change',updateHint);
     div.querySelector('form').addEventListener('submit',async e=>{
       e.preventDefault();
       if(typeof isAdmin==='function'&&!isAdmin())return;
@@ -33,7 +43,8 @@
       const payload={enabled:$('goal-enabled').checked,objective:$('goal-objective').value,
          target:Number($('goal-target').value),
          min_conversions:Number($('goal-conversions').value),
-         min_clicks:Number($('goal-clicks').value)};
+         min_clicks:Number($('goal-clicks').value),
+         meta_action_type:$('goal-meta-wrapper').hidden?null:($('goal-meta-action').value||null)};
       $('goal-save').disabled=true;$('goal-message').textContent='Đang lưu mục tiêu cục bộ…';
       try{const updated=await api('/api/goals/accounts/'+id,{method:'PUT',body:JSON.stringify(payload)});
         $('goal-message').textContent=updated.goal?.enabled?
@@ -48,18 +59,25 @@
     const isRoas=$('goal-objective')?.value==='roas';
     const item=accounts.find(a=>String(a.id)===$('goal-account')?.value);
     const currency=item?.currency||'tiền tệ của tài khoản';
-    $('goal-guidance').textContent=item?.platform==='meta'?
-      'Meta chưa chuẩn hóa số chuyển đổi trong bản này; không thể bật cảnh báo CPA/ROAS. Không sử dụng giá trị giả.':
-      isRoas?'ROAS là tỷ số doanh thu/chi phí, ví dụ 3 tương đương 300%. Cần ít nhất số chuyển đổi đặt phía trên.':
-      'CPA mục tiêu tính theo '+currency+'. Cần đủ số chuyển đổi và click; kết quả có thể thay đổi vì độ trễ chuyển đổi.';
-    $('goal-enabled').disabled=item?.platform==='meta';
-    if(item?.platform==='meta')$('goal-enabled').checked=false;
+    const meta=item?.platform==='meta';
+    $('goal-meta-wrapper').hidden=!meta;
+    const action=$('goal-meta-action').value;
+    const purchase=['purchase','offsite_conversion.fb_pixel_purchase','omni_purchase'].includes(action);
+    $('goal-guidance').textContent=meta?
+      'Meta: chọn đúng một sự kiện chuyển đổi. Cửa sổ quy đổi 7 ngày sau click (7d_click). '+
+      (isRoas?'ROAS chỉ dùng Purchase và cần action_values chứa doanh thu.':'CPA dựa trên số chuyển đổi đúng loại đã chọn.')+
+      ' Nếu Insights thiếu chuyển đổi hoặc tiền tệ không khớp, sẽ không tạo cảnh báo.':
+      isRoas?'ROAS là doanh thu / chi phí, ví dụ 3 = 300%. Cần đủ chuyển đổi và xác nhận tracking.':
+      'CPA mục tiêu tính theo '+currency+'. Cần đủ chuyển đổi/click và xem xét độ trễ quy đổi.';
+    $('goal-enabled').disabled=meta&&(!action||(isRoas&&!purchase));
+    if($('goal-enabled').disabled)$('goal-enabled').checked=false;
   }
   async function readGoal(){
     const id=Number($('goal-account')?.value);
     if(!Number.isSafeInteger(id)||id<=0)return;
     try{const response=await api('/api/goals/accounts/'+id),g=response.goal;
       $('goal-objective').value=g?.objective||'cpa';
+      $('goal-meta-action').value=g?.meta_action_type||'';
       $('goal-target').value=g?.target||'';
       $('goal-conversions').value=g?.min_conversions||5;
       $('goal-clicks').value=g?.min_clicks||100;
@@ -77,7 +95,7 @@
       for(const a of accounts)sel.add(new Option(a.label+' ('+a.platform+', '+a.currency+')',String(a.id)));
       if(accounts.some(a=>String(a.id)===old))sel.value=old;
       const permitted=typeof isAdmin==='function'&&isAdmin();
-      for(const id of ['goal-objective','goal-target','goal-conversions','goal-clicks','goal-enabled','goal-save'])
+      for(const id of ['goal-objective','goal-target','goal-conversions','goal-clicks','goal-meta-action','goal-enabled','goal-save'])
         $(id).disabled=!permitted;
       $('goal-save').hidden=!permitted;
       if(accounts.length)await readGoal();
