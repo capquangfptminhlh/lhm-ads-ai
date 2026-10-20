@@ -69,7 +69,7 @@
       ' Nếu Insights thiếu chuyển đổi hoặc tiền tệ không khớp, sẽ không tạo cảnh báo.':
       isRoas?'ROAS là doanh thu / chi phí, ví dụ 3 = 300%. Cần đủ chuyển đổi và xác nhận tracking.':
       'CPA mục tiêu tính theo '+currency+'. Cần đủ chuyển đổi/click và xem xét độ trễ quy đổi.';
-    $('goal-enabled').disabled=meta&&(!action||(isRoas&&!purchase));
+    $('goal-enabled').disabled=(typeof isAdmin!=='function'||!isAdmin()) || (meta&&(!action||(isRoas&&!purchase)));
     if($('goal-enabled').disabled)$('goal-enabled').checked=false;
   }
   async function readGoal(){
