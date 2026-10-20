@@ -76,11 +76,13 @@ def main():
                 page.locator('[data-provider-choice=google]').wait_for(state='visible')
                 assert page.locator('[data-provider-detail=google]').is_visible()
                 assert not page.locator('[data-provider-detail=meta]').is_visible()
+                page.wait_for_timeout(850)  # Let transitions finish before capture
                 page.screenshot(path=str(ARTIFACTS/'01-google-provider.png'),full_page=True)
                 page.locator('[data-provider-choice=meta]').click()
                 assert page.locator('[data-provider-detail=meta]').is_visible()
                 assert not page.locator('[data-provider-detail=google]').is_visible()
                 assert page.locator('[data-provider-choice=meta]').get_attribute('aria-pressed')=='true'
+                page.wait_for_timeout(850)  # Let transitions finish before capture
                 page.screenshot(path=str(ARTIFACTS/'02-meta-provider.png'),full_page=True)
 
                 # Test the real local API through the GUI. Demo is separated.
@@ -100,6 +102,7 @@ def main():
                 assert not row.is_visible()
                 page.locator('[data-account-filter=demo]').click()
                 assert row.is_visible()
+                page.wait_for_timeout(850)  # Let transitions finish before capture
                 page.screenshot(path=str(ARTIFACTS/'03-demo-filter.png'),full_page=True)
                 print('PASS: Google/Meta selected separately, Demo not mixed, native API/UI flow works')
                 browser.close()
