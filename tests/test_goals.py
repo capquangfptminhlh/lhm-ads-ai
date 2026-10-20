@@ -28,7 +28,7 @@ def login(c,email='admin@a.test'):
     return {'X-CSRF-Token':c.get('/api/me').json()['csrf']}
 
 def account(c,h,platform='google'):
-    token=json.dumps({'client_id':'oauth','refresh_token':'fake_refresh'}) if platform=='google' else 'fake_meta_token'
+    token=json.dumps({'client_id':'oauth','client_secret':'mock_local_client_secret','refresh_token':'fake_refresh'}) if platform=='google' else 'fake_meta_token'
     r=c.post('/api/accounts',headers=h,json={
         'platform':platform,'label':'Business','external_id':'9876543210' if platform=='google' else 'act_1234567890',
         'currency':'VND','token':token})
