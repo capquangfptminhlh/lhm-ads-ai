@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LHM Ads AI — MCP & Lịch quảng cáo</title>
+<link rel="stylesheet" href="/static/studio.css"><link rel="stylesheet" href="/static/automation.css"></head>
+<body><main class="automation-main">
+<header class="automation-top"><div><p class="eyebrow">PRIVATE AUTOMATION WORKSPACE</p>
+<h1>Trung tâm MCP & Lịch AI</h1><p class="muted">Kết nối ra Google Ads / Meta Ads. Không mở MCP inbound. Công cụ đọc được giới hạn bởi VPS.</p></div>
+<a class="btn secondary" href="/studio">← Về Dashboard</a></header>
+<div class="notice warning"><b>Chế độ an toàn:</b> phiên bản này đọc công cụ MCP đã được cho phép, lập lịch báo cáo và tạo <b>nháp kế hoạch</b>. Không tự tạo quảng cáo thật, không sửa ngân sách, không chạy công cụ ghi. Lịch nháp hiện dùng mẫu quy tắc, chưa gọi LLM.</div>
+<div id="error" class="notice hidden" role="alert"></div>
+<section class="automation-grid">
+<article class="panel"><h2>1. Kết nối MCP</h2>
+<p class="muted tiny">VPS phải cấu hình MCP_ALLOWED_HOSTS. Token được mã hóa và chỉ gửi đến endpoint đã cho phép.</p>
+<form id="connection-form" class="automation-form">
+<label>Nền tảng<select id="platform"><option value="google">Google Ads</option><option value="meta">Meta Ads</option></select></label>
+<label>Tên kết nối<input id="conn-label" required minlength="2" maxlength="80" placeholder="Google Ads - Tài khoản chính"></label>
+<label>MCP HTTPS endpoint<input id="endpoint" required type="url" placeholder="https://trusted-mcp.example.com/mcp"></label>
+<label>MCP Bearer Token<input id="token" required type="password" minlength="12" autocomplete="new-password" placeholder="Chỉ nhập ở trang này, không gửi qua chat"></label>
+<button class="btn primary" type="submit">Lưu kết nối (chưa kiểm tra)</button></form>
+<h3>Kết nối đã lưu</h3><div id="connection-list" class="automation-list"></div>
+</article>
+<article class="panel"><h2>2. Kiểm tra công cụ và quyền</h2>
+<p class="muted tiny">Bấm Kiểm tra tại danh sách kết nối. Hệ thống chỉ liệt kê công cụ, không tự thực hiện lệnh ghi.</p>
+<div id="tools" class="automation-list">Chưa chọn kết nối.</div>
+<h3>Đọc thử (chỉ công cụ được phép)</h3>
+<form id="read-form" class="automation-form">
+<label>Kết nối<select id="read-connection" required></select></label>
+<label>Tên công cụ chỉ đọc<input id="read-tool" required placeholder="Ví dụ: get_campaign_performance"></label>
+<label>Tham số JSON<textarea id="read-args" rows="3">{}</textarea></label>
+<button class="btn secondary" type="submit">Chạy đọc dữ liệu</button></form>
+<pre id="read-output" class="automation-pre" aria-live="polite"></pre>
+</article>
+<article class="panel"><h2>3. Lên lịch</h2>
+<p class="muted tiny">Lịch chạy hàng ngày theo múi giờ Việt Nam. Kết quả chỉ lưu nội bộ để duyệt.</p>
+<form id="job-form" class="automation-form">
+<label>Loại lịch<select id="job-type"><option value="campaign_draft">Chuẩn bị nháp kế hoạch quảng cáo</option><option value="report">Lấy báo cáo qua MCP</option></select></label>
+<label>Tên công việc<input id="job-title" required minlength="3" placeholder="Nháp chiến dịch phụ kiện điện thoại"></label>
+<label>Yêu cầu công việc<textarea id="job-brief" rows="3" required minlength="10" placeholder="Mục tiêu, sản phẩm, đối tượng, ngân sách mong muốn..."></textarea></label>
+<div class="automation-cols"><label>Giờ<input id="hour" type="number" min="0" max="23" value="8" required></label><label>Phút<input id="minute" type="number" min="0" max="59" value="0" required></label></div>
+<label>Kết nối (bắt buộc khi lấy báo cáo)<select id="job-connection"><option value="">Không cần — nháp kế hoạch</option></select></label>
+<label>Tên công cụ MCP chỉ đọc (báo cáo)<input id="job-tool" placeholder="Ví dụ: get_campaign_performance"></label>
+<label>Tham số JSON (báo cáo)<textarea id="job-args" rows="2">{}</textarea></label>
+<button class="btn primary" type="submit">Lưu lịch an toàn</button></form>
+<h3>Lịch hiện tại</h3><div id="job-list" class="automation-list"></div>
+</article>
+<article class="panel"><h2>4. Kết quả và nháp</h2>
+<p class="muted tiny">Tất cả nội dung từ MCP là dữ liệu bên ngoài, không được coi là lệnh điều khiển hệ thống.</p>
+<div id="output-list" class="automation-list"></div>
+</article>
+</section></main><div id="notice" class="toast hidden" role="status" aria-live="polite"></div>
+<script src="/static/automation.js" defer></script></body></html>
