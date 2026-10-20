@@ -112,7 +112,7 @@ def main():
                 assert page.locator('#fp-accounts-meta').inner_text() == '0'
                 page.locator('button[data-page=assistant]').click()
                 page.locator('#fp-ai-mode').wait_for(state='visible')
-                assert page.locator('#fp-ai-mode').inner_text() == 'Phân tích nội bộ'
+                page.wait_for_function("document.querySelector('#fp-ai-mode')?.textContent === 'Phân tích nội bộ'", timeout=12000)
                 page.locator('[data-fp-prompt]').first.click()
                 assert 'Phân tích hiệu suất' in page.locator('#chat-input').input_value()
                 # Choosing an AI template only fills the text field; it never sends an API request.
