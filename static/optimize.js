@@ -35,7 +35,7 @@
     } catch(e) {show(e.message||String(e),true)}
   }
   document.addEventListener('DOMContentLoaded',()=>{
-    const view=el('page-approvals'); if(!view)return;
+    const view=el('page-campaigns'); if(!view)return;
     const article=document.createElement('article');article.className='panel';
     article.innerHTML='<h3>Trung tâm phân tích chiến dịch</h3><p class="muted tiny">Đọc hiệu suất Google/Meta 7 ngày, tìm điểm cần xem xét. Khuyến nghị không tự chỉnh quảng cáo hoặc ngân sách. Tạm dừng chỉ được thực hiện khi admin duyệt riêng.</p><div class="inline-actions"><select id="opt-account" aria-label="Tài khoản cần phân tích"></select><button id="opt-inspect" class="btn primary" type="button">Phân tích chiến dịch</button></div><p id="optimization-message" role="status" class="muted tiny"></p><div id="optimization-result" class="table-wrap"></div>';
     view.append(article);
@@ -48,6 +48,6 @@
       try{await api('/api/actions',{method:'POST',body:JSON.stringify({account_id:accountId,campaign_id:campaignId})});show('Đã tạo yêu cầu chờ duyệt, không thay đổi quảng cáo.');if(typeof loadActions==='function')await loadActions();}
       catch(err){show(err.message||String(err),true)}
     });
-    const link=document.querySelector('[data-page="approvals"]');if(link)link.addEventListener('click',()=>setTimeout(populate,100));
+    const link=document.querySelector('[data-page="campaigns"]');if(link)link.addEventListener('click',()=>setTimeout(populate,100));
   });
 })();

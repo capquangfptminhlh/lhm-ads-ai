@@ -26,7 +26,7 @@
     } catch(err){status(err.message||String(err));}
   }
   document.addEventListener('DOMContentLoaded',()=>{
-    const area=$('page-approvals'); if(!area)return;
+    const area=$('page-alerts'); if(!area)return;
     const panel=document.createElement('article');panel.className='panel';
     panel.innerHTML=`<div class="panel-title"><div><h3>Cảnh báo tối ưu 24/7</h3><p class="muted tiny">Dữ liệu giữ trên máy; quét tối đa hằng ngày mỗi tài khoản khi máy bật và có Internet.</p></div><span class="pill"><span id="advisor-count">0</span> cần xem</span></div>
       <p id="advisor-agent" class="muted tiny">Đang kiểm tra tác nhân nền...</p>
@@ -48,6 +48,6 @@
           await loadAdvisor();status('Đã đánh dấu xem cảnh báo. Không có thay đổi nào gửi đến tài khoản Ads.');}
       catch(err){status(err.message||String(err));}
     });
-    const nav=document.querySelector('[data-page="approvals"]');if(nav)nav.addEventListener('click',()=>setTimeout(loadAdvisor,50));
+    const nav=document.querySelector('[data-page="alerts"]');if(nav)nav.addEventListener('click',()=>setTimeout(loadAdvisor,50));
   });
 })();

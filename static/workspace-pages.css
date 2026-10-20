@@ -1,0 +1,20 @@
+/* FinPoint workspace pages, dark layout and narrow-screen legibility */
+#page-campaigns,#page-autopilot,#page-alerts,#page-reports,#page-license{animation:fp-enter .22s ease both}
+.ws-report-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:0 0 19px}
+.ws-metric{background:linear-gradient(160deg,#1f2025,#16171b);border:1px solid #34353b;border-radius:17px;padding:21px;display:flex;flex-direction:column;gap:9px;min-width:0}
+.ws-metric small{font-size:11px;color:#a4a5ae;font-weight:600}
+.ws-metric strong{color:#fff;font-size:24px;letter-spacing:-.65px;overflow-wrap:anywhere}
+.ws-metric:first-child strong{color:#ff8e69}
+.ws-metric span{color:#8f919d;font-size:11px}
+#page-reports .chart{min-height:230px}
+#page-reports .panel h3,#page-autopilot .panel h3,#page-campaigns .panel h3,#page-alerts .panel h3,#page-license .panel h3{color:#f8f7f5}
+#page-autopilot .notice.warning{margin-bottom:18px}
+#page-alerts .table-wrap,#page-campaigns .table-wrap,#page-autopilot .table-wrap{max-width:100%;overflow-x:auto}
+#page-autopilot label,#page-license label{color:#d4d4db}
+#page-autopilot .form-row,#page-campaigns .inline-actions,#page-alerts .inline-actions{flex-wrap:wrap}
+#page-license textarea{min-height:110px}
+#page-alerts .btn,#page-autopilot .btn{transition:transform .17s ease,border-color .17s ease}
+@media(max-width:1100px){.ws-report-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:610px){.ws-report-metrics{gap:10px}.ws-metric{padding:15px;border-radius:14px}.ws-metric strong{font-size:19px}#page-reports .chart{min-height:190px}}
+@media(max-width:360px){.ws-report-metrics{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){#page-campaigns,#page-autopilot,#page-alerts,#page-reports,#page-license{animation:none}}

@@ -22,7 +22,7 @@
     } catch(e) {show(e.message||String(e),true)}
   }
   document.addEventListener('DOMContentLoaded', () => {
-    const target=el('page-settings');
+    const target=el('page-license');
     if(!target)return;
     const panel=document.createElement('article');panel.className='panel';
     panel.innerHTML=`<h3>Bản quyền thuê bao theo tháng</h3>
@@ -58,6 +58,6 @@
     }catch(e){show(e.message,true)}});
     refresh();
     // Session may not be available at initial page load; refresh when settings selected.
-    const nav=document.querySelector('[data-page="settings"]');if(nav)nav.addEventListener('click',()=>setTimeout(refresh,100));
+    const nav=document.querySelector('[data-page="license"]');if(nav)nav.addEventListener('click',()=>setTimeout(refresh,100));
   });
 })();
