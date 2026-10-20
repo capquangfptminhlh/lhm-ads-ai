@@ -15,7 +15,7 @@ import tempfile
 import time
 import urllib.request
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 
 BASE = 'http://127.0.0.1:18798'
 ROOT = Path(__file__).resolve().parent.parent
@@ -112,7 +112,7 @@ def main():
                 assert page.locator('#fp-accounts-meta').inner_text() == '0'
                 page.locator('button[data-page=assistant]').click()
                 page.locator('#fp-ai-mode').wait_for(state='visible')
-                page.wait_for_function("document.querySelector('#fp-ai-mode')?.textContent === 'Phân tích nội bộ'", timeout=12000)
+                expect(page.locator('#fp-ai-mode')).to_have_text('Phân tích nội bộ', timeout=12000)
                 page.locator('[data-fp-prompt]').first.click()
                 assert 'Phân tích hiệu suất' in page.locator('#chat-input').input_value()
                 # Choosing an AI template only fills the text field; it never sends an API request.
