@@ -84,6 +84,17 @@ def test_meta_goal_cannot_be_enabled(context):
     r=c.put(route,headers=h,json={**goal_payload(),'enabled':False})
     assert r.status_code==200,r.text
     assert r.json()['evaluation_supported'] is False
+    lead={**goal_payload(), 'meta_action_type':'offsite_conversion.fb_pixel_lead'}
+    assert c.put(route,headers=h,json={**lead,'objective':'roas'}).status_code==422
+    saved=c.put(route,headers=h,json=lead)
+    assert saved.status_code==200,saved.text
+    assert saved.json()['evaluation_supported'] is True
+    assert saved.json()['goal']['meta_action_type']=='offsite_conversion.fb_pixel_lead'
+    purchase=c.put(route,headers=h,json={**lead,'objective':'roas',
+                      'meta_action_type':'offsite_conversion.fb_pixel_purchase','target':3})
+    assert purchase.status_code==200,purchase.text
+    assert purchase.json()['goal']['objective']=='roas'
+    assert c.put(route,headers=h,json={**lead,'meta_action_type':'event.fake'}).status_code==422
 
 def test_scan_tracks_goal_recovers_and_reappears(context,monkeypatch):
     c=context;h=login(c);aid=account(c,h)
