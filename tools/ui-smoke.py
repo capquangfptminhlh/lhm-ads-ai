@@ -106,6 +106,20 @@ def main():
                 assert row.is_visible()
                 page.evaluate('window.scrollTo(0, 0)')
                 page.wait_for_timeout(850)  # Let transitions finish before capture
+                page.locator('#fp-accounts-all').wait_for(state='visible')
+                assert page.locator('#fp-accounts-all').inner_text() == '1'
+                assert page.locator('#fp-accounts-google').inner_text() == '0'
+                assert page.locator('#fp-accounts-meta').inner_text() == '0'
+                page.locator('button[data-page=assistant]').click()
+                page.locator('#fp-ai-mode').wait_for(state='visible')
+                assert page.locator('#fp-ai-mode').inner_text() == 'Phân tích nội bộ'
+                page.locator('[data-fp-prompt]').first.click()
+                assert 'Phân tích hiệu suất' in page.locator('#chat-input').input_value()
+                # Choosing an AI template only fills the text field; it never sends an API request.
+                page.wait_for_timeout(500)
+                page.screenshot(path=str(ARTIFACTS/'09-finpoint-ai-center.png'),full_page=True)
+                page.locator('button[data-page=accounts]').click()
+                page.locator('#accounts-table tr[data-platform=demo]').wait_for(state='visible')
                 page.screenshot(path=str(ARTIFACTS/'03-demo-filter.png'),full_page=True)
                 # Regression smoke: independent FinPoint workspace pages.
                 for name, marker in [
