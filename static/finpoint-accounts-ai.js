@@ -82,6 +82,7 @@
  }
  document.addEventListener('DOMContentLoaded',()=>{
    initAccounts();initAI();
+   document.addEventListener('lhm:accounts-loaded',()=>setTimeout(refreshAccounts,0));
    page('accounts')?.addEventListener('click',()=>setTimeout(refreshAccounts,350));
    $('refresh-accounts')?.addEventListener('click',()=>setTimeout(refreshAccounts,450));
    $('accounts-table')?.addEventListener('click',e=>{
