@@ -151,10 +151,12 @@ async def run_background():
     validate_secrets()
     init_db()
     init_monitor_db()
+    from .advisor import heartbeat, scan_account
     # Each enabled org can choose its own schedule, initial pass at startup.
     last_run={}
     while True:
         try:
+            heartbeat()
             if read_license()['active']:
                 now=time.monotonic()
                 with connection() as db:
@@ -163,6 +165,15 @@ async def run_background():
                 if due:
                     # collect_once limits work to 20 accounts total; subsequent cycles catch new accounts.
                     await collect_once(org_ids={x['org_id'] for x in due})
+                    # Daily-only campaign advice, without an Ads write path.
+                    with connection() as db:
+                        accts=[dict(a) for a in db.execute("""SELECT a.* FROM accounts a
+                         JOIN monitor_settings s ON s.org_id=a.org_id AND s.enabled=1
+                         WHERE a.platform IN ('google','meta') AND a.token_ciphertext IS NOT NULL
+                         AND a.org_id IN (""" + ','.join('?' for _ in due) + ") LIMIT 20",
+                         tuple(x['org_id'] for x in due)).fetchall()]
+                    for account in accts:
+                        await scan_account(account)
                     for row in due:last_run[row['org_id']]=now
         except Exception:
             # Fail closed: monitoring never performs write operations on providers.
@@ -209,3 +220,6 @@ def disable_windows_agent(ident=Depends(browser_admin)):
         db.execute('UPDATE monitor_settings SET enabled=0 WHERE org_id=?',(ident['org_id'],))
         audit(db,ident,'monitor.autostart','Background monitor disabled and Run key removed')
     return {'ok':True}
+
+# Routes for the local read-only campaign adviser.
+from . import advisor  # noqa: E402,F401
