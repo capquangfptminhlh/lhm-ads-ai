@@ -81,6 +81,9 @@ def init_db():
         """)
         # Migration: revoke all previously issued third-party tool keys at startup.
         db.execute("DROP TABLE IF EXISTS api_keys")
+        # Permanently disable and revoke credentials from the retired outbound MCP pilot.
+        for legacy_table in ("agent_outputs", "agent_jobs", "mcp_connections"):
+            db.execute(f"DROP TABLE IF EXISTS {legacy_table}")
 
 
 def audit(db, ident, event, detail):

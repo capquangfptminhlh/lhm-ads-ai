@@ -3,7 +3,6 @@ import os
 import re
 import time
 import json
-import asyncio
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -23,15 +22,7 @@ from .providers import fetch_report, pause_meta_campaign
 async def lifespan(application):
     validate_secrets()
     init_db()
-    from .agent_mcp import init_agent_db, scheduler_loop
-    init_agent_db()
-    scheduler = asyncio.create_task(scheduler_loop())
-    try:
-        yield
-    finally:
-        scheduler.cancel()
-        with __import__('contextlib').suppress(asyncio.CancelledError):
-            await scheduler
+    yield
 
 app = FastAPI(title='LHM Ads AI Starter', docs_url=None, redoc_url=None, lifespan=lifespan)
 app.mount('/static', StaticFiles(directory=str(Path(__file__).resolve().parent.parent/'static')), name='static')

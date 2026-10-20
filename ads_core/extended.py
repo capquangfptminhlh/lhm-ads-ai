@@ -13,10 +13,6 @@ from pydantic import BaseModel, Field
 from .app import app, browser_admin, identify, require, summary
 from .db import audit, connection
 from .security import hash_password, make_secret
-from .agent_mcp import router as automation_router
-
-app.include_router(automation_router)
-
 STATIC = Path(__file__).resolve().parent.parent / 'static'
 # Preserve old dashboard as /classic while making the redesigned studio the home.
 app.router.routes[:] = [r for r in app.router.routes if not (isinstance(r, APIRoute) and r.path == '/')]
@@ -28,10 +24,6 @@ def entry():
 @app.get('/studio', include_in_schema=False)
 def studio():
     return FileResponse(STATIC / 'studio.html')
-
-@app.get('/automation', include_in_schema=False)
-def automation_view():
-    return FileResponse(STATIC / 'automation.html')
 
 class ChatInput(BaseModel):
     message: str = Field(min_length=2, max_length=1200)

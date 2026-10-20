@@ -85,9 +85,10 @@ def test_external_tool_routes_removed(env):
     script=env.get('/static/studio.js').text.lower()
     assert '/api/mcp/call' not in html and '/api/mcp/call' not in script
     assert '/api/keys' not in html and '/api/keys' not in script
-    # The new outbound MCP client is accessible only after browser login;
-    # there is still NO incoming MCP protocol endpoint.
-    assert '/automation' in html
+    # No inbound or outbound MCP integrations are exposed by this private studio.
+    assert '/automation' not in html
+    assert env.get('/automation').status_code == 404
+    assert env.get('/api/automation/connections').status_code == 404
     assert env.get('/static/app.js').status_code==404
     assert env.get('/static/index.html').status_code==404
 
