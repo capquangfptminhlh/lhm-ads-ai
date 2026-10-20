@@ -15,7 +15,7 @@ from .db import connection, audit
 class GoalInput(BaseModel):
     enabled: bool = False
     objective: Literal['cpa','roas'] = 'cpa'
-    target: float = Field(default=0, gt=0, le=10**12, allow_inf_nan=False)
+    target: float = Field(..., gt=0, le=10**12, allow_inf_nan=False)
     min_conversions: int = Field(default=5, ge=3, le=1000)
     min_clicks: int = Field(default=100, ge=20, le=100000)
 
