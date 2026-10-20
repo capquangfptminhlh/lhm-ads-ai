@@ -185,6 +185,9 @@ async def openrouter_answer(ident, message, period):
         cfg = db.execute('SELECT * FROM openrouter_settings WHERE org_id=?', (org,)).fetchone()
     if not cfg or not cfg['enabled'] or not cfg['token_ciphertext']:
         return None
+    if __import__('os').environ.get('LHM_DESKTOP_MODE') == '1':
+        from .licensing import license_required
+        license_required()
     if ident['role'] == 'reader':
         raise HTTPException(403, 'Chỉ Admin/Operator được gọi AI có tính phí')
     now = time.monotonic()

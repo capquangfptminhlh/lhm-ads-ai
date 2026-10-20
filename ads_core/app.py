@@ -265,6 +265,8 @@ async def approve(action_id:int, ident=Depends(browser_admin)):
             raise HTTPException(404,'Không tìm thấy lệnh')
         if row['status']!='pending':
             raise HTTPException(409,'Lệnh đã được xử lý')
+        from .licensing import license_required
+        license_required()
         cur=db.execute("UPDATE actions SET status='executing',reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'",
                        (ident['id'],action_id))
         if cur.rowcount!=1:

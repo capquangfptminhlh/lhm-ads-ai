@@ -167,3 +167,6 @@ from . import network_status  # noqa: E402,F401
 
 # Register local first-run UI. Guarded by desktop mode and loopback-only requests.
 from . import desktop_onboarding  # noqa: E402,F401
+
+# Commercial Windows: locally signed licenses and read-only monitoring.
+from . import licensing, monitoring  # noqa: E402,F401

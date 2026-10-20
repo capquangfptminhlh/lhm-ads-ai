@@ -77,6 +77,7 @@ def show_startup_error(message: str):
 def main():
     p = argparse.ArgumentParser(description='LHM Ads AI - Windows desktop')
     p.add_argument('--headless', action='store_true', help='CI only; do not open GUI')
+    p.add_argument('--agent-only', action='store_true', help='Optional read-only monitor independent of UI')
     p.add_argument('--window-smoke', action='store_true', help='Short native-window test on Windows')
     p.add_argument('--port', type=int, default=8765, help='Local-only port')
     args = p.parse_args()
@@ -86,6 +87,22 @@ def main():
     os.environ['PUBLIC_BASE_URL'] = f'http://localhost:{args.port}'
     folder = configure_local_storage()
     configure_windowed_logs(folder)
+    if args.agent_only:
+        if sys.platform == 'win32':
+            import ctypes
+            kernel32=ctypes.windll.kernel32
+            kernel32.CreateMutexW.restype=ctypes.c_void_p
+            mutex=kernel32.CreateMutexW(None,False,'Local\\LHMAdsAI-BackgroundMonitor')
+            if kernel32.GetLastError()==183:
+                return
+        import asyncio
+        from ads_core.monitoring import run_background
+        try:
+            asyncio.run(run_background())
+        finally:
+            if sys.platform == 'win32':
+                kernel32.CloseHandle(ctypes.c_void_p(mutex))
+        return
     from ads_core.desktop_onboarding import prepare_first_run
     setup_token = prepare_first_run()
     # Import routes after the onboarding token is created.

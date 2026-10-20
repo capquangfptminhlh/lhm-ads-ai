@@ -95,3 +95,7 @@ hand-off requires a valid Google/Meta developer app and provider-granted scopes.
 Giao diện **Tài khoản Ads** có hai thẻ chọn riêng **Google Ads** và **Meta Ads**; từng nền tảng có hướng dẫn OAuth, cấu hình ứng dụng, nút đăng nhập, danh sách chờ chọn tài khoản và nhập token nâng cao riêng. Không sử dụng chung tài khoản Google với Facebook. Bộ lọc và nút **Kiểm tra API** có thể đọc thử báo cáo của chính tài khoản được chọn; trạng thái “Đã lưu token” không đồng nghĩa đã kết nối API thành công. [Hướng dẫn trong repo](docs/CONNECT_PROVIDERS.md).
 
 Giao diện đã bổ sung hiệu ứng chuyển trang nhẹ, thẻ thống kê, biểu đồ, bộ lọc tài khoản và hỗ trợ hệ thống bật Reduce Motion. Không thay đổi chính sách bảo mật hoặc bật MCP. Google/Meta production OAuth và quyền quảng cáo thật vẫn cần ứng dụng/giấy phép của nhà cung cấp. Chưa triển khai TikTok/OpenAI Ads API thực.
+
+## Offline monthly rental & Windows background collector (pilot)
+
+See [docs/COMMERCIAL_LICENSE.md](docs/COMMERCIAL_LICENSE.md). Local machine-bound signed licenses are issued and renewed manually, the issuer's private signing key must never be in GitHub or EXE. The opt-in background collector only reads 7-day provider summary and records errors; it does NOT optimize bids, budgets or strategies. Billing integration and fully autonomous Ads API writing remain unimplemented.
