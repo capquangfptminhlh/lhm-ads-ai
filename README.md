@@ -59,3 +59,12 @@ A login-and-select-account OAuth flow is now implemented using server-side Googl
 Khi mở EXE, chương trình dùng mạng Internet sẵn có của Windows, không cần kết nối qua VPS và không cần cấu hình địa chỉ máy chủ. Giao diện và API vẫn chỉ chạy ở `127.0.0.1:8765`. Sau khi đăng nhập, ứng dụng kiểm tra truy cập Internet qua hai địa chỉ HTTPS công khai cố định (Google và Cloudflare) bằng cách gọi từ máy cục bộ khoảng 45 giây/lần. Không gửi cookies, token Ads, API keys hay dữ liệu khách hàng tới hai địa chỉ kiểm tra. Nếu hai địa chỉ không truy cập được, ứng dụng hiển thị 'Chưa xác nhận Internet' (có thể vẫn có Internet nếu firewall chặn các địa chỉ đó).
 
 Khi đường truyền phục hồi và người dùng đang xem Dashboard/Tài khoản Ads, ứng dụng tự tải lại dữ liệu; không tự đăng nhập hay xin thêm quyền thay người dùng. Google/Meta yêu cầu người dùng cấp OAuth một lần và cấu hình ứng dụng phù hợp; OpenRouter cần khóa hợp lệ và quyền chia sẻ dữ liệu do người dùng chủ động bật. Khi offline, giao diện cục bộ vẫn mở được nhưng không thể lấy báo cáo mới hoặc gọi AI trực tuyến. Đây là ứng dụng EXE portable, không phải bộ cài tự khởi động cùng Windows.
+
+
+## Windows UX: no more CMD prompts
+
+The Windows executable now uses PyInstaller `--windowed` (no black console window). On a fresh machine, it automatically opens a beautifully styled Vietnamese onboarding screen to create the first administrator and signs in automatically. Later launches open the dashboard directly.
+
+The one-time setup endpoint is enabled only in desktop mode, accessible only on loopback, requires an ephemeral random token delivered via the browser URL fragment, and refuses any second administrator bootstrap after one account exists. User data stays in `%LOCALAPPDATA%\\LHMAdsAI`. Browser-based interface remains local at `http://localhost:8765`; no VPS or MCP. Credentials for Google/Meta OAuth and OpenRouter must still be configured by the user.
+
+The EXE is portable, not an MSI installer, and is not yet code-signed. To stop the background process, close LHM Ads AI using Windows Task Manager. For troubleshooting, inspect the local `%LOCALAPPDATA%\\LHMAdsAI\\logs\\startup.log`.

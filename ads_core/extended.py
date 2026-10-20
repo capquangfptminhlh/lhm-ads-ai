@@ -164,3 +164,6 @@ from . import desktop_setup  # noqa: E402,F401
 
 # Session-protected Internet status, used by Windows desktop auto-reconnect UI.
 from . import network_status  # noqa: E402,F401
+
+# Register local first-run UI. Guarded by desktop mode and loopback-only requests.
+from . import desktop_onboarding  # noqa: E402,F401

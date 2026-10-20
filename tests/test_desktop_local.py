@@ -80,8 +80,8 @@ def test_windows_launcher_uses_loopback_and_browser_localhost():
     from pathlib import Path
     root=Path(__file__).resolve().parents[1]
     script=(root/'windows/launcher.py').read_text(encoding='utf8')
-    assert 'host="127.0.0.1"' in script
-    assert '"LHM_DESKTOP_MODE"' in script
+    assert "host='127.0.0.1'" in script
+    assert "'LHM_DESKTOP_MODE'" in script
     assert 'http://localhost:{args.port}' in script
     html=(root/'static/studio.html').read_text(encoding='utf8')
     for key in ['desktop-google-form','desktop-meta-form','desktop-provider-panel']:

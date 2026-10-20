@@ -14,7 +14,7 @@ permissions:
 jobs:
   windows-exe:
     runs-on: windows-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,24 +27,27 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt pytest pyinstaller
+          python -m pip install -r requirements.txt pytest pyinstaller pillow
       - name: Run Python tests on Windows
         shell: pwsh
         run: python -m pytest -q
-      - name: Build EXE (one-file Windows x64)
+      - name: Make branded Windows icon
+        shell: pwsh
+        run: python windows/make_icon.py
+      - name: Build EXE with NO console window
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --console --name LHM-Ads-AI --paths . --add-data "static;static" --collect-submodules uvicorn --collect-submodules ads_core --collect-all cryptography windows/launcher.py
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name LHM-Ads-AI --icon windows/lhm-ads-ai.ico --paths . --add-data "static;static" --collect-submodules uvicorn --collect-submodules ads_core --collect-all cryptography windows/launcher.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Test-Path dist/LHM-Ads-AI.exe)) { throw 'EXE not generated' }
-      - name: Launch Windows EXE and test HTTP login boundary
+      - name: Launch actual Windows EXE and check onboarding
         shell: pwsh
         run: ./windows/smoke-test.ps1
       - name: Upload tested EXE
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: LHM-Ads-AI-Windows-x64
+          name: LHM-Ads-AI-Windows-Beautiful-Onboarding
           path: dist/LHM-Ads-AI.exe
           if-no-files-found: error
           retention-days: 14
