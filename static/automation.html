@@ -6,7 +6,7 @@
 <header class="automation-top"><div><p class="eyebrow">PRIVATE AUTOMATION WORKSPACE</p>
 <h1>Trung tâm MCP & Lịch AI</h1><p class="muted">Kết nối ra Google Ads / Meta Ads. Không mở MCP inbound. Công cụ đọc được giới hạn bởi VPS.</p></div>
 <a class="btn secondary" href="/studio">← Về Dashboard</a></header>
-<div class="notice warning"><b>Chế độ an toàn:</b> phiên bản này đọc công cụ MCP đã được cho phép, lập lịch báo cáo và tạo <b>nháp kế hoạch</b>. Không tự tạo quảng cáo thật, không sửa ngân sách, không chạy công cụ ghi. Lịch nháp hiện dùng mẫu quy tắc, chưa gọi LLM.</div>
+<div class="notice warning"><b>Chế độ an toàn:</b> phiên bản này đọc công cụ MCP đã được cho phép, lập lịch báo cáo và tạo <b>nháp kế hoạch</b>. Không tự tạo quảng cáo thật, không sửa ngân sách, không chạy công cụ ghi. Lịch nháp dùng AI nếu VPS có cấu hình mô hình nội bộ; chưa cấu hình thì dùng mẫu quy tắc.</div>
 <div id="error" class="notice hidden" role="alert"></div>
 <section class="automation-grid">
 <article class="panel"><h2>1. Kết nối MCP</h2>
@@ -31,7 +31,7 @@
 <pre id="read-output" class="automation-pre" aria-live="polite"></pre>
 </article>
 <article class="panel"><h2>3. Lên lịch</h2>
-<p class="muted tiny">Lịch chạy hàng ngày theo múi giờ Việt Nam. Kết quả chỉ lưu nội bộ để duyệt.</p>
+<p class="muted tiny">Lịch chạy hàng ngày theo múi giờ Việt Nam. Kết quả chỉ lưu nội bộ để duyệt.</p><p id="ai-status" class="muted tiny">Đang kiểm tra mô hình AI nội bộ...</p>
 <form id="job-form" class="automation-form">
 <label>Loại lịch<select id="job-type"><option value="campaign_draft">Chuẩn bị nháp kế hoạch quảng cáo</option><option value="report">Lấy báo cáo qua MCP</option></select></label>
 <label>Tên công việc<input id="job-title" required minlength="3" placeholder="Nháp chiến dịch phụ kiện điện thoại"></label>
