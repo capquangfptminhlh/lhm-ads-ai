@@ -100,6 +100,10 @@ def open_browser_after_start(port: int) -> None:
 
 
 def main() -> None:
+    # Redirected Windows runner output can default to cp1252, which breaks on Vietnamese.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     p = argparse.ArgumentParser(description="LHM Ads AI - chạy dashboard an toàn trên máy Windows")
     p.add_argument("--headless", action="store_true", help="Không tạo admin hay mở browser (dành cho CI)")
     p.add_argument("--port", type=int, default=8765, help="Cổng localhost (mặc định 8765)")
