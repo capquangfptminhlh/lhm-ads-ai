@@ -29,6 +29,10 @@ def entry():
 def studio():
     return FileResponse(STATIC / 'studio.html')
 
+@app.get('/automation', include_in_schema=False)
+def automation_view():
+    return FileResponse(STATIC / 'automation.html')
+
 class ChatInput(BaseModel):
     message: str = Field(min_length=2, max_length=1200)
     period: str = Field(default='last_7d', pattern=r'^(last_7d|yesterday)$')
