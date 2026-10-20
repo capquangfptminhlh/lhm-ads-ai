@@ -152,6 +152,7 @@ async def run_background():
     init_db()
     init_monitor_db()
     from .advisor import heartbeat, scan_account
+    from .reconciliation import reconcile_due
     # Each enabled org can choose its own schedule, initial pass at startup.
     last_run={}
     while True:
@@ -174,6 +175,8 @@ async def run_background():
                          tuple(x['org_id'] for x in due)).fetchall()]
                     for account in accts:
                         await scan_account(account)
+                    # Only read back already approved changes; never replay mutations.
+                    await reconcile_due({row['org_id'] for row in due})
                     for row in due:last_run[row['org_id']]=now
         except Exception:
             # Fail closed: monitoring never performs write operations on providers.
