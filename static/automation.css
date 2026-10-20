@@ -1,0 +1,11 @@
+
+.automation-main{max-width:1450px;margin:auto;padding:32px 24px 80px}
+.automation-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:22px;flex-wrap:wrap}
+.automation-top h1{margin:0 0 6px}.automation-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:24px}
+.automation-form{display:grid;gap:12px;margin:14px 0 20px}.automation-form label{display:flex;flex-direction:column;gap:6px;min-width:0}
+.automation-form textarea{resize:vertical}.automation-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.automation-list{display:grid;gap:8px;margin-top:12px}.automation-item{border:1px solid var(--border,#30384f);border-radius:12px;padding:12px;overflow-wrap:anywhere}
+.automation-item b{display:block;margin-bottom:5px}.automation-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.automation-pre{font:12px/1.5 monospace;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto;background:rgba(128,128,128,.08);border-radius:10px}
+.automation-item small{opacity:.8}.automation-item p{margin:4px 0}
+@media(max-width:880px){.automation-grid{grid-template-columns:1fr}.automation-main{padding:18px 12px 50px}}
