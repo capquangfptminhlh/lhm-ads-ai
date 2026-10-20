@@ -12,6 +12,7 @@ Private Vietnamese advertising dashboard designed for your VPS. The public/inbou
 - /automation: add an allowlisted HTTPS MCP endpoint and Bearer token; token is encrypted and never shown again.
 - Admin can test MCP handshake, list available tools, approve read-only tool names in VPS config and schedule daily reports or draft campaign plans.
 - Scheduler runs daily at Asia/Ho_Chi_Minh local time and stores output for human review. It never creates live campaigns or changes budgets.
+- Optionally set `LOCAL_AI_CHAT_URL` to a private OpenAI-compatible `/v1/chat/completions` endpoint, `LOCAL_AI_MODEL` and if needed `LOCAL_AI_KEY` to generate actual draft plans/analyses. Without them the assistant is only rules-based. Never point local AI to a public endpoint without a separate security/privacy review.
 
 ## Upgrade from 0.2
 
