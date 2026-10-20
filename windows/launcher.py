@@ -89,7 +89,7 @@ def bootstrap_first_admin(*, headless: bool) -> None:
 
 
 def open_browser_after_start(port: int) -> None:
-    url = f"http://127.0.0.1:{port}/studio"
+    url = f"http://localhost:{port}/studio"
 
     def worker() -> None:
         health = f"http://127.0.0.1:{port}/healthz"
@@ -114,7 +114,8 @@ def main() -> None:
     args = p.parse_args()
     if not (1024 <= args.port <= 65535):
         p.error("Port must be between 1024 and 65535")
-    os.environ.setdefault("PUBLIC_BASE_URL", f"http://127.0.0.1:{args.port}")
+    os.environ["LHM_DESKTOP_MODE"] = "1"
+    os.environ["PUBLIC_BASE_URL"] = f"http://localhost:{args.port}"
     configure_local_storage()
     bootstrap_first_admin(headless=args.headless)
     from ads_core.extended import app

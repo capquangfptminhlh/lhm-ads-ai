@@ -160,3 +160,4 @@ async def export_report(period:str='last_7d', ident=Depends(require('admin','ope
 
 # Register server-side first-party OAuth routes (does not expose an MCP interface).
 from . import oauth_connect  # noqa: E402,F401
+from . import desktop_setup  # noqa: E402,F401

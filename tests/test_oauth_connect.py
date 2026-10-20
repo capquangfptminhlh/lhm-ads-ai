@@ -167,8 +167,9 @@ def test_missing_credentials_returns_422_not_redirect(env,monkeypatch):
     monkeypatch.delenv('META_APP_SECRET')
     assert env.post('/api/oauth/meta/start',headers=h).status_code==422
     assert not env.get('/api/oauth/status').json()['meta']['configured']
+    # Developer token sunset (2026): OAuth requires approved Google Cloud project, not legacy developer token.
     monkeypatch.delenv('GOOGLE_ADS_DEVELOPER_TOKEN')
-    assert env.post('/api/oauth/google/start',headers=h).status_code==422
+    assert env.post('/api/oauth/google/start',headers=h).status_code==200
 
 
 def test_non_admin_and_csrf_cannot_start_or_import(env):

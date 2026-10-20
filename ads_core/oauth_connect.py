@@ -73,12 +73,18 @@ def app_origin():
     raise HTTPException(503, 'OAuth yêu cầu HTTPS hoặc localhost; cấu hình PUBLIC_BASE_URL')
 
 
-def provider_config(provider):
+def provider_config(provider,org_id=None):
+    from .desktop_setup import desktop_mode, desktop_provider
+    if desktop_mode():
+        cfg=desktop_provider(org_id or "main",provider)
+        if not cfg:
+            return "", "", False
+        cid,secret=cfg["client_id"],cfg["client_secret"]
+        return cid,secret,bool(cid and (provider=="google" or secret))
     if provider == 'google':
         cid = os.getenv('GOOGLE_OAUTH_CLIENT_ID', '').strip()
         secret = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', '').strip()
-        developer_token = os.getenv('GOOGLE_ADS_DEVELOPER_TOKEN','').strip()
-        return cid, secret, bool(cid and secret and developer_token)
+        return cid, secret, bool(cid and secret) # legacy server-side web flow
     if provider == 'meta':
         cid = os.getenv('META_APP_ID', '').strip()
         secret = os.getenv('META_APP_SECRET', '').strip()
@@ -99,20 +105,19 @@ def session_hash(request):
 
 @app.get('/api/oauth/status')
 def oauth_status(ident=Depends(browser_admin)):
-    del ident
     return {
-        'google': {'configured':provider_config('google')[2],
+        'google': {'configured':provider_config('google',ident['org_id'])[2],
                    'callback_url':callback_url('google'),
-                   'requires':'Google OAuth Web Client + Google Ads developer token'},
-        'meta': {'configured':provider_config('meta')[2],
+                   'requires':'Google OAuth Desktop Client on this computer; API access is tied to the Google Cloud project'},
+        'meta': {'configured':provider_config('meta',ident['org_id'])[2],
                  'callback_url':callback_url('meta'),
-                 'requires':'Meta App + Facebook Login + ads_read permission'},
+                 'requires':'Meta App + ads_read; localhost OAuth may only work in Development mode'},
     }
 
 
 @app.post('/api/oauth/{provider}/start')
 def start_oauth(provider: Literal['google','meta'], request: Request, ident=Depends(browser_admin)):
-    client_id, _, ready = provider_config(provider)
+    client_id, _, ready = provider_config(provider,ident['org_id'])
     if not ready:
         raise HTTPException(422, f'{provider.upper()}: chưa cấu hình thông tin ứng dụng OAuth trên máy chủ')
     init_oauth_tables()
@@ -152,9 +157,10 @@ def redirect_status(value):
 
 
 async def google_exchange(client, code, redirect_uri, verifier, cid, secret):
-    res=await client.post(GOOGLE_TOKEN, data={
-        'client_id':cid,'client_secret':secret,'code':code,'grant_type':'authorization_code',
-        'redirect_uri':redirect_uri,'code_verifier':verifier})
+    token_data={'client_id':cid,'code':code,'grant_type':'authorization_code',
+        'redirect_uri':redirect_uri,'code_verifier':verifier}
+    if secret: token_data['client_secret']=secret
+    res=await client.post(GOOGLE_TOKEN,data=token_data)
     res.raise_for_status()
     tokens=res.json()
     if not isinstance(tokens,dict) or not tokens.get('refresh_token') or not tokens.get('access_token'):
@@ -163,11 +169,13 @@ async def google_exchange(client, code, redirect_uri, verifier, cid, secret):
 
 
 async def google_candidates(client, access_token):
-    devtoken=os.environ['GOOGLE_ADS_DEVELOPER_TOKEN']
+    # Developer tokens were sunset for Google Ads API (Sep 2026). Legacy header is optional.
+    devtoken=os.environ.get('GOOGLE_ADS_DEVELOPER_TOKEN','')
     version=os.getenv('GOOGLE_ADS_API_VERSION','v25')
     if not re.fullmatch(r'v\d+', version):
         raise ValueError('Google Ads API version không hợp lệ')
-    headers={'Authorization':'Bearer '+access_token,'developer-token':devtoken}
+    headers={'Authorization':'Bearer '+access_token}
+    if devtoken: headers['developer-token']=devtoken
     url=f'https://googleads.googleapis.com/{version}/customers:listAccessibleCustomers'
     res=await client.get(url, headers=headers)
     res.raise_for_status()
@@ -265,7 +273,7 @@ async def oauth_callback(provider: Literal['google','meta'], request:Request,
             raise HTTPException(400,'OAuth state hết hạn hoặc không thuộc phiên đăng nhập')
     if error or not code or len(code)>4096:
         return redirect_status('cancelled')
-    cid, secret, ready=provider_config(provider)
+    cid, secret, ready=provider_config(provider,ident['org_id'])
     if not ready:
         return redirect_status('error')
     try:

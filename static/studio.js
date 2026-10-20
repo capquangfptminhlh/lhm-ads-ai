@@ -12,7 +12,7 @@ function notify(msg,error=false){const el=$('toast');el.textContent=msg;el.class
 async function api(url,options={}){const headers={'Accept':'application/json',...options.headers};if(options.body)headers['Content-Type']='application/json';if(session?.csrf&&options.method&&!['GET','HEAD'].includes(options.method))headers['X-CSRF-Token']=session.csrf;let r;try{r=await fetch(url,{credentials:'same-origin',...options,headers})}catch{throw Error('Không thể kết nối server')};const ct=r.headers.get('content-type')||'';const data=ct.includes('application/json')?await r.json():await r.text();if(!r.ok){if(r.status===401){session=null;showLogin()}throw Error(typeof data==='object'?(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||data)):String(data).slice(0,220))}return data}
 function isAdmin(){return session?.role==='admin'}function showLogin(){$('shell').classList.add('hidden');$('login').classList.remove('hidden')}
 function showApp(){$('login').classList.add('hidden');$('shell').classList.remove('hidden');$('user-name').textContent=session.email;document.querySelectorAll('.admin-only').forEach(x=>x.classList.toggle('hidden',!isAdmin()));const oauth=new URLSearchParams(location.search).get('oauth');history.replaceState(null,'','/studio');go(oauth?'accounts':'dashboard');if(oauth&&oauth!=='ready')notify(({cancelled:'Đã hủy đăng nhập OAuth',no_accounts:'Không tìm thấy tài khoản quảng cáo được cấp quyền',provider_error:'Không kết nối được API quảng cáo. Kiểm tra quyền OAuth và ứng dụng.'})[oauth]||'Không hoàn thành kết nối OAuth',true)}
-function go(page){if(!names[page])return;if(['team','audit'].includes(page)&&!isAdmin())return;current=page;$('page-title').textContent=names[page];document.querySelectorAll('.view').forEach(el=>el.classList.toggle('hidden',el.id!=='page-'+page));document.querySelectorAll('.nav-link').forEach(el=>el.classList.toggle('active',el.dataset.page===page));$('sidebar').classList.remove('open');({dashboard:loadDashboard,accounts:loadAccounts,approvals:loadActions,team:loadTeam,audit:loadAudit,settings:loadAISettings,assistant:loadAISettings})[page]?.()}
+function go(page){if(!names[page])return;if(['team','audit'].includes(page)&&!isAdmin())return;current=page;$('page-title').textContent=names[page];document.querySelectorAll('.view').forEach(el=>el.classList.toggle('hidden',el.id!=='page-'+page));document.querySelectorAll('.nav-link').forEach(el=>el.classList.toggle('active',el.dataset.page===page));$('sidebar').classList.remove('open');({dashboard:loadDashboard,accounts:loadAccounts,approvals:loadActions,team:loadTeam,audit:loadAudit,settings:()=>{loadAISettings();loadDesktopProviders()},assistant:loadAISettings})[page]?.()}
 async function initialize(){try{session=await api('/api/studio/me');showApp()}catch{showLogin()}}
 async function loadDashboard(){const chart=$('chart');chart.textContent='Đang đọc dữ liệu...';try{const [s,accounts]=await Promise.all([api('/api/summary?period='+encodeURIComponent($('period').value)),api('/api/accounts')]);cache=accounts;const t=s.totals;$('k-spend').textContent=t.spend===null?'Đa tiền tệ':fmt(t.spend)+(t.currency?' '+t.currency:'');$('k-currency').textContent=t.currency?'Đơn vị '+t.currency:'Không cộng chi phí khác loại';$('k-impressions').textContent=fmt(t.impressions);$('k-clicks').textContent=fmt(t.clicks);$('k-ctr').textContent=fmt(t.ctr)+'%';const bad=s.accounts.filter(x=>x.error);const note=$('source-warning');note.classList.toggle('hidden',!(t.contains_demo||bad.length));note.textContent=[t.contains_demo?'DỮ LIỆU DEMO được đánh dấu riêng, không phải hiệu suất thật.':'',bad.length?`${bad.length} nguồn không lấy được dữ liệu / chưa hỗ trợ.`:''].filter(Boolean).join(' ');
 const platformIcon={meta:'∞',google:'G',tiktok:'♪',openai:'✧',demo:'◈'};$('platform-stats').innerHTML=Object.keys(platformIcon).map(p=>`<div class="platform-stat"><span><i class="platform-icon ${p}">${platformIcon[p]}</i>${esc(({meta:'Meta Ads',google:'Google Ads',tiktok:'TikTok Ads',openai:'OpenAI Ads',demo:'Demo'})[p])}</span><b>${accounts.filter(a=>a.platform===p&&!a.label.startsWith('[REVOKED]')).length}</b></div>`).join('');
@@ -73,8 +73,8 @@ async function loadOAuthStatusAndPending(){
     for(const provider of ['google','meta'])$('oauth-'+provider).disabled=!status[provider].configured;
     const unavailable=['google','meta'].filter(p=>!status[p].configured);
     $('oauth-status').textContent=unavailable.length?
-       'Cần cấu hình OAuth máy chủ: '+unavailable.map(p=>p==='google'?'Google Ads':'Meta Ads').join(', ')+'. Redirect URI: '+unavailable.map(p=>status[p].callback_url).join(' | '):
-       'Google và Meta đã cấu hình. Chọn nền tảng để đăng nhập và cấp quyền.';
+       'Chưa cấu hình ứng dụng OAuth trên máy này: '+unavailable.map(p=>p==='google'?'Google Ads':'Meta Ads').join(', ')+'. Redirect URI: '+unavailable.map(p=>status[p].callback_url).join(' | '):
+       'Đã lưu thông tin ứng dụng tại máy. Đăng nhập bằng trình duyệt và cấp quyền.';
     const container=$('oauth-pending-list');container.textContent='';
     for(const flow of pending){
       const box=document.createElement('div');box.className='oauth-choice-box';
@@ -111,3 +111,30 @@ for(const provider of ['google','meta'])$('oauth-'+provider).onclick=async()=>{
     location.assign(url.href);
   }catch(e){notify(e.message,true)}
 };
+
+// Provider applications are configured per Windows installation; never upload secrets to GitHub.
+async function loadDesktopProviders(){
+  const panel=$('desktop-provider-panel');if(!panel||!isAdmin())return;
+  try{const data=await api('/api/desktop/providers');
+    panel.classList.toggle('hidden',!data.desktop);
+    for(const p of ['google','meta']){
+      $('desktop-'+p+'-id').value=data[p].client_id||'';
+      $('desktop-'+p+'-status').textContent=(data[p].configured?'Đã cấu hình trên máy. ':'Chưa cấu hình. ')+
+       (data[p].secret_saved?'Khóa đã lưu mã hóa. ':'')+'Địa chỉ callback: '+data[p].callback_url;
+    }
+  }catch(e){panel.classList.add('hidden')}
+}
+for(const p of ['google','meta']){
+  $('desktop-'+p+'-form').onsubmit=async e=>{
+    e.preventDefault();if(!isAdmin())return;
+    try{await api('/api/desktop/providers/'+p,{method:'PUT',body:JSON.stringify({
+      client_id:$('desktop-'+p+'-id').value.trim(),client_secret:$('desktop-'+p+'-secret').value.trim()})});
+      $('desktop-'+p+'-secret').value='';notify('Đã lưu cấu hình '+p+' trên máy.');
+      await loadDesktopProviders();await loadOAuthStatusAndPending();
+    }catch(ex){notify(ex.message,true)}
+  };
+  $('desktop-'+p+'-clear').onclick=async()=>{
+    if(!isAdmin()||!confirm('Xóa thông tin ứng dụng '+p+' trên máy? Các tài khoản đã kết nối vẫn còn dữ liệu token riêng.'))return;
+    try{await api('/api/desktop/providers/'+p,{method:'DELETE'});notify('Đã xóa cấu hình '+p);loadDesktopProviders();loadOAuthStatusAndPending()}catch(ex){notify(ex.message,true)}
+  };
+}

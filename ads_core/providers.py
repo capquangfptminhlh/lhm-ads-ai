@@ -111,19 +111,19 @@ async def google_report(acc, period):
     account_id=acc['external_id'].replace('-', '')
     if not re.fullmatch(r'\d{8,20}',account_id):
         raise HTTPException(422,'Google Ads customer ID phải là số')
+    # Google Ads API auth is associated with Google Cloud project since 2026; legacy dev token optional.
     developer_token=os.environ.get('GOOGLE_ADS_DEVELOPER_TOKEN','')
-    if not developer_token:
-        raise HTTPException(422,'Máy chủ chưa cấu hình GOOGLE_ADS_DEVELOPER_TOKEN')
     try:
         credentials=json.loads(account_token(acc))
-        if not all(isinstance(credentials.get(field),str) and credentials[field] for field in ('client_id','client_secret','refresh_token')):
+        if not all(isinstance(credentials.get(field),str) and credentials[field] for field in ('client_id','refresh_token')):
             raise ValueError('Missing OAuth credentials')
     except (json.JSONDecodeError,ValueError,TypeError):
-        raise HTTPException(422,'Google Ads token phải là JSON gồm client_id, client_secret và refresh_token')
+        raise HTTPException(422,'Google Ads token phải là JSON gồm client_id và refresh_token (client_secret có thể để trống ở Desktop)')
     during='YESTERDAY' if period=='yesterday' else 'LAST_7_DAYS'
     query=('SELECT segments.date, metrics.cost_micros, metrics.impressions, metrics.clicks '
            f'FROM customer WHERE segments.date DURING {during} ORDER BY segments.date ASC')
-    headers={'developer-token':developer_token}
+    headers={}
+    if developer_token: headers['developer-token']=developer_token
     if credentials.get('login_customer_id'):
         login_customer_id=credentials['login_customer_id'].replace('-', '')
         if not re.fullmatch(r'\d{8,20}',login_customer_id):
@@ -132,7 +132,8 @@ async def google_report(acc, period):
     try:
         async with httpx.AsyncClient(timeout=25) as client:
             oauth=await client.post('https://oauth2.googleapis.com/token',data={
-                'client_id':credentials['client_id'],'client_secret':credentials['client_secret'],
+                **({'client_secret': credentials['client_secret']} if credentials.get('client_secret') else {}),
+                'client_id':credentials['client_id'],
                 'refresh_token':credentials['refresh_token'],'grant_type':'refresh_token'})
             oauth.raise_for_status()
             access_token=oauth.json().get('access_token')
@@ -143,7 +144,7 @@ async def google_report(acc, period):
             response.raise_for_status()
             results=response.json()
     except (httpx.HTTPError,ValueError,TypeError):
-        raise HTTPException(502,'Không lấy được Google Ads: kiểm tra OAuth, developer token, quyền API và customer ID')
+        raise HTTPException(502,'Không lấy được Google Ads: kiểm tra OAuth, quyền API của Google Cloud và customer ID')
     if not isinstance(results,list):
         raise HTTPException(502,'Google Ads trả về dữ liệu không hợp lệ')
     days={}

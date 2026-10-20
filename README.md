@@ -1,3 +1,7 @@
+# Desktop local-only mode (EXE, không VPS)
+
+Khi dùng bản EXE Windows, ứng dụng chỉ chạy trên máy cá nhân và không cần VPS. Hướng dẫn: [docs/LOCAL_DESKTOP.md](docs/LOCAL_DESKTOP.md). Google OAuth Desktop hỗ trợ localhost; Meta localhost phụ thuộc chế độ App và có thể không chạy với Meta Live. Không có MCP.
+
 # LHM Ads AI — Private Studio 0.3
 
 Vietnamese advertising dashboard for an owner-managed VPS. **No MCP server, API keys, remote tool bridge or external AI model connection.** Data analysis is calculated locally from fetched provider reports, not sent to a third-party AI service. Supported upstream Meta and Google Ads APIs are separate from external remote-control integration.
