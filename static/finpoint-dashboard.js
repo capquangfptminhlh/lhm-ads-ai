@@ -29,7 +29,7 @@
     const labels=entries.map(([day],i)=>`<text x="${pt[i][0]}" y="250" text-anchor="middle">${safe(String(day).slice(5))}</text>`).join('');
     const circles=entries.map(([day,value],i)=>`<circle class="dot" cx="${pt[i][0]}" cy="${pt[i][1]}" r="4.5"><title>${safe(day)}: ${safe(money(value,currency))}</title></circle>`).join('');
     return `<svg class="fp-chart" viewBox="0 0 ${width} 268" role="img" aria-label="Biểu đồ chi tiêu ${safe(String(currency))} theo ngày, sử dụng báo cáo thực hoặc dữ liệu demo được đánh dấu riêng" preserveAspectRatio="none">
-      <defs><linearGradient id="fpArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fff3eb" stop-opacity=".45"/><stop offset="100%" stop-color="#fff3eb" stop-opacity="0"/></linearGradient></defs>
+      <defs><linearGradient id="fpArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ff5b35" stop-opacity=".35"/><stop offset="100%" stop-color="#ff5b35" stop-opacity="0"/></linearGradient></defs>
       ${guides}<path class="area" d="${area}"/><path class="trendline" d="${line}"/>${circles}${labels}
     </svg>`;
   };
