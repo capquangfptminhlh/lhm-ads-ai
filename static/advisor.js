@@ -16,11 +16,11 @@
       $('advisor-select').innerHTML=accounts.filter(a=>['google','meta'].includes(a.platform)&&a.connected)
         .map(a=>`<option value="${Number(a.id)}">${e(a.label)} (${e(a.platform)})</option>`).join('');
       const list=data.findings||[];
-      $('advisor-count').textContent=String(list.filter(f=>!f.acknowledged_at).length);
+      $('advisor-count').textContent=String(list.filter(f=>!f.acknowledged_at&&!f.resolved_at).length);
       $('advisor-list').innerHTML=list.length?`<table><thead><tr><th>Tài khoản</th><th>Chiến dịch</th><th>Cảnh báo</th><th>Phát hiện</th><th>Thao tác</th></tr></thead><tbody>`+
         list.map(f=>`<tr><td>${e(f.account_label)}</td><td>${e(f.campaign_id)}</td>`+
           `<td><b>${e(f.rule_code)}</b><p class="muted tiny">${e(f.message)}</p></td><td>${time(f.last_seen_at)}</td>`+
-          `<td>${f.acknowledged_at?'Đã xem':`<button type="button" class="btn secondary" data-ack-finding="${Number(f.id)}">Đánh dấu đã xem</button>`}</td></tr>`).join('')+
+          `<td>${f.resolved_at?'Đã phục hồi':f.acknowledged_at?'Đã xem':`<button type="button" class="btn secondary" data-ack-finding="${Number(f.id)}">Đánh dấu đã xem</button>`}</td></tr>`).join('')+
         '</tbody></table>':`<p class="muted">Chưa có cảnh báo. Bật giám sát nền tại Cài đặt hoặc quét tài khoản để kiểm tra.</p>`;
       $('advisor-warning').textContent='Cảnh báo theo quy tắc, không phải AI tự ra lệnh. Không tự dừng chiến dịch hoặc đổi ngân sách.';
     } catch(err){status(err.message||String(err));}
