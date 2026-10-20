@@ -107,6 +107,38 @@ def main():
                 page.evaluate('window.scrollTo(0, 0)')
                 page.wait_for_timeout(850)  # Let transitions finish before capture
                 page.screenshot(path=str(ARTIFACTS/'03-demo-filter.png'),full_page=True)
+                # Regression smoke: independent FinPoint workspace pages.
+                for name, marker in [
+                    ('campaigns', '#opt-inspect'),
+                    ('autopilot', '#ap-panel'),
+                    ('alerts', '#advisor-list'),
+                    ('license', '#license-device'),
+                    ('reports', '#ws-report-table')]:
+                    page.locator(f'button[data-page={name}]').click()
+                    page.locator(f'#page-{name}').wait_for(state='visible')
+                    page.locator(marker).wait_for(state='visible')
+                    assert page.locator('#page-approvals').is_hidden(), name
+                page.locator('#ws-report-chart').wait_for(state='visible')
+                page.wait_for_timeout(500)
+                assert 'Preview Demo Only' in page.locator('#ws-report-table').inner_text()
+                assert 'DEMO' in page.locator('#ws-report-table').inner_text()
+                page.screenshot(path=str(ARTIFACTS/'04-finpoint-reports.png'),full_page=True)
+                page.locator('button[data-page=autopilot]').click()
+                page.locator('#ap-panel').wait_for(state='visible')
+                page.screenshot(path=str(ARTIFACTS/'05-finpoint-autopilot.png'),full_page=True)
+                page.locator('button[data-page=alerts]').click()
+                page.locator('#advisor-list').wait_for(state='visible')
+                page.screenshot(path=str(ARTIFACTS/'06-finpoint-alerts.png'),full_page=True)
+                page.locator('button[data-page=license]').click()
+                page.locator('#license-device').wait_for(state='visible')
+                page.screenshot(path=str(ARTIFACTS/'07-finpoint-license.png'),full_page=True)
+                page.set_viewport_size({'width':390,'height':844})
+                page.locator('#menu').click()
+                page.locator('button[data-page=reports]').click()
+                page.locator('#page-reports').wait_for(state='visible')
+                page.wait_for_timeout(400)
+                page.screenshot(path=str(ARTIFACTS/'08-finpoint-mobile-reports.png'),full_page=True)
+                print('PASS: separate campaigns, autopilot, alerts, license and reports pages; report data is sourced from Demo API')
                 print('PASS: Google/Meta selected separately, Demo not mixed, native API/UI flow works')
                 browser.close()
         finally:
