@@ -89,3 +89,9 @@ Google blocks OAuth logins from embedded webviews. After consent the browser
 shows a confirmation and the desktop app retrieves the pending account list;
 ad account data/tokens stay in the authenticated desktop session. This
 hand-off requires a valid Google/Meta developer app and provider-granted scopes.
+
+
+## Google Ads / Meta Ads: kết nối riêng từng nền tảng
+Giao diện **Tài khoản Ads** có hai thẻ chọn riêng **Google Ads** và **Meta Ads**; từng nền tảng có hướng dẫn OAuth, cấu hình ứng dụng, nút đăng nhập, danh sách chờ chọn tài khoản và nhập token nâng cao riêng. Không sử dụng chung tài khoản Google với Facebook. Bộ lọc và nút **Kiểm tra API** có thể đọc thử báo cáo của chính tài khoản được chọn; trạng thái “Đã lưu token” không đồng nghĩa đã kết nối API thành công. [Hướng dẫn trong repo](docs/CONNECT_PROVIDERS.md).
+
+Giao diện đã bổ sung hiệu ứng chuyển trang nhẹ, thẻ thống kê, biểu đồ, bộ lọc tài khoản và hỗ trợ hệ thống bật Reduce Motion. Không thay đổi chính sách bảo mật hoặc bật MCP. Google/Meta production OAuth và quyền quảng cáo thật vẫn cần ứng dụng/giấy phép của nhà cung cấp. Chưa triển khai TikTok/OpenAI Ads API thực.

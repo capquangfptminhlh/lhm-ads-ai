@@ -32,6 +32,9 @@ jobs:
       - name: Run Python tests on Windows
         shell: pwsh
         run: python -m pytest -q
+      - name: Check provider wizard JavaScript
+        shell: pwsh
+        run: node --check static/provider-studio.js
       - name: Make branded Windows icon
         shell: pwsh
         run: python windows/make_icon.py
