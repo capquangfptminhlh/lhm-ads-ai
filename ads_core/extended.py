@@ -13,6 +13,9 @@ from pydantic import BaseModel, Field
 from .app import app, browser_admin, identify, require, summary
 from .db import audit, connection
 from .security import hash_password, make_secret
+from .agent_mcp import router as automation_router
+
+app.include_router(automation_router)
 
 STATIC = Path(__file__).resolve().parent.parent / 'static'
 # Preserve old dashboard as /classic while making the redesigned studio the home.
