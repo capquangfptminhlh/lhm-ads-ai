@@ -1,4 +1,4 @@
-"""LHM Ads AI Studio: private report analysis and staff management.
+"""LHM Ads AI Studio: private on-server report analysis and staff management.
 
 Uses existing tenant-scoped services; never exposes provider tokens to a model.
 """
@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from .app import app, browser_admin, identify, require, summary
 from .db import audit, connection
 from .security import hash_password, make_secret
+
 STATIC = Path(__file__).resolve().parent.parent / 'static'
 # Preserve old dashboard as /classic while making the redesigned studio the home.
 app.router.routes[:] = [r for r in app.router.routes if not (isinstance(r, APIRoute) and r.path == '/')]
@@ -62,13 +63,18 @@ def grounded_answer(message, data):
     parts.append('Chưa có dữ liệu chuyển đổi/doanh thu nên không thể xác định CPA hay ROAS; không tự bật/tắt quảng cáo.')
     return '\n'.join(parts)
 
+from .openrouter_ai import openrouter_answer
+
 @app.post('/api/assistant/chat')
 async def assistant_chat(payload: ChatInput, ident=Depends(require('admin', 'operator', 'reader'))):
+    ai_reply = await openrouter_answer(ident, payload.message, payload.period)
+    if ai_reply is not None:
+        return ai_reply
     data = await summary(period=payload.period, ident=ident)
     explanation = grounded_answer(payload.message, data)
-    # Analyze only on this VPS; never send reports to outside AI models.
-    return {'reply':explanation,'mode':'analyst','sources':data['totals']['sources'],
-            'disclaimer':'Phân tích trên VPS; không gửi dữ liệu cho AI bên ngoài.'}
+    # Privacy-first: only deterministic local analysis. Never export report data to LLM services.
+    return {'reply': explanation, 'mode': 'analyst', 'sources': data['totals']['sources'],
+            'disclaimer': 'Phân tích trên VPS; không gửi dữ liệu cho AI bên ngoài.'}
 
 class TeamInput(BaseModel):
     email: str = Field(min_length=5,max_length=254)
