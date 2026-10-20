@@ -56,6 +56,8 @@ def save_goal(account_id:int,body:GoalInput,ident=Depends(browser_admin)):
     acc=get_account(account_id,ident['org_id'])
     if acc['platform'] not in ('google','meta'):
         raise HTTPException(422,'Chỉ hỗ trợ mục tiêu trên Google/Meta Ads.')
+    if acc['platform']=='meta' and body.enabled:
+        raise HTTPException(422,'Meta chưa có báo cáo chuyển đổi chuẩn hóa; không được bật mục tiêu CPA/ROAS.')
     # Explicit settings can be saved for Meta for a future, properly normalized adapter,
     # but must not be evaluated until its conversion data can be trusted.
     if body.objective=='roas' and body.target>1000:
