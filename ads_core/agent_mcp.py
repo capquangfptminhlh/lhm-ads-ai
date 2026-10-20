@@ -71,8 +71,14 @@ def init_agent_db():
 def _allowed_url(raw):
     """Explicit hostname allowlist; https only; no localhost, IPs, redirects or non-443 ports."""
     parsed = urlsplit(raw)
-    if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
-            or parsed.fragment or parsed.query or parsed.port not in (None, 443)):
+    try:
+        valid = (parsed.scheme == "https" and bool(parsed.hostname)
+                 and not parsed.username and not parsed.password
+                 and not parsed.fragment and not parsed.query
+                 and parsed.port in (None, 443))
+    except ValueError:
+        valid = False
+    if not valid:
         raise HTTPException(422, "MCP endpoint phải là URL HTTPS hợp lệ, cổng 443")
     hostname = parsed.hostname.rstrip(".").lower()
     try:
@@ -164,6 +170,8 @@ async def _call_read(row, tool_name, args):
             raise HTTPException(422, "MCP server không cung cấp công cụ đã chọn")
         result = await session.call_tool(tool_name, arguments=args)
     # Mark untrusted tool output as data; limit stored results.
+    if result.isError:
+        raise HTTPException(502, "MCP tool báo lỗi; kiểm tra tham số hoặc quyền đọc")
     body = json.dumps(result.model_dump(mode="json"), ensure_ascii=False)
     if len(body) > 40000:
         raise HTTPException(422, "Kết quả quá lớn, hãy thu hẹp truy vấn")
@@ -175,6 +183,12 @@ class MCPCreate(BaseModel):
     label: str = Field(min_length=2, max_length=80)
     endpoint: str = Field(min_length=12, max_length=500)
     token: str = Field(min_length=12, max_length=4096)
+
+
+@router.get("/ai-status")
+def local_ai_status(ident=Depends(require("admin", "operator", "reader"))):
+    from .local_ai import ai_status
+    return ai_status()
 
 
 @router.get("/connections")
@@ -353,14 +367,28 @@ async def run_one_due_job(now=None):
         if cur.rowcount != 1:
             return False
         job = dict(item)
+    from .local_ai import make_draft, analyze_report
     if job["job_type"] == "campaign_draft":
-        content = _draft(job["brief"])
-        kind = "campaign_draft"
+        platform = "google"
+        if job["connection_id"]:
+            try:
+                platform = _fetch_connection(job["connection_id"], job["org_id"])["platform"]
+            except HTTPException:
+                pass
+        plan = await make_draft(platform, job["brief"])
+        content = (json.dumps({"status": "DRAFT_AI_REVIEW", "platform": platform,
+                               "plan": plan, "warning": "Chưa xuất bản quảng cáo"},
+                              ensure_ascii=False)
+                   if plan else _draft(job["brief"]))
+        kind = "campaign_ai_draft" if plan else "campaign_draft"
     else:
         try:
             row = _fetch_connection(job["connection_id"], job["org_id"])
-            content = await _call_read(row, job["tool_name"], json.loads(job["tool_args_json"]))
-            kind = "mcp_report_untrusted"
+            raw = await _call_read(row, job["tool_name"], json.loads(job["tool_args_json"]))
+            analysis = await analyze_report(row["platform"], job["brief"], raw)
+            content = (json.dumps({"analysis":analysis, "source":"untrusted_mcp", "raw":raw},
+                                  ensure_ascii=False) if analysis else raw)
+            kind = "mcp_ai_report" if analysis else "mcp_report_untrusted"
         except Exception:
             content = '{"error":"Không đọc được MCP; kiểm tra kết nối và công cụ"}'
             kind = "error"
