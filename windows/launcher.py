@@ -27,17 +27,9 @@ def data_directory() -> Path:
 def configure_local_storage() -> Path:
     folder = data_directory()
     folder.mkdir(parents=True, exist_ok=True)
+    from ads_core.windows_vault import read_or_create_settings
     settings_file = folder / 'local-settings.json'
-    if settings_file.exists():
-        config = json.loads(settings_file.read_text(encoding='utf-8'))
-    else:
-        config = {
-            'MASTER_KEY': base64.b64encode(secrets.token_bytes(32)).decode('ascii'),
-            'SESSION_SECRET': secrets.token_urlsafe(48),
-        }
-        fd = os.open(settings_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(fd, 'w', encoding='utf-8') as fh:
-            json.dump(config, fh)
+    config = read_or_create_settings(settings_file)
     for name in ('MASTER_KEY', 'SESSION_SECRET'):
         os.environ.setdefault(name, config[name])
     os.environ.setdefault('DB_PATH', str(folder / 'data' / 'lhm-ads.sqlite3'))
