@@ -234,11 +234,13 @@ async def create_plan(body:PlanInput,ident=Depends(require('admin','operator')))
 
 @app.get('/api/autopilot/plans')
 def list_plans(ident=Depends(require('admin','operator','reader'))):
-    init_autopilot_db()
+    from .reconciliation import init_reconciliation_db
+    init_reconciliation_db()
     with connection() as db:
         rows=db.execute('''SELECT p.id,p.account_id,a.label as account_label,a.platform,
           p.action_type,p.target_id,p.old_value,p.new_value,p.currency,p.status,
-          p.created_at,p.finished_at,p.provider_result
+          p.created_at,p.finished_at,p.provider_result,
+          p.last_verified_at,p.verify_attempts,p.last_observed_value,p.last_verify_outcome
           FROM autopilot_plans p JOIN accounts a ON a.id=p.account_id AND a.org_id=p.org_id
           WHERE p.org_id=? ORDER BY p.id DESC LIMIT 80''',(ident['org_id'],)).fetchall()
         return [dict(row) for row in rows]
