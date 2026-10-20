@@ -168,3 +168,39 @@ form label{color:#bfc0c9}.secret-box{background:#332a25;color:#ffd2b8}
 /* Preserve desktop/mobile navigation after circular icon button styles. */
 @media(min-width:901px){.icon-btn.mobile{display:none!important}}
 @media(max-width:900px){.icon-btn.mobile{display:grid!important}}
+
+
+/* FinPoint local operations cards */
+.fp-v2-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:16px;margin:18px 0}
+.fp-v2-card{min-width:0;background:linear-gradient(145deg,#1d1e22,#16171a);border:1px solid #34363b;border-radius:20px;padding:22px}
+.fp-v2-card header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:17px}
+.fp-v2-card h3{color:#f7f7f7;font-size:17px;letter-spacing:-.3px;margin:6px 0}
+.fp-v2-card header p,.fp-v2-caption{color:#a7a8b2;font-size:11px;line-height:1.5;margin:0}
+.fp-v2-kicker{color:#ff8e64;font-size:10px;letter-spacing:1.5px;font-weight:800}
+.fp-v2-btn,.fp-v2-actions button{background:#282a30;color:#f7f7f8;border:1px solid #41434b;border-radius:11px;padding:10px 12px;font-size:11px;cursor:pointer}
+.fp-v2-btn:hover,.fp-v2-actions button:hover{border-color:#ff673f;background:#34353b}
+.fp-v2-badges{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.fp-v2-pill{border:1px solid #44464b;background:#26282e;padding:8px 12px;color:#ddd;border-radius:90px;font-size:11px}
+.fp-v2-pill.good{color:#9ee9bf;border-color:#2c5f46;background:#203a2e}
+.fp-v2-pill.warn{color:#ffe0a4;border-color:#5c4b32;background:#352b21}
+.fp-v2-pill.off{color:#ffaea0;border-color:#6b3538;background:#372426}
+.fp-v2-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.fp-v2-kpis>div{background:#23252b;border:1px solid #353740;border-radius:13px;padding:15px;min-width:0}
+.fp-v2-kpis small{color:#aaadb7;font-size:10px;display:block;line-height:1.4}
+.fp-v2-kpis strong{color:#fff;display:block;font-size:22px;margin-top:8px;overflow-wrap:anywhere}
+.fp-v2-kpis>div:nth-child(2) strong{color:#ff9767}
+.fp-v2-card>.fp-v2-caption{margin-top:14px}
+.fp-v2-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+.fp-v2-actions button.danger{background:#56272d;border-color:#995059;color:#ffd0c6}
+.fp-v2-message{min-height:16px;color:#ffb49d;font-size:11px;margin:10px 0 0}
+.fp-v2-alerts{display:grid;gap:9px;max-height:340px;overflow:auto}
+.fp-v2-alert{display:flex;align-items:flex-start;gap:10px;background:#24262b;border:1px solid #383a40;border-radius:13px;padding:11px}
+.fp-v2-alert-icon{width:30px;height:30px;flex-shrink:0;display:grid;place-items:center;background:#503525;color:#ffb67c;border-radius:10px;font-weight:bold}
+.fp-v2-alert>div{flex:1;min-width:0}
+.fp-v2-alert strong{color:#fff;font-size:11px;display:block;overflow-wrap:anywhere}
+.fp-v2-alert small{color:#b0b0b9;font-size:10px;display:block;line-height:1.5;margin-top:4px;overflow-wrap:anywhere}
+.fp-v2-alert time{font-size:10px;color:#93949e;white-space:nowrap}
+@media(max-width:1150px){.fp-v2-grid{grid-template-columns:1fr}}
+@media(max-width:650px){.fp-v2-card{padding:16px}.fp-v2-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.fp-v2-kpis>div:last-child{grid-column:span 2}}
+@media(max-width:430px){.fp-v2-kpis{grid-template-columns:1fr}.fp-v2-kpis>div:last-child{grid-column:auto}.fp-v2-card header{flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){.fp-v2-grid *{transition-duration:0s!important}}
