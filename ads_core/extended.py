@@ -180,5 +180,8 @@ from . import optimizations  # noqa: E402,F401
 # Account-scoped Ads change plan endpoints; no unattended mutations.
 from . import autopilot  # noqa: E402,F401
 
+# Per-account CPA / ROAS goals, review-only; no provider write permission.
+from . import goals  # noqa: E402,F401
+
 # Read-only post-mutation verification; never retries provider writes.
 from . import reconciliation  # noqa: E402,F401
