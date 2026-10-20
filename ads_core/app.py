@@ -225,8 +225,8 @@ class ActionRequest(BaseModel):
 @app.post('/api/actions')
 def request_pause(data:ActionRequest, ident=Depends(require('admin','operator'))):
     acc=get_account(data.account_id,ident['org_id'])
-    if acc['platform']!='meta':
-        raise HTTPException(422,'Chỉ thao tác tạm dừng chiến dịch Meta trong phiên bản nền tảng')
+    if acc['platform'] not in ('meta','google'):
+        raise HTTPException(422,'Chỉ tạm dừng chiến dịch Google Ads hoặc Meta Ads')
     if not re.fullmatch(r'\d{5,30}',data.campaign_id):
         raise HTTPException(422,'ID chiến dịch không hợp lệ')
     with connection() as db:
@@ -239,7 +239,7 @@ def request_pause(data:ActionRequest, ident=Depends(require('admin','operator'))
 def list_actions(ident=Depends(require('admin','operator','reader'))):
     with connection() as db:
         rows=db.execute('''SELECT a.id,a.account_id,a.action_type,a.target_id,a.status,a.created_at,
-                         a.reviewed_at,a.failure_reason,acc.label as account_label
+                         a.reviewed_at,a.failure_reason,acc.label as account_label,acc.platform as platform
                          FROM actions a JOIN accounts acc ON acc.id=a.account_id
                          WHERE a.org_id=? ORDER BY a.id DESC LIMIT 100''',(ident['org_id'],)).fetchall()
         return [dict(x) for x in rows]
@@ -274,7 +274,13 @@ async def approve(action_id:int, ident=Depends(browser_admin)):
         audit(db,ident,'action.approve',f'Approved action #{action_id}')
         acc=dict(row); acc['org_id']=ident['org_id']
     try:
-        await pause_meta_campaign(acc,row['target_id'])
+        if acc['platform']=='google':
+            from .google_mutations import pause_google_campaign
+            await pause_google_campaign(acc,row['target_id'])
+        elif acc['platform']=='meta':
+            await pause_meta_campaign(acc,row['target_id'])
+        else:
+            raise HTTPException(422,'Nền tảng quảng cáo không hỗ trợ thao tác này')
     except HTTPException as exc:
         with connection() as db:
             db.execute('UPDATE actions SET status=?, failure_reason=? WHERE id=?',('failed',str(exc.detail)[:180],action_id))
@@ -283,7 +289,7 @@ async def approve(action_id:int, ident=Depends(browser_admin)):
     with connection() as db:
         db.execute('UPDATE actions SET status=? WHERE id=?',('completed',action_id))
         audit(db,ident,'action.completed',f'Action #{action_id} completed')
-    await notify_telegram(f'LHM Ads AI: Admin duyệt và tạm dừng Meta campaign {row["target_id"]} (account #{row["account_id"]}).')
+    await notify_telegram(f'LHM Ads AI: API {acc["platform"]} chấp nhận tạm dừng campaign {row["target_id"]} (account #{row["account_id"]}).')
     return {'ok':True,'status':'completed'}
 
 @app.post('/api/actions/{action_id}/reject')

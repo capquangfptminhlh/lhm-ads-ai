@@ -173,3 +173,6 @@ from . import licensing, monitoring  # noqa: E402,F401
 
 # Explicit, read-only OAuth/API permission diagnostics; no MCP access.
 from . import permissions  # noqa: E402,F401
+
+# Read-only campaign diagnostics; no automatic provider modifications.
+from . import optimizations  # noqa: E402,F401
