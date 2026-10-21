@@ -204,3 +204,32 @@ form label{color:#bfc0c9}.secret-box{background:#332a25;color:#ffd2b8}
 @media(max-width:650px){.fp-v2-card{padding:16px}.fp-v2-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.fp-v2-kpis>div:last-child{grid-column:span 2}}
 @media(max-width:430px){.fp-v2-kpis{grid-template-columns:1fr}.fp-v2-kpis>div:last-child{grid-column:auto}.fp-v2-card header{flex-wrap:wrap}}
 @media(prefers-reduced-motion:reduce){.fp-v2-grid *{transition-duration:0s!important}}
+
+/* Dashboard truthfulness, accessibility, and touch-sized layouts. */
+.chart-controls{display:flex;gap:12px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.currency-choice{color:#c7c7cd;font-size:12px;display:inline-flex;align-items:center;gap:8px}
+.currency-choice select{background:#27282e;color:#fff;border:1px solid #595c63;border-radius:9px;padding:7px 10px;min-height:36px}
+.currency-choice select:focus-visible,.table-wrap:focus-visible{outline:2px solid #ff9c79;outline-offset:3px}
+.conversion-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin:4px 0 18px}
+.conversion-strip>div{padding:15px 19px;background:#1c1e23;border:1px solid #37383f;border-radius:14px;min-width:0}
+.conversion-strip small{display:block;color:#b4b6bf;font-size:11px}
+.conversion-strip strong{font-size:22px;display:block;margin-top:8px;color:#f7eee8;overflow-wrap:anywhere}
+.conversion-disclaimer{grid-column:1/-1;color:#b6bac3;font-size:11px;line-height:1.6;margin:0 2px}
+.scroll-cue{display:none;color:#b4b6bf;font-size:11px;margin:8px 0}
+#dashboard-data-status{border-color:#4b4d52;background:#25262b;color:#eee}
+#dashboard-data-status:before{background:#ff986d}
+#overview-table,#ws-report-table{overscroll-behavior-x:contain;scrollbar-width:thin}
+@media(max-width:900px){
+ .conversion-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .scroll-cue{display:block}
+ #page-dashboard #chart,#page-reports .chart{overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain}
+ #page-dashboard #chart>.fp-chart,#page-reports .chart>.fp-chart{min-width:520px}
+}
+@media(max-width:610px){
+ .conversion-strip{grid-template-columns:1fr;gap:8px}
+ .conversion-strip>div{padding:12px 15px}
+ .conversion-strip strong{font-size:19px}
+ .chart-controls{width:100%;justify-content:flex-start}
+ .currency-choice select{min-height:42px}
+ #dashboard-data-status{max-width:100%;overflow-wrap:anywhere}
+}

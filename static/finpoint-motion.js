@@ -45,7 +45,7 @@
 
   function dashboardData(evt) {
     const t = evt.detail?.totals;
-    if (!t || typeof t !== 'object') return;
+    if (!t || typeof t !== 'object' || !t.included_accounts) return;
     if (t.spend !== null && t.spend !== undefined && t.currency)
       countUp('k-spend', Number(t.spend), ' ' + t.currency);
     // In multi-currency mode, preserve the explicit 'Đa tiền tệ' label.
@@ -54,6 +54,10 @@
     countUp('k-ctr', Number(t.ctr), '%');
   }
 
+  document.addEventListener('lhm:dashboard-reset', () => {
+    for (const frame of currentFrames.values()) window.cancelAnimationFrame(frame);
+    currentFrames.clear();
+  });
   function syncNavigation() {
     const shell = $('shell');
     if (!shell || shell.classList.contains('hidden')) return;

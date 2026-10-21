@@ -194,29 +194,80 @@ async def report(account_id:int, period:Literal['last_7d','yesterday']='last_7d'
 
 @app.get('/api/summary')
 async def summary(period:Literal['last_7d','yesterday']='last_7d', ident=Depends(require('admin','operator','reader'))):
+    """Tenant-scoped reports. Demo is never added to real Ads totals.
+
+    All active accounts are included; concurrent provider calls are bounded to
+    protect local memory and avoid unbounded bursts against provider APIs.
+    """
     with connection() as db:
-        accs=[dict(x) for x in db.execute('SELECT * FROM accounts WHERE org_id=? AND label NOT LIKE ?',
-                                          (ident['org_id'],'[REVOKED]%')).fetchall()][:20]
+        accs=[dict(x) for x in db.execute(
+            'SELECT * FROM accounts WHERE org_id=? AND label NOT LIKE ? ORDER BY id',
+            (ident['org_id'],'[REVOKED]%')).fetchall()]
+    semaphore=asyncio.Semaphore(5)
+
     async def one(a):
-        try:
-            return {'account_id':a['id'],'label':a['label'],'platform':a['platform'],
-                    'result':await fetch_report(a,period)}
-        except HTTPException as exc:
-            return {'account_id':a['id'],'label':a['label'],'platform':a['platform'],
-                    'error':exc.detail}
+        async with semaphore:
+            try:
+                return {'account_id':a['id'],'label':a['label'],'platform':a['platform'],
+                        'result':await fetch_report(a,period)}
+            except HTTPException as exc:
+                return {'account_id':a['id'],'label':a['label'],'platform':a['platform'],
+                        'error':str(exc.detail)}
+            except Exception:
+                # Do not expose token contents or third-party exception bodies.
+                return {'account_id':a['id'],'label':a['label'],'platform':a['platform'],
+                        'error':'Không lấy được báo cáo. Kiểm tra kết nối và nhật ký ứng dụng.'}
+
     items=await asyncio.gather(*(one(a) for a in accs))
-    ok=[x['result'] for x in items if 'result' in x]
-    currencies={x['currency'] for x in ok}
-    impressions=sum(x['impressions'] for x in ok)
-    clicks=sum(x['clicks'] for x in ok)
-    totals={'spend':round(sum(x['spend'] for x in ok),2) if len(currencies)==1 else None,
-            'currency':next(iter(currencies)) if len(currencies)==1 else None,
-            'impressions':impressions,'clicks':clicks,
-            'ctr':round(100*clicks/impressions,2) if impressions else 0,
-            'contains_demo':any(x['source']=='demo' for x in ok),
-            'sources':sorted({x['source'] for x in ok})}
+    succeeded=[x['result'] for x in items if 'result' in x]
+    live=[x for x in succeeded if x['source']!='demo']
+    demo=[x for x in succeeded if x['source']=='demo']
+    # Preview Demo only when there are NO real accounts at all, including
+    # failed real connections. Otherwise never silently replace real with fake.
+    demo_only=bool(demo) and not any(a['platform']!='demo' for a in accs)
+    included=demo if demo_only else live
+    currency_groups={}
+    for record in included:
+        currency=record['currency']
+        group=currency_groups.setdefault(currency,[])
+        group.append(record)
+    by_currency={}
+    for currency, group in sorted(currency_groups.items()):
+        by_currency[currency]={
+            'spend':round(sum(x['spend'] for x in group),2),
+            'clicks':sum(x['clicks'] for x in group),
+            'impressions':sum(x['impressions'] for x in group),
+            'accounts':len(group)}
+    clicks=sum(x['clicks'] for x in included)
+    impressions=sum(x['impressions'] for x in included)
+    single_currency=next(iter(by_currency)) if len(by_currency)==1 else None
+    # Conversion metrics are comparable only when every included provider
+    # returned them for the SAME conversion definition. Unknown is NOT zero.
+    definitions={x.get('conversion_action_type') for x in included}
+    known_conversions=bool(included) and all(x.get('conversions') is not None for x in included) and len(definitions)==1
+    conversions=round(sum(float(x['conversions']) for x in included),2) if known_conversions else None
+    known_values=known_conversions and all(x.get('conversion_value') is not None for x in included)
+    conversion_value=round(sum(float(x['conversion_value']) for x in included),2) if known_values and single_currency else None
+    spend=by_currency[single_currency]['spend'] if single_currency else None
+    totals={
+        'spend':spend,'currency':single_currency,
+        'impressions':impressions,'clicks':clicks,
+        'ctr':round(100*clicks/impressions,2) if impressions else 0,
+        'contains_demo':demo_only,
+        'has_demo_accounts':bool(demo),
+        'data_mode':'demo' if demo_only else 'live',
+        'included_accounts':len(included),
+        'total_accounts':len(accs),
+        'failed_accounts':sum('error' in x for x in items),
+        'by_currency':by_currency,
+        'conversions':conversions,
+        'conversion_value':conversion_value,
+        'conversion_action_type':next(iter(definitions)) if known_conversions else None,
+        'cpa':round(spend/conversions,2) if spend is not None and conversions and conversions>0 else None,
+        'roas':round(conversion_value/spend,2) if conversion_value is not None and spend and spend>0 else None,
+        'sources':sorted({x['source'] for x in included})}
     return {'period':period,'totals':totals,'accounts':items,
-            'note':'Chỉ tổng hợp tối đa 20 tài khoản ở MVP; không cộng tiền giữa nhiều loại tiền tệ.'}
+            'note':'Tách Demo khỏi tổng số liệu thật; giới hạn đồng thời 5 nguồn API và không tự gán chỉ số chuyển đổi.'}
 
 class ActionRequest(BaseModel):
     account_id: int

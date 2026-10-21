@@ -38,10 +38,22 @@ def report_output(rows, currency, source):
     spend = round(sum(float(x.get('spend') or 0) for x in rows), 2)
     impressions = sum(int(x.get('impressions') or 0) for x in rows)
     clicks = sum(int(x.get('clicks') or 0) for x in rows)
+    # Only expose conversion KPIs when the provider actually supplied them.
+    # Google reports include conversion counts/values, while the generic Meta
+    # account Insights summary does not declare a goal/action definition.
+    has_conversions=bool(rows) and all(x.get('conversions') is not None for x in rows)
+    has_values=bool(rows) and all(x.get('conversion_value') is not None for x in rows)
+    conversions=round(sum(float(x['conversions']) for x in rows),2) if has_conversions else None
+    conversion_value=round(sum(float(x['conversion_value']) for x in rows),2) if has_values else None
     return {'source': source, 'currency': currency, 'spend': spend,
             'impressions': impressions, 'clicks': clicks,
             'ctr': round(clicks * 100 / impressions, 2) if impressions else 0,
-            'cpc': round(spend / clicks, 2) if clicks else None, 'daily': rows}
+            'cpc': round(spend / clicks, 2) if clicks else None,
+            'conversions':conversions,'conversion_value':conversion_value,
+            'conversion_action_type':'google_all_conversions' if source=='google_live' and has_conversions else None,
+            'cpa':round(spend/conversions,2) if conversions and conversions>0 else None,
+            'roas':round(conversion_value/spend,2) if conversion_value is not None and spend>0 else None,
+            'daily': rows}
 
 
 async def fetch_report(acc, period='last_7d'):
@@ -120,7 +132,8 @@ async def google_report(acc, period):
     except (json.JSONDecodeError,ValueError,TypeError):
         raise HTTPException(422,'Google Ads token phải là JSON gồm client_id và refresh_token (client_secret có thể để trống ở Desktop)')
     during='YESTERDAY' if period=='yesterday' else 'LAST_7_DAYS'
-    query=('SELECT segments.date, metrics.cost_micros, metrics.impressions, metrics.clicks '
+    query=('SELECT segments.date, metrics.cost_micros, metrics.impressions, metrics.clicks, '
+           'metrics.conversions, metrics.conversions_value '
            f'FROM customer WHERE segments.date DURING {during} ORDER BY segments.date ASC')
     headers={}
     if developer_token: headers['developer-token']=developer_token
@@ -157,4 +170,8 @@ async def google_report(acc, period):
             x['spend']+=int(metrics.get('costMicros') or 0)/1_000_000
             x['impressions']+=int(metrics.get('impressions') or 0)
             x['clicks']+=int(metrics.get('clicks') or 0)
+            # Missing values are unknown (not silently assumed to be zero).
+            for source_key,dest in (('conversions','conversions'),('conversionsValue','conversion_value')):
+                if source_key in metrics and metrics[source_key] is not None:
+                    x[dest]=float(x.get(dest,0) or 0)+float(metrics[source_key])
     return report_output([days[k] for k in sorted(days)],acc['currency'],'google_live')
