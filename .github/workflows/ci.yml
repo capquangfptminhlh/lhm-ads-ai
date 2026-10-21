@@ -22,8 +22,17 @@ jobs:
       - run: node --check static/workspace-pages.js
       - name: Install Playwright browser for UI smoke test
         run: |
-          python -m pip install playwright
-          python -m playwright install --with-deps chromium
+          for attempt in 1 2 3; do
+            if python -m pip install --retries 5 playwright && python -m playwright install --with-deps chromium; then
+              echo "Playwright ready"
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "Playwright setup failed after 3 attempts" >&2
+              exit 1
+            fi
+            sleep $((attempt * 8))
+          done
       - name: Test provider selection with real Chromium and capture screenshots
         run: python tools/ui-smoke.py
       - name: Upload UI screenshots
