@@ -78,7 +78,7 @@ def main():
                 assert page.locator('#navigation button[data-page=dashboard]').get_attribute('aria-current') == 'page'
                 page.keyboard.press('Control+k')
                 page.locator('button[data-page=accounts].active').wait_for(state='visible')
-                assert page.locator('#global-account-search').evaluate('(el) => document.activeElement === el')
+                expect(page.locator('#global-account-search')).to_be_focused(timeout=5000)
                 assert page.locator('button[data-page=accounts]').get_attribute('aria-current') == 'page'
                 page.locator('[data-provider-choice=google]').wait_for(state='visible')
                 page.locator('button[data-page=dashboard]').click()
