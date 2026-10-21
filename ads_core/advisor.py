@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from .app import app, browser_admin, get_account, require
+from .app import app, browser_admin, get_account, notify_telegram, require
 from .db import audit, connection
 from .licensing import license_required
 from .optimizations import list_live_campaigns, rule_suggestions
@@ -109,10 +109,17 @@ async def scan_account(acc, *, now=None, min_interval=DAY):
             db.execute('''UPDATE advisor_scan_runs SET error_code='provider_unavailable'
                           WHERE org_id=? AND account_id=?''',(acc['org_id'],acc['id']))
         return {'scanned':False,'reason':'provider_unavailable','recommendations':0}
+    new_codes=[]
     with connection() as db:
+        open_keys={(str(x['campaign_id']),x['rule_code']) for x in db.execute(
+            '''SELECT campaign_id,rule_code FROM advisor_findings
+               WHERE org_id=? AND account_id=? AND resolved_at IS NULL''',
+            (acc['org_id'],acc['id'])).fetchall()}
         for r in suggestions:
             if r.get('code') not in ('low_ctr','no_reported_conversions','cpa_above_goal','roas_below_goal'):
                 continue
+            if (str(r['campaign_id']),r['code']) not in open_keys and r['code'] not in new_codes:
+                new_codes.append(r['code'])
             db.execute('''INSERT INTO advisor_findings(org_id,account_id,campaign_id,rule_code,
                           severity,message,first_seen_at,last_seen_at) VALUES(?,?,?,?,?,?,?,?)
                     ON CONFLICT(org_id,account_id,campaign_id,rule_code) DO UPDATE SET
@@ -139,6 +146,13 @@ async def scan_account(acc, *, now=None, min_interval=DAY):
                                (now,previous['id'],acc['org_id']))
         db.execute('''UPDATE advisor_scan_runs SET last_success_at=?,error_code=''
                       WHERE org_id=? AND account_id=?''',(now,acc['org_id'],acc['id']))
+    if new_codes:
+        # One batched, opt-in Telegram alert per scan for genuinely new (or
+        # re-opened) findings only. Rule codes and the internal account
+        # number only: no campaign IDs, account labels or credentials.
+        await notify_telegram(
+            f"LHM Ads AI: {len(new_codes)} cảnh báo quảng cáo mới trên {acc['platform']} "
+            f"(account #{acc['id']}): {', '.join(new_codes)}. Mở ứng dụng để xem chi tiết.")
     return {'scanned':True,'reason':'ok','recommendations':len(suggestions),
             'note':'Phát hiện bằng quy tắc đọc dữ liệu, KHÔNG thay đổi giá thầu hoặc ngân sách.'}
 

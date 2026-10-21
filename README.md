@@ -4,7 +4,7 @@ Khi dùng bản EXE Windows, ứng dụng chỉ chạy trên máy cá nhân và 
 
 # LHM Ads AI — Private Studio 0.3
 
-Vietnamese advertising dashboard for an owner-managed VPS. **No MCP server, API keys, remote tool bridge or external AI model connection.** Data analysis is calculated locally from fetched provider reports, not sent to a third-party AI service. Supported upstream Meta and Google Ads APIs are separate from external remote-control integration.
+Vietnamese advertising dashboard for an owner-managed VPS. **No MCP server, no remote tool bridge, no third-party tool-access keys.** By default, analysis is calculated locally from fetched provider reports and nothing is sent to a third-party AI service. Optional exception: an admin may explicitly enable OpenRouter AI analysis with their own key (see docs/OPENROUTER.md); only filtered aggregate statistics are sent, never Ads credentials or campaign identifiers. Supported upstream Meta and Google Ads APIs are separate from external remote-control integration.
 
 ## Included
 
@@ -34,8 +34,8 @@ Before updating an existing installation, back up the encrypted SQLite database 
 | Platform | Reporting | Mutating |
 |---|---|---|
 | Demo | Labeled simulation | No |
-| Meta Ads | Graph API (authorized token) | Pause with admin approval |
-| Google Ads | Read-only adapter, requires OAuth and developer token, **not live-validated** | No |
+| Meta Ads | Graph API (authorized token) | Campaign pause, plus ad-set daily-budget/bid-cap changes through guarded plans — every change needs a separate admin approval |
+| Google Ads | Read-only reporting adapter, requires OAuth and developer token, **not live-validated** | Campaign pause, plus campaign-budget/manual-CPC changes through guarded plans — every change needs a separate admin approval; mutations are likewise **not live-validated** |
 | TikTok Ads | Not implemented (501) | No |
 | OpenAI Ads | Not implemented (501) | No |
 
@@ -43,7 +43,7 @@ Google Ads `token` input requires JSON with keys `client_id`, `client_secret`, `
 
 ## Security and limitations
 
-This is still a pilot, not security-certified SaaS. Local analysis is deterministic/rule-based, **not a cloud LLM chat**. To avoid leaking reports, no OpenAI API key or other remote assistant is used. Advertising data still transits the official provider APIs for reporting and is visible to authorized users of the web dashboard; the Telegram notification integration remains optional and only sends pause confirmations when explicitly configured. No MCP does not mean all other security risks are solved. Before production: independent security review, stronger rate limiting, admin MFA, secret handling, least privilege, backup and recovery tests, and permission checks.
+This is still a pilot, not security-certified SaaS. Local analysis is deterministic/rule-based, **not a cloud LLM chat**. No OpenAI API key is used; the only remote assistant is the optional, off-by-default OpenRouter integration described above, which an admin must explicitly enable. Advertising data still transits the official provider APIs for reporting and is visible to authorized users of the web dashboard; the Telegram notification integration remains optional and, when explicitly configured, sends pause confirmations and monitoring/advisor alerts (it never receives Ads credentials or report data). No MCP does not mean all other security risks are solved. Before production: independent security review, stronger rate limiting, admin MFA, secret handling, least privilege, backup and recovery tests, and permission checks.
 
 Test: `pip install -r requirements.txt pytest && python -m pytest -q`; frontend syntax: `node --check static/studio.js`.
 

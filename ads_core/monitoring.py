@@ -16,7 +16,7 @@ import subprocess
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from .app import app, browser_admin, require
+from .app import app, browser_admin, notify_telegram, require
 from .db import connection, audit, init_db
 from .licensing import read_license, license_required
 from .providers import fetch_report
@@ -93,11 +93,14 @@ def change_monitor(body:MonitorSettings,ident=Depends(browser_admin)):
 
 def _alert(db,org,account_id,code,message,now):
     # Throttle identical alerts to at most one per 24 hours per account.
+    # Returns True only when a new alert row was actually inserted.
     already=db.execute('''SELECT 1 FROM monitor_alerts WHERE org_id=? AND account_id=? AND code=?
       AND created_at>? LIMIT 1''',(org,account_id,code,now-86400)).fetchone()
-    if not already:
-        db.execute('INSERT INTO monitor_alerts(org_id,account_id,created_at,severity,code,message) VALUES(?,?,?,?,?,?)',
-                   (org,account_id,now,'warning',code,message))
+    if already:
+        return False
+    db.execute('INSERT INTO monitor_alerts(org_id,account_id,created_at,severity,code,message) VALUES(?,?,?,?,?,?)',
+               (org,account_id,now,'warning',code,message))
+    return True
 
 
 async def collect_account(acc, now):
@@ -114,16 +117,24 @@ async def collect_account(acc, now):
         name=type(exc).__name__
         code='provider_error' if name in ('HTTPException','HTTPStatusError') else 'collector_error'
         values=(acc['org_id'],acc['id'],now,None,None,None,None,None,code)
+    new_alert=False
     with connection() as db:
         db.execute('''INSERT INTO monitor_samples(org_id,account_id,observed_at,source,currency,spend,
           impressions,clicks,error_code) VALUES(?,?,?,?,?,?,?,?,?)''',values)
         if values[-1]:
-            _alert(db,acc['org_id'],acc['id'],values[-1],
+            new_alert=_alert(db,acc['org_id'],acc['id'],values[-1],
                    'Không thể cập nhật báo cáo API; kiểm tra Internet và quyền tài khoản Ads.',now)
         # Max 2000 rows/tenant to bound storage without deleting audit history.
         db.execute('''DELETE FROM monitor_samples WHERE org_id=? AND id NOT IN
            (SELECT id FROM monitor_samples WHERE org_id=? ORDER BY id DESC LIMIT 2000)''',
            (acc['org_id'],acc['org_id']))
+    if new_alert:
+        # Opt-in only (notify_telegram is a no-op until the operator sets
+        # TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID); throttled by _alert to at
+        # most one message per account/code/day. No provider IDs or secrets.
+        await notify_telegram(
+            f"LHM Ads AI: Không thể cập nhật báo cáo API cho {acc['platform']} "
+            f"(account #{acc['id']}); kiểm tra Internet và quyền tài khoản Ads.")
 
 
 async def collect_once(now=None, org_ids=None):

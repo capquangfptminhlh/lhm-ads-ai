@@ -4,12 +4,15 @@
 
 ## 0. Tình trạng hiện có — KHÔNG ĐƯỢC GỌI LÀ AUTOPILOT HOÀN CHỈNH
 
+_Cập nhật 21/10/2026 theo code trên main (bản trước của mục này đã lỗi thời):_
+
 - Windows native-window EXE / local loopback, giao diện, đăng nhập nội bộ và lưu trữ SQLite mã hóa: đã có mã nguồn.
-- Google/Meta OAuth và báo cáo: đã có mã nguồn; chưa xác nhận bằng tài khoản Ads thật và cấp quyền thật.
-- OpenRouter: phân tích nhóm chỉ số tổng hợp khi người dùng bật; chưa có quyền ra lệnh thay đổi quảng cáo.
-- Meta: có mã thực hiện *pause campaign* sau duyệt admin. Google: đọc dữ liệu, **chưa hỗ trợ mutate**.
-- Báo cáo hiện tập trung spend, clicks, impressions, CTR/CPC; **thiếu conversions, conversion_value, CPA, ROAS theo campaign**.
-- **Chưa** có background monitoring/Windows service luôn chạy khi đóng cửa sổ; **chưa** có thay đổi ngân sách, giá thầu, chiến lược Google/Meta và kiểm soát hồi phục.
+- Google/Meta OAuth và báo cáo: đã có mã nguồn; **chưa xác nhận bằng tài khoản Ads thật và cấp quyền thật** (Google ghi rõ "not live-validated").
+- OpenRouter: phân tích nhóm chỉ số tổng hợp khi người dùng bật; không có quyền ra lệnh thay đổi quảng cáo.
+- Meta và Google: đều đã có mã *pause campaign* sau duyệt admin, và thay đổi ngân sách/giá thầu qua kế hoạch có giới hạn (autopilot plans) mà admin phải duyệt **từng** kế hoạch; không có thực thi tự động không người duyệt, không đổi chiến lược đặt giá thầu.
+- Báo cáo theo campaign đã có conversions, conversion_value, CPA, ROAS (Google đầy đủ; Meta chỉ từ một sự kiện chuyển đổi được chọn, cửa sổ 7d_click, đúng tiền tệ).
+- Đã có background agent Windows (`--agent-only`, tự chạy qua HKCU Run khi người dùng bật, cần license còn hạn): poll báo cáo theo chu kỳ 15–240 phút và quét advisor 1 lần/ngày/tài khoản, chỉ đọc, không sửa chiến dịch. Agent chỉ chạy khi máy bật/đăng nhập/có mạng — **không phải** Windows service và không giám sát được khi máy tắt hoặc ngủ.
+- **Chưa** có: thay đổi chiến lược đặt giá thầu, auto-limited không người duyệt, rollback tự động, và bằng chứng nghiệm thu live trên Windows với tài khoản thật (reboot, đóng UI, sleep/wake).
 - Không kết nối MCP; không lưu khóa API khách hàng trong repo hoặc chia sẻ một khóa chung giữa các EXE.
 
 ## 1. Năm phân hệ cốt lõi
