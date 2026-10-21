@@ -1,0 +1,147 @@
+/* LHM Ads AI • FinPoint Motion System
+   GPU-friendly microinteractions only. No third-party assets or fonts.
+   Style remains dark charcoal / orange, with complete reduced-motion support. */
+
+:root {
+  --motion-fast: 160ms;
+  --motion-standard: 290ms;
+  --motion-long: 780ms;
+  --motion-ease: cubic-bezier(.22, 1, .36, 1);
+  --motion-highlight: #ff8a50;
+}
+#shell { isolation:isolate; }
+#shell .sidebar { scrollbar-width:thin;scrollbar-color:#3c3d43 #111214;overflow-y:auto;overscroll-behavior:contain; }
+#shell .sidebar .nav-link{
+  position:relative;transform:translateZ(0);
+  transition:background-color var(--motion-fast) ease,color var(--motion-fast) ease,transform var(--motion-standard) var(--motion-ease),box-shadow var(--motion-fast) ease;
+}
+#shell .sidebar .nav-link:hover:not(.active){transform:translateX(3px);}
+#shell .sidebar .nav-link:active{transform:translateX(1px) scale(.985);}
+#shell .sidebar .nav-link.active{box-shadow:inset 3px 0 0 var(--fp-orange),0 0 0 1px #ff76451a!important;}
+#shell .sidebar .nav-link.active:before{
+  content:"";position:absolute;left:0;top:29%;height:42%;width:3px;
+  border-radius:0 5px 5px 0;background:var(--motion-highlight);
+  animation:fp-active-tab var(--motion-standard) var(--motion-ease) both;
+}
+#shell .sidebar-create, #shell .btn, #shell .small-btn,
+#shell .fp-v2-btn, #shell .fp-ai-prompt-grid button{
+  transition:transform var(--motion-fast) ease,box-shadow var(--motion-standard) ease,
+    background-color var(--motion-fast) ease,border-color var(--motion-fast) ease,filter var(--motion-fast) ease;
+}
+#shell .btn:active:not(:disabled), #shell .small-btn:active:not(:disabled),
+#shell .sidebar-create:active:not(:disabled){transform:scale(.975);}
+#shell .btn:focus-visible,#shell .small-btn:focus-visible,#shell .nav-link:focus-visible,
+#shell .icon-btn:focus-visible,#shell .sidebar-create:focus-visible{
+  outline:2px solid #ff9568;outline-offset:3px;
+}
+#shell .btn.primary:hover:not(:disabled){box-shadow:0 9px 26px #ff673a43;}
+#shell .content .view:not(.hidden){animation:fp-page-in var(--motion-standard) var(--motion-ease) both;}
+#shell .view:not(.hidden) .section-heading{
+  animation:fp-slide-fade 380ms var(--motion-ease) both;
+}
+#shell .view:not(.hidden) .kpi-grid>.kpi-card,
+#shell .view:not(.hidden) .ws-report-metrics>.ws-metric,
+#shell .view:not(.hidden) .fp-accounts-head>article{
+  animation:fp-card-arrive 560ms var(--motion-ease) both;
+  animation-delay:calc(var(--motion-index,0) * 65ms);
+}
+#shell .view:not(.hidden) .kpi-grid>.kpi-card:nth-child(1),
+#shell .view:not(.hidden) .ws-report-metrics>.ws-metric:nth-child(1),
+#shell .view:not(.hidden) .fp-accounts-head>article:nth-child(1){--motion-index:0}
+#shell .view:not(.hidden) .kpi-grid>.kpi-card:nth-child(2),
+#shell .view:not(.hidden) .ws-report-metrics>.ws-metric:nth-child(2),
+#shell .view:not(.hidden) .fp-accounts-head>article:nth-child(2){--motion-index:1}
+#shell .view:not(.hidden) .kpi-grid>.kpi-card:nth-child(3),
+#shell .view:not(.hidden) .ws-report-metrics>.ws-metric:nth-child(3),
+#shell .view:not(.hidden) .fp-accounts-head>article:nth-child(3){--motion-index:2}
+#shell .view:not(.hidden) .kpi-grid>.kpi-card:nth-child(4),
+#shell .view:not(.hidden) .ws-report-metrics>.ws-metric:nth-child(4),
+#shell .view:not(.hidden) .fp-accounts-head>article:nth-child(4){--motion-index:3}
+#shell .kpi-card,#shell .ws-metric,#shell .fp-accounts-head article{
+  backface-visibility:hidden;
+  transition:transform var(--motion-standard) var(--motion-ease),border-color var(--motion-standard) ease,box-shadow var(--motion-standard) ease;
+}
+#shell .kpi-card:hover,#shell .ws-metric:hover,#shell .fp-accounts-head article:hover{
+  transform:translateY(-3px);border-color:#6c5040;box-shadow:0 13px 33px #00000030;
+}
+#shell .kpi-card strong,#shell .ws-metric strong{font-variant-numeric:tabular-nums;}
+#shell .kpi-card[data-motion-updated] strong{animation:fp-metric-glow 560ms ease both;}
+#shell .panel,#shell .fp-v2-card,#shell .fp-ai-hub>article{
+  transition:border-color var(--motion-standard) ease,box-shadow var(--motion-standard) ease;
+}
+#shell .panel:hover,#shell .fp-v2-card:hover,#shell .fp-ai-hub>article:hover{
+  border-color:#4b4542;box-shadow:0 17px 42px #0000001b;
+}
+#shell .table-wrap tbody tr{transition:background-color var(--motion-fast) ease;}
+#shell .table-wrap tbody tr:hover{background:#ff6d3b0c;}
+#shell .table-wrap tbody tr:focus-within{background:#ff6d3b12;}
+#shell .status,#shell .fp-v2-pill{transition:border-color var(--motion-fast) ease,background-color var(--motion-fast) ease;}
+#shell .chart .fp-chart .trendline{
+  stroke:#ff8a50;stroke-dasharray:1200;stroke-dashoffset:1200;
+  animation:fp-line-reveal 1350ms cubic-bezier(.24,.74,.26,1) 130ms forwards;
+}
+#shell .chart .fp-chart .area{opacity:0;animation:fp-area-in 900ms ease 340ms forwards;}
+#shell .chart .fp-chart .dot{
+  transform-box:fill-box;transform-origin:center;
+  opacity:0;animation:fp-dot-in 460ms var(--motion-ease) both;
+  animation-delay:calc(520ms + var(--fp-point,0)*75ms);
+  transition:filter var(--motion-fast) ease;
+}
+#shell .chart .fp-chart .dot:hover{filter:drop-shadow(0 0 5px #ffb480);}
+#shell .chart .fp-chart text{opacity:0;animation:fp-text-in 420ms ease 650ms forwards;}
+#shell .chart.loading:not(:has(svg)):after{
+  content:"";position:absolute;inset:25px 5px 35px;border-radius:15px;
+  background:linear-gradient(100deg,transparent 8%,#ff87561a 35%,transparent 62%) 0 0/210% 100%;
+  animation:fp-skeleton 1.35s linear infinite;pointer-events:none;
+}
+#shell .chat-bubble{animation:fp-chat-pop 320ms var(--motion-ease) both;}
+#shell .modal:not(.hidden){animation:fp-modal-backdrop 190ms ease both;}
+#shell .modal:not(.hidden) .modal-card{animation:fp-modal-card 330ms var(--motion-ease) both;}
+#toast:not(.hidden){animation:fp-toast-arrive 290ms var(--motion-ease) both;}
+#shell .sidebar-backdrop{display:none;}
+#shell .motion-sr-status{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;}
+@keyframes fp-page-in {from{opacity:.18;transform:translate3d(0,13px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes fp-slide-fade {from{opacity:.2;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fp-card-arrive {from{opacity:0;transform:translate3d(0,19px,0) scale(.975)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
+@keyframes fp-active-tab{from{opacity:0;transform:scaleY(.4)}to{opacity:1;transform:scaleY(1)}}
+@keyframes fp-line-reveal{to{stroke-dashoffset:0}}
+@keyframes fp-area-in{from{opacity:0}to{opacity:1}}
+@keyframes fp-dot-in{from{opacity:0;transform:scale(.25)}to{opacity:1;transform:scale(1)}}
+@keyframes fp-text-in{to{opacity:1}}
+@keyframes fp-metric-glow{from{text-shadow:0 0 15px #ff9c743f}to{text-shadow:none}}
+@keyframes fp-skeleton{to{background-position-x:-210%}}
+@keyframes fp-chat-pop{from{opacity:.15;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fp-modal-backdrop{from{opacity:0}to{opacity:1}}
+@keyframes fp-modal-card{from{opacity:.1;transform:translateY(15px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes fp-toast-arrive{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:900px){
+  #shell .sidebar{overscroll-behavior:contain;z-index:26;}
+  #shell .sidebar-backdrop{
+    display:block;position:fixed;inset:0;background:#040508ae;backdrop-filter:blur(4px);
+    z-index:25;opacity:0;pointer-events:none;
+    transition:opacity 240ms ease;
+  }
+  #shell .sidebar-backdrop.open{opacity:1;pointer-events:auto;}
+  #shell .sidebar.open{box-shadow:19px 0 70px #000b!important;}
+  #shell .topbar{gap:10px;}
+  #shell .top-search{max-width:min(40vw,230px);}
+}
+@media(max-width:600px){
+  #shell .content{padding-bottom:calc(20px + env(safe-area-inset-bottom));}
+  #shell .view .section-heading h1{letter-spacing:-.7px;}
+  #shell .topbar{padding:0 13px;}
+  #shell .top-right{min-width:0;gap:7px;}
+  #shell .top-search{max-width:130px;}
+}
+@media(prefers-reduced-motion:reduce){
+  :root{--motion-fast:0ms;--motion-standard:0ms;--motion-long:0ms;}
+  #shell .content *, #shell .content *::before,#shell .content *::after,
+  #shell .sidebar *,#shell .sidebar *::before,#shell .sidebar *::after,
+  #shell .sidebar-backdrop, #toast, #shell .modal, #shell .modal-card{
+    animation-duration:.01ms!important;animation-delay:0ms!important;transition-duration:0ms!important;
+    scroll-behavior:auto!important;
+  }
+  #shell .chart .fp-chart .trendline{stroke-dashoffset:0!important;}
+  #shell .chart .fp-chart .area,#shell .chart .fp-chart .dot,#shell .chart .fp-chart text{opacity:1!important;}
+  #shell .kpi-card:hover,#shell .ws-metric:hover,#shell .fp-accounts-head article:hover{transform:none!important;}
+}
