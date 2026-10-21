@@ -34,3 +34,23 @@
 #page-license textarea{width:100%}
 #page-license label>input[type="checkbox"]{width:auto;margin-right:8px}
 #page-license label>select{margin-left:8px}
+/* 2026-10-21 commercial clarity (sprint/commercialux): dedicated license
+   status box with three states (active / expiring soon / inactive) plus
+   the first-run 3-step activation checklist. All styling via classes —
+   the CSP (style-src 'self') blocks inline styles, see the note above.
+   Accent colors reuse the FinPoint dark-theme palette already in use:
+   green #5be1a2, amber #ffba62, red #f87171 (same red as .commercial-error). */
+.license-status{border:1px solid #34353b;border-left:4px solid #34353b;border-radius:10px;background:#1a1b1f;padding:12px 14px;margin:14px 0}
+.license-status-line{margin:0;font-weight:700;color:#f5f4f1}
+.license-status-guidance{margin:6px 0 0;font-size:12px;line-height:1.6;color:#c9cad2}
+.license-status-unknown{border-left-color:#34353b}
+.license-status-active{border-left-color:#5be1a2}
+.license-status-active .license-status-line{color:#5be1a2}
+.license-status-expiring{border-left-color:#ffba62;background:#241c10}
+.license-status-expiring .license-status-line{color:#ffba62}
+.license-status-inactive{border-left-color:#f87171}
+.license-status-inactive .license-status-line{color:#f87171}
+.license-steps{margin:14px 0}
+.license-steps h4{margin:0 0 4px;font-size:13px;color:#f8f7f5}
+.license-steps-list{margin:6px 0 10px;padding-left:20px;font-size:13px;line-height:1.7;color:#d4d4db}
+.license-steps-list b{color:#f5f4f1}

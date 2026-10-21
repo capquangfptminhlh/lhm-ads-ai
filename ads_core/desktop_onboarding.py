@@ -92,7 +92,13 @@ def create_first_admin(body: FirstAdmin, request: Request):
     TOKEN_EXPIRES_AT = 0
     response = JSONResponse({'ok': True, 'next': '/studio'})
     response.set_cookie(
+        # Same flags as the /api/login session cookie (app.py): secure
+        # follows COOKIE_SECURE, which the desktop launcher sets to false
+        # for its loopback-HTTP mode; 'strict' is kept deliberately here
+        # because the first-run session is created from the local setup
+        # page and never needs to survive a cross-site return.
         'lhm_session', raw_session, httponly=True, samesite='strict',
-        secure=False, max_age=86400, path='/',
+        secure=os.environ.get('COOKIE_SECURE', 'true').lower() == 'true',
+        max_age=86400, path='/',
     )
     return response

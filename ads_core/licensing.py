@@ -20,7 +20,12 @@ from pydantic import BaseModel, Field
 
 from .app import app, browser_admin, identify
 from .db import audit, connection
-from .security import seal, unseal
+from . import license_revocation
+from .security import (
+    LICENSE_ACTIVATION_MAX_ATTEMPTS,
+    attempt_blocked, attempt_failed, attempt_succeeded,
+    license_activation_scope, seal, unseal,
+)
 from .release_info import EDITION
 
 PUBLIC_KEY_B64 = 'wfIl1u1iuW0wmtfnpoUIhMUNgWRmnn4wub36hTRzaGg='
@@ -142,6 +147,17 @@ def read_license() -> dict:
         payload=verify_signed_license(path.read_text(encoding='utf-8'))
     except (ValueError,UnicodeError,OSError):
         return {'active':False,'reason':'expired_or_invalid','device':device_id(),'edition':EDITION}
+    # Revocation (offline model): the signed list lives next to license.json
+    # unless LHM_REVOCATION_FILE points elsewhere. No file = no revocations;
+    # a file that fails verification fails closed.
+    rev_path=os.environ.get('LHM_REVOCATION_FILE') or str(license_folder()/'revocations.json')
+    try:
+        revocations=license_revocation.load_revocation_list(rev_path)
+    except license_revocation.RevocationError:
+        return {'active':False,'reason':'revocation_list_invalid','device':device_id(),'edition':EDITION}
+    revoked,_entry=license_revocation.is_revoked(revocations,payload)
+    if revoked:
+        return {'active':False,'reason':'revoked','device':device_id(),'edition':EDITION}
     safe,reason=trusted_clock()
     if not safe:
         return {'active':False,'reason':reason,'device':device_id(),'edition':EDITION}
@@ -168,10 +184,26 @@ def license_status(ident=Depends(identify)):
 
 @app.post('/api/license/activate')
 def activate_license(body:Activation, ident=Depends(browser_admin)):
+    scope=license_activation_scope(ident['id'])
+    with connection() as db:
+        if attempt_blocked(db,scope,LICENSE_ACTIVATION_MAX_ATTEMPTS):
+            raise HTTPException(429,'Đã thử kích hoạt quá nhiều lần. Vui lòng đợi 15 phút rồi thử lại.')
     try:
         payload=verify_signed_license(body.license_text)
     except ValueError:
+        with connection() as db:
+            attempt_failed(db,scope)
         raise HTTPException(422,'Giấy phép không hợp lệ, hết hạn hoặc không thuộc máy này') from None
+    rev_path=os.environ.get('LHM_REVOCATION_FILE') or str(license_folder()/'revocations.json')
+    try:
+        revocations=license_revocation.load_revocation_list(rev_path)
+    except license_revocation.RevocationError:
+        raise HTTPException(422,'Danh sách thu hồi giấy phép không hợp lệ; liên hệ hỗ trợ') from None
+    revoked,entry=license_revocation.is_revoked(revocations,payload)
+    if revoked:
+        with connection() as db:
+            attempt_failed(db,scope)
+        raise HTTPException(422,'Giấy phép đã bị thu hồi'+(f": {entry.get('reason')}" if entry and entry.get('reason') else '')+'. Liên hệ đơn vị cung cấp.')
     clock_ok, clock_reason=trusted_clock()
     if not clock_ok:
         raise HTTPException(409,'Đồng hồ Windows bị chỉnh lùi hoặc dữ liệu kiểm tra thời gian hỏng; đồng bộ lại giờ và liên hệ hỗ trợ')
@@ -188,5 +220,6 @@ def activate_license(body:Activation, ident=Depends(browser_admin)):
         os.fsync(f.fileno())
     os.replace(tmp,target)
     with connection() as db:
+        attempt_succeeded(db,scope)
         audit(db,ident,'license.activate',f'License ID={payload["license_id"]}, expiry={payload["expires_at"]}')
     return read_license()

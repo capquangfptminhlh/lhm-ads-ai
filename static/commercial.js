@@ -5,6 +5,48 @@
   const el = id => document.getElementById(id);
   const show = (msg, bad=false) => {const p=el('commercial-message'); p.textContent=msg;p.className=bad?'commercial-error':'commercial-ok'};
   const fmtDate = sec => sec ? new Date(sec*1000).toLocaleString('vi-VN') : '—';
+  // Dedicated license status box: three clear states computed ONLY from the
+  // /api/license payload (active, plan, expires_at, reason). Styling lives
+  // in workspace-pages.css (.license-status-*); the CSP blocks inline styles.
+  function renderLicenseStatus(license) {
+    const box=el('license-status-box'),line=el('license-status-line'),
+      guidance=el('license-status-guidance'),steps=el('license-activate-steps');
+    if(!box||!line)return;
+    const days=license.active?Math.max(Math.ceil((license.expires_at-Date.now()/1000)/86400),0):null;
+    let state='inactive',lineText='',guidanceText='';
+    if(license.active&&days>7){
+      state='active';
+      lineText=`Bản quyền đang hoạt động · Gói ${license.plan} · Còn ${days} ngày · Hết hạn ${fmtDate(license.expires_at)}`;
+    } else if(license.active){
+      state='expiring';
+      lineText=`Bản quyền sắp hết hạn · Gói ${license.plan} · Còn ${days} ngày · Hết hạn ${fmtDate(license.expires_at)}`;
+      guidanceText='Gia hạn: gửi mã máy cho đơn vị cung cấp và chuyển khoản theo hướng dẫn đã nhận. Sau khi nhận file license.json mới, dán nội dung vào ô bên dưới và bấm "Kích hoạt / Gia hạn".';
+    } else if(license.reason==='clock_rollback'){
+      state='inactive';
+      lineText='Bản quyền tạm dừng vì đồng hồ Windows bị chỉnh lùi.';
+      guidanceText='Vui lòng đồng bộ giờ Windows cho chính xác rồi mở lại trang này. Không xóa dữ liệu ứng dụng.';
+    } else if(license.reason==='clock_state_invalid'){
+      state='inactive';
+      lineText='Chưa kiểm tra được bản quyền vì dữ liệu kiểm tra thời gian bị lỗi.';
+      guidanceText='Liên hệ hỗ trợ để được hướng dẫn. Không xóa dữ liệu ứng dụng.';
+    } else if(license.reason==='revoked'){
+      state='inactive';
+      lineText='Giấy phép đã bị thu hồi.';
+      guidanceText='Giấy phép này không còn hiệu lực theo danh sách thu hồi của đơn vị cung cấp. Dữ liệu của bạn vẫn còn nguyên; liên hệ đơn vị cung cấp để được làm rõ và cấp lại nếu có nhầm lẫn.';
+    } else if(license.reason==='revocation_list_invalid'){
+      state='inactive';
+      lineText='Không kiểm chứng được danh sách thu hồi giấy phép.';
+      guidanceText='File danh sách thu hồi trên máy không hợp lệ nên phần mềm tạm dừng để bảo toàn. Liên hệ hỗ trợ; không tự xóa file trong thư mục dữ liệu.';
+    } else {
+      state='inactive';
+      lineText='Chưa kích hoạt hoặc giấy phép đã hết hạn.';
+      guidanceText='Chế độ chỉ đọc: dữ liệu vẫn có thể xem và xuất báo cáo, nhưng các thao tác với quảng cáo (kết nối tài khoản, duyệt kế hoạch, giám sát nền) đang tạm dừng cho đến khi kích hoạt lại.';
+    }
+    box.className='license-status license-status-'+state;
+    line.textContent=lineText;
+    if(guidance){guidance.textContent=guidanceText;guidance.classList.toggle('hidden',!guidanceText);}
+    if(steps)steps.classList.toggle('hidden',!!license.active);
+  }
   const escape = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   async function refresh() {
     try {
@@ -12,13 +54,12 @@
       el('license-device').textContent=license.device||'—';
       const edition=license.edition==='commercial'?'BẢN THƯƠNG MẠI':'BẢN PILOT / KIỂM THỬ';
       el('license-edition').textContent=edition;
-      const days=license.active?Math.ceil((license.expires_at-Date.now()/1000)/86400):null;
       el('license-state').textContent=license.active?
-        `Đã kích hoạt · ${license.plan} · Hết hạn ${fmtDate(license.expires_at)}`+
-          (days<=7?` · Còn ${Math.max(days,0)} ngày, cần gia hạn`:''):
+        `Đã kích hoạt · ${license.plan} · Hết hạn ${fmtDate(license.expires_at)}`:
         license.reason==='clock_rollback'?'Đồng hồ Windows bị chỉnh lùi. Vui lòng đồng bộ giờ chính xác để tiếp tục sử dụng.':
         license.reason==='clock_state_invalid'?'Dữ liệu kiểm tra thời gian bị lỗi. Liên hệ hỗ trợ, không xóa dữ liệu ứng dụng.':
         'Chưa kích hoạt hoặc giấy phép hết hạn. Dữ liệu vẫn có thể xem và xuất báo cáo.';
+      renderLicenseStatus(license);
       el('monitor-enable').checked=monitor.settings.enabled;
       el('monitor-interval').value=String(monitor.settings.poll_minutes);
       const rows=monitor.samples.slice(0,8).map(s=>`<tr><td>${escape(s.label)}</td><td>${fmtDate(s.observed_at)}</td><td>${escape(s.error_code||s.source||'—')}</td></tr>`).join('');
@@ -103,8 +144,20 @@
       <p class="muted tiny">Mỗi máy có mã riêng; gia hạn bằng giấy phép ký số. Không chuyển dữ liệu Ads về máy chủ cấp phép.</p>
       <p><b>Phiên bản:</b> <span id="license-edition">Đang kiểm tra...</span></p>
       <p><b>Trạng thái:</b> <span id="license-state">Đang kiểm tra...</span></p>
+      <div id="license-status-box" class="license-status license-status-unknown" role="status" aria-live="polite">
+        <p id="license-status-line" class="license-status-line">Đang kiểm tra trạng thái bản quyền...</p>
+        <p id="license-status-guidance" class="license-status-guidance hidden"></p>
+      </div>
       <p><b>Mã máy:</b> <code id="license-device" class="wrap-anywhere"></code>
       <button type="button" id="license-copy-device" class="btn secondary" title="Sao chép mã máy để gửi cho bên bán">Sao chép mã máy</button></p>
+      <section id="license-activate-steps" class="license-steps hidden" aria-label="Các bước kích hoạt bản quyền">
+        <h4>Làm theo 3 bước để kích hoạt</h4>
+        <ol class="license-steps-list">
+          <li><b>Bước 1:</b> Sao chép mã máy ở trên bằng nút "Sao chép mã máy".</li>
+          <li><b>Bước 2:</b> Gửi mã máy cho đơn vị cung cấp và chuyển khoản theo hướng dẫn đã nhận.</li>
+          <li><b>Bước 3:</b> Nhận file license.json, dán nội dung vào ô bên dưới và bấm "Kích hoạt / Gia hạn".</li>
+        </ol>
+      </section>
       <label>Nhập nội dung file license.json (do đơn vị cung cấp phát hành)
         <textarea id="license-input" rows="4" placeholder="Dán JSON giấy phép đã ký tại đây"></textarea></label>
       <button id="license-activate" type="button" class="btn primary">Kích hoạt / Gia hạn</button>

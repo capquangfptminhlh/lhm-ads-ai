@@ -123,11 +123,19 @@ class PasswordInput(BaseModel):
 
 @app.post('/api/me/password')
 def change_password(body: PasswordInput, ident=Depends(require('admin','operator','reader'))):
-    from .security import verify_password
+    from .security import (
+        PASSWORD_CHANGE_MAX_ATTEMPTS, attempt_blocked, attempt_failed,
+        attempt_succeeded, password_change_scope, verify_password,
+    )
+    scope = password_change_scope(ident['id'])
     with connection() as db:
+        if attempt_blocked(db, scope, PASSWORD_CHANGE_MAX_ATTEMPTS):
+            raise HTTPException(429,'Đã thử đổi mật khẩu quá nhiều lần. Vui lòng đợi 15 phút rồi thử lại.')
         u = db.execute('SELECT password_hash FROM users WHERE id=?',(ident['id'],)).fetchone()
         if not u or not verify_password(u['password_hash'],body.old_password):
+            attempt_failed(db, scope)
             raise HTTPException(403,'Mật khẩu hiện tại không đúng')
+        attempt_succeeded(db, scope)
         db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(body.new_password),ident['id']))
         db.execute('DELETE FROM sessions WHERE user_id=?',(ident['id'],))
         audit(db,ident,'auth.password_changed','Revoked all sessions on password change')
