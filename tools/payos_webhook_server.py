@@ -95,7 +95,19 @@ def make_handler(db_path, checksum_key):
     return Handler
 
 
+def _force_utf8_streams():
+    # Windows consoles/pipes default to a legacy codepage (cp1252/cp437)
+    # that cannot encode Vietnamese; these CLIs print Vietnamese status
+    # text, so pin stdout/stderr to UTF-8 when the runtime allows it.
+    import sys as _sys
+    for stream in (_sys.stdout, _sys.stderr):
+        try:
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, ValueError):
+            pass
+
 def main(argv=None):
+    _force_utf8_streams()
     parser = argparse.ArgumentParser(description='LHM Ads AI seller PayOS webhook receiver')
     parser.add_argument('--db', type=Path, default=ledger.default_database())
     parser.add_argument('--host', default='127.0.0.1')

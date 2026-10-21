@@ -128,6 +128,30 @@ def test_vendor_ledger_einvoice_status(tmp_path):
     assert result['einvoice_configured'] is False
 
 
+def test_seller_clis_survive_windows_legacy_codepage(tmp_path):
+    """Regression: the Windows CI job runs pytest on Windows, where a piped
+    stdout defaults to cp1252 and cannot encode Vietnamese — the seller CLIs
+    crashed with UnicodeEncodeError (windows-exe job failure, 2026-10-21).
+    Every CLI now pins its streams to UTF-8; simulate with
+    PYTHONIOENCODING=cp1252, which has the same effect on Linux."""
+    import os
+    import subprocess
+    import sys
+    env = dict(os.environ, PYTHONIOENCODING='cp1252')
+    out = subprocess.run([sys.executable, 'tools/vendor_ledger.py', '--db',
+                          str(tmp_path / 'ledger.sqlite3'), 'einvoice-status'],
+                         capture_output=True, text=True, cwd=str(_repo_root()), env=env)
+    assert out.returncode == 0, out.stderr
+    assert 'hóa đơn' in out.stdout
+    env.update({'DB_PATH': str(tmp_path / 'd' / 'db.sqlite'),
+                'MASTER_KEY': base64.b64encode(b'k' * 32).decode(),
+                'SESSION_SECRET': 'a' * 48})
+    out = subprocess.run([sys.executable, 'tools/acceptance_preflight.py'],
+                         capture_output=True, text=True, cwd=str(_repo_root()), env=env)
+    assert out.returncode == 0, out.stderr
+    assert 'Tổng kết' in out.stdout
+
+
 def _repo_root():
     from pathlib import Path
     return Path(__file__).resolve().parents[1]

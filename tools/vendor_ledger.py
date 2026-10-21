@@ -335,7 +335,19 @@ def backup_database(db,out_path):
         raise
     return {'backup':str(destination),'contains_ads_tokens':False}
 
+def _force_utf8_streams():
+    # Windows consoles/pipes default to a legacy codepage (cp1252/cp437)
+    # that cannot encode Vietnamese; these CLIs print Vietnamese status
+    # text, so pin stdout/stderr to UTF-8 when the runtime allows it.
+    import sys as _sys
+    for stream in (_sys.stdout, _sys.stderr):
+        try:
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, ValueError):
+            pass
+
 def main(argv=None):
+    _force_utf8_streams()
     parser=argparse.ArgumentParser(description='LHM Ads AI local seller ledger (no Ads tokens)')
     parser.add_argument('--db',type=Path,default=default_database())
     cmd=parser.add_subparsers(dest='command',required=True)

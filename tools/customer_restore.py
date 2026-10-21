@@ -11,7 +11,19 @@ from pathlib import Path
 from ads_core.secure_backup import restore_into_empty_directory, MAX_DATABASE_BYTES
 
 
+def _force_utf8_streams():
+    # Windows consoles/pipes default to a legacy codepage (cp1252/cp437)
+    # that cannot encode Vietnamese; these CLIs print Vietnamese status
+    # text, so pin stdout/stderr to UTF-8 when the runtime allows it.
+    import sys as _sys
+    for stream in (_sys.stdout, _sys.stderr):
+        try:
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, ValueError):
+            pass
+
 def main():
+    _force_utf8_streams()
     parser=argparse.ArgumentParser(description='LHM Ads AI offline customer restore')
     parser.add_argument('--backup',type=Path,required=True)
     parser.add_argument('--destination',type=Path,required=True,

@@ -52,7 +52,19 @@ def create_vendor_keys(private_path:Path,public_path:Path,password:str):
 
 
 
+def _force_utf8_streams():
+    # Windows consoles/pipes default to a legacy codepage (cp1252/cp437)
+    # that cannot encode Vietnamese; these CLIs print Vietnamese status
+    # text, so pin stdout/stderr to UTF-8 when the runtime allows it.
+    import sys as _sys
+    for stream in (_sys.stdout, _sys.stderr):
+        try:
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, ValueError):
+            pass
+
 def main():
+    _force_utf8_streams()
     ap=argparse.ArgumentParser(description='LHM Ads AI: offline license issuance (vendor only)')
     sub=ap.add_subparsers(dest='cmd',required=True)
     gen=sub.add_parser('keygen',help='Tạo khóa ký bí mật có mật khẩu trên máy bên bán')

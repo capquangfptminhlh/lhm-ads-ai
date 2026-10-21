@@ -317,7 +317,19 @@ def print_table(result: dict) -> None:
         print("Kết luận: ĐẠT toàn bộ kiểm tra offline.")
 
 
+def _force_utf8_streams():
+    # Windows consoles/pipes default to a legacy codepage (cp1252/cp437)
+    # that cannot encode Vietnamese; these CLIs print Vietnamese status
+    # text, so pin stdout/stderr to UTF-8 when the runtime allows it.
+    import sys as _sys
+    for stream in (_sys.stdout, _sys.stderr):
+        try:
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, ValueError):
+            pass
+
 def main(argv: list[str] | None = None) -> int:
+    _force_utf8_streams()
     parser = argparse.ArgumentParser(description="LHM Ads AI — kiểm tra tiền nghiệm thu (offline)")
     parser.add_argument("--json", action="store_true", help="in kết quả dạng JSON")
     args = parser.parse_args(argv)
