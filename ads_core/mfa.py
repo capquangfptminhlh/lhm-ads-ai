@@ -133,14 +133,23 @@ class MfaCode(BaseModel):
 
 @app.post('/api/me/mfa/enable')
 def mfa_enable(body: MfaCode, ident=Depends(require('admin', 'operator', 'reader'))):
+    from .security import (
+        MFA_MAX_ATTEMPTS, attempt_blocked, attempt_failed, attempt_succeeded,
+        mfa_scope,
+    )
+    scope = mfa_scope(ident['id'], 'enable')
     with connection() as db:
+        if attempt_blocked(db, scope, MFA_MAX_ATTEMPTS):
+            raise HTTPException(429, 'Đã thử quá nhiều lần. Vui lòng đợi 15 phút rồi thử lại.')
         row = _row(db, ident['id'])
         if not row:
             raise HTTPException(409, 'Chưa bắt đầu thiết lập MFA')
         if row['enabled']:
             raise HTTPException(409, 'MFA đã được bật')
         if not verify_totp(_secret_of(row, ident['id']), body.code):
+            attempt_failed(db, scope)
             raise HTTPException(403, 'Mã xác thực không đúng')
+        attempt_succeeded(db, scope)
         db.execute('UPDATE user_mfa SET enabled=1 WHERE user_id=?', (ident['id'],))
         audit(db, ident, 'auth.mfa_enabled', 'TOTP MFA enabled for this account')
     return {'ok': True, 'message': 'Đã bật MFA. Từ lần đăng nhập sau, hệ thống sẽ yêu cầu mã 6 số.'}
@@ -153,16 +162,26 @@ class MfaDisable(BaseModel):
 
 @app.post('/api/me/mfa/disable')
 def mfa_disable(body: MfaDisable, ident=Depends(require('admin', 'operator', 'reader'))):
+    from .security import (
+        MFA_MAX_ATTEMPTS, attempt_blocked, attempt_failed, attempt_succeeded,
+        mfa_scope,
+    )
+    scope = mfa_scope(ident['id'], 'disable')
     with connection() as db:
+        if attempt_blocked(db, scope, MFA_MAX_ATTEMPTS):
+            raise HTTPException(429, 'Đã thử quá nhiều lần. Vui lòng đợi 15 phút rồi thử lại.')
         user = db.execute('SELECT password_hash FROM users WHERE id=?',
                           (ident['id'],)).fetchone()
         row = _row(db, ident['id'])
         if not row or not row['enabled']:
             raise HTTPException(409, 'MFA chưa được bật')
         if not user or not verify_password(user['password_hash'], body.password):
+            attempt_failed(db, scope)
             raise HTTPException(403, 'Mật khẩu hiện tại không đúng')
         if not verify_totp(_secret_of(row, ident['id']), body.code):
+            attempt_failed(db, scope)
             raise HTTPException(403, 'Mã xác thực không đúng')
+        attempt_succeeded(db, scope)
         db.execute('DELETE FROM user_mfa WHERE user_id=?', (ident['id'],))
         audit(db, ident, 'auth.mfa_disabled', 'TOTP MFA disabled after password + code check')
     return {'ok': True, 'message': 'Đã tắt MFA cho tài khoản này.'}

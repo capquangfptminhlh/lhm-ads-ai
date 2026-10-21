@@ -35,6 +35,20 @@ async def security_headers(request, call_next):
     response.headers['Referrer-Policy'] = 'no-referrer'
     response.headers['Cache-Control'] = 'no-store'
     response.headers['Content-Security-Policy'] = "default-src 'none'; connect-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    # Added 2026-10-21 (commercial security pass) — each fits this app:
+    # - Permissions-Policy: the UI never uses camera/microphone/geolocation/
+    #   payment/USB, so deny them outright for every document.
+    # - Cross-Origin-Resource-Policy: API/static resources are only ever
+    #   loaded by the app's own origin; provider OAuth is redirect-based
+    #   (oauth_connect.py), never cross-origin embedding, so same-origin
+    #   cannot break it.
+    # - HSTS only when COOKIE_SECURE=true (HTTPS server mode): browsers
+    #   ignore it over plain HTTP, and desktop loopback mode is HTTP-only,
+    #   so emitting it there would promise a guarantee that does not exist.
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()'
+    response.headers['Cross-Origin-Resource-Policy'] = 'same-origin'
+    if os.environ.get('COOKIE_SECURE', 'true').lower() == 'true':
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000'
     return response
 
 @app.get('/')

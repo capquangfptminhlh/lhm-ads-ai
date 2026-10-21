@@ -21,8 +21,10 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:  # Prefer the package module so tests and the CLI share one instance.
     from tools import payos as payos_module  # noqa: E402
+    from tools import einvoice as einvoice_module  # noqa: E402
 except ImportError:  # Running as a loose script outside the repo root.
     import payos as payos_module  # noqa: E402  (seller-side dormant PayOS integration)
+    import einvoice as einvoice_module  # noqa: E402  (seller-side dormant e-invoice adapter)
 
 PRODUCT='LHM_ADS_AI'
 DEVICE=re.compile(r'^[a-f0-9]{32}$')
@@ -365,6 +367,7 @@ def main(argv=None):
     pc.add_argument('--customer',required=True)
     pc.add_argument('--amount',required=True,type=int)
     cmd.add_parser('payments',help='List PayOS payment orders and their status')
+    cmd.add_parser('einvoice-status',help='Show whether the e-invoice provider is configured (never prints secrets)')
     args=parser.parse_args(argv)
     try:
         db=connect(args.db)
@@ -388,6 +391,9 @@ def main(argv=None):
             elif args.command=='payos-create':
                 result=create_payos_link(db,args.customer,args.amount)
             elif args.command=='payments':result=payments(db)
+            elif args.command=='einvoice-status':
+                result={'einvoice_configured':einvoice_module.is_configured(),
+                        'note':'Chỉ xuất hóa đơn sau khi đã xác nhận tiền trong sổ; xem docs/EINVOICE.md'}
             else:raise ValueError('Unknown command')
         finally:db.close()
     except (ValueError,OSError,sqlite3.Error,
