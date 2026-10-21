@@ -146,8 +146,15 @@ def scrub_user_message(text):
 
 
 def sanitized_rollup(data):
-    """Whitelisted numeric fields only. No campaign IDs, account labels or API errors."""
+    """Whitelisted numeric fields only. No campaign IDs, account labels or API errors.
+
+    Conversion totals are included only when EVERY account in the group
+    actually supplied them (the same rule report_output uses): a provider
+    that did not report conversions must not silently count as zero, and
+    CPA/ROAS are derived only from complete totals.
+    """
     groups = {}
+    complete = {}
     for item in data['accounts']:
         r = item.get('result')
         if not r:
@@ -156,17 +163,43 @@ def sanitized_rollup(data):
         key = (item['platform'] if item['platform'] in ('demo','meta','google','tiktok','openai') else 'other',
                r.get('currency','?'), r.get('source') == 'demo')
         g = groups.setdefault(key, {'platform': key[0], 'currency': key[1], 'demo': key[2],
-                                    'accounts': 0, 'spend': 0.0, 'impressions': 0, 'clicks': 0})
+                                    'accounts': 0, 'spend': 0.0, 'impressions': 0, 'clicks': 0,
+                                    'conversions': 0.0, 'conversion_value': 0.0})
+        c = complete.setdefault(key, {'conversions': True, 'conversion_value': True})
         g['accounts'] += 1
         g['spend'] += float(r.get('spend') or 0)
         g['impressions'] += int(r.get('impressions') or 0)
         g['clicks'] += int(r.get('clicks') or 0)
-    for g in groups.values():
+        for field in ('conversions', 'conversion_value'):
+            if r.get(field) is None:
+                c[field] = False
+            else:
+                g[field] += float(r[field])
+    any_conversions = False
+    for key, g in groups.items():
         g['spend'] = round(g['spend'], 2)
         g['ctr_percent'] = round(100*g['clicks']/g['impressions'], 2) if g['impressions'] else 0
+        c = complete[key]
+        if c['conversions']:
+            any_conversions = True
+            g['conversions'] = round(g['conversions'], 2)
+            g['cpa'] = round(g['spend']/g['conversions'], 2) if g['conversions'] > 0 else None
+        else:
+            g['conversions'] = None
+            g['cpa'] = None
+        if c['conversions'] and c['conversion_value']:
+            g['conversion_value'] = round(g['conversion_value'], 2)
+            g['roas'] = round(g['conversion_value']/g['spend'], 2) if g['spend'] > 0 else None
+        else:
+            g['conversion_value'] = None
+            g['roas'] = None
+    note = ('Số liệu demo không phải hiệu suất thật. CPA/ROAS chỉ có ở nhóm mà mọi '
+            'tài khoản đều báo cáo chuyển đổi/doanh thu; nhóm để trống là dữ liệu chưa đầy đủ, không phải 0.')
+    if not any_conversions:
+        note = 'Không có dữ liệu chuyển đổi/doanh thu: không thể xác định CPA, ROAS. ' + note
     return {'period':data['period'], 'groups':list(groups.values()),
             'unavailable_account_count':sum('error' in x for x in data['accounts']),
-            'note':'Không có dữ liệu chuyển đổi/doanh thu: không thể xác định CPA, ROAS; số liệu demo không phải hiệu suất thật.'}
+            'note':note}
 
 
 SYSTEM = ('Bạn là chuyên gia phân tích hiệu suất quảng cáo bằng tiếng Việt. '

@@ -8,6 +8,7 @@ New account-level read-only recommendation engine. Scans Google/Meta campaigns o
 - Candidate findings: extremely low CTR with >=100 clicks and >=1,000 impressions; Google campaign with >=100 clicks but no reported conversions. These are **signals for review only**, not proof the campaign should be paused or budget reduced. Meta conversions are not yet normalized.
 - Last agent heartbeat stored locally; UI indicates whether seen in the last two minutes. If PC is sleeping, off or offline, no monitoring can occur.
 - Findings deduplicated by account/campaign/rule, saved in local SQLite. No account names, token contents or IDs are sent to OpenRouter by this engine.
+- Optional Telegram alerts: when the operator has configured `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`, one batched message per scan reports genuinely new (or re-opened) findings by rule code and internal account number only — no campaign IDs, account labels or credentials. Monitoring provider-error alerts use the same channel, throttled to one per account/code/day. Telegram is never configured by default.
 - Read-only API GET status, admin-protected POST scan and acknowledge. No provider write API is reachable through this module.
 
 ## Limits
