@@ -147,7 +147,10 @@ async def _meta_pages(client, url, headers, params):
             raise ValueError('Invalid Graph paging')
         if not paging.get('next'):
             return collected
-        cursor = (paging.get('cursors') or {}).get('after')
+        cursors = paging.get('cursors') or {}
+        if not isinstance(cursors, dict):
+            raise ValueError('Invalid Graph cursors')
+        cursor = cursors.get('after')
         if not isinstance(cursor, str) or not 1 <= len(cursor) <= 1024:
             raise ValueError('Missing Meta cursor')
         if cursor in seen:
@@ -200,42 +203,41 @@ async def meta_campaigns(acc, client):
                 params['action_attribution_windows']='["7d_click"]'
                 params['action_report_time']='conversion'
             insight_rows=await _meta_pages(client,base+'/insights',headers,params)
-            if True:
-                values={}
-                for item in insight_rows:
-                    if not isinstance(item,dict):
-                        raise ValueError('Invalid insight row')
-                    campaign_id=str(item.get('campaign_id',''))
-                    if not ID.fullmatch(campaign_id) or campaign_id in values:
-                        raise ValueError('Invalid or duplicate insight')
-                    values[campaign_id]=item
-                for c in found:
-                    row=values.get(c['id'])
-                    if not row:
+            values={}
+            for item in insight_rows:
+                if not isinstance(item,dict):
+                    raise ValueError('Invalid insight row')
+                campaign_id=str(item.get('campaign_id',''))
+                if not ID.fullmatch(campaign_id) or campaign_id in values:
+                    raise ValueError('Invalid or duplicate insight')
+                values[campaign_id]=item
+            for c in found:
+                row=values.get(c['id'])
+                if not row:
+                    continue
+                spend=float(row['spend'])
+                clicks=int(row['clicks'])
+                impressions=int(row['impressions'])
+                if not math.isfinite(spend) or spend<0 or clicks<0 or impressions<0:
+                    continue
+                c['spend']=round(spend,2)
+                c['clicks']=clicks
+                c['impressions']=impressions
+                c['ctr_percent']=round(100*clicks/impressions,2) if impressions else None
+                if chosen_action and row.get('account_currency')==acc['currency']:
+                    count=_meta_action_number(row.get('actions'),chosen_action)
+                    if count is None:
                         continue
-                    spend=float(row['spend'])
-                    clicks=int(row['clicks'])
-                    impressions=int(row['impressions'])
-                    if not math.isfinite(spend) or spend<0 or clicks<0 or impressions<0:
-                        continue
-                    c['spend']=round(spend,2)
-                    c['clicks']=clicks
-                    c['impressions']=impressions
-                    c['ctr_percent']=round(100*clicks/impressions,2) if impressions else None
-                    if chosen_action and row.get('account_currency')==acc['currency']:
-                        count=_meta_action_number(row.get('actions'),chosen_action)
-                        if count is None:
-                            continue
-                        c['conversions']=round(count,2)
-                        c['conversion_action_type']=chosen_action
-                        c['conversion_source']='meta_actions_7d_click'
-                        c['cpa']=round(spend/count,2) if count>0 else None
-                        from .goals import META_PURCHASE_ACTIONS
-                        if chosen_action in META_PURCHASE_ACTIONS:
-                            value=_meta_action_number(row.get('action_values'),chosen_action)
-                            if value is not None:
-                                c['conversion_value']=round(value,2)
-                                c['roas']=round(value/spend,3) if spend>0 else None
+                    c['conversions']=round(count,2)
+                    c['conversion_action_type']=chosen_action
+                    c['conversion_source']='meta_actions_7d_click'
+                    c['cpa']=round(spend/count,2) if count>0 else None
+                    from .goals import META_PURCHASE_ACTIONS
+                    if chosen_action in META_PURCHASE_ACTIONS:
+                        value=_meta_action_number(row.get('action_values'),chosen_action)
+                        if value is not None:
+                            c['conversion_value']=round(value,2)
+                            c['roas']=round(value/spend,3) if spend>0 else None
         except HTTPException:
             raise
         except (httpx.HTTPError, ValueError, TypeError, KeyError):
