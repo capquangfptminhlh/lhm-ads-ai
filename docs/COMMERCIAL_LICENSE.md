@@ -24,8 +24,8 @@ Chương trình yêu cầu mật khẩu ít nhất 16 ký tự và xuất privat
 
 1. Tại GitHub repository → Settings → Secrets and variables → Actions, tạo repository secret `LHM_COMMERCIAL_PUBLIC_KEY_B64` chứa đúng một dòng trong `vendor-public.b64`. Đây chỉ là khóa CÔNG KHAI.
 2. GitHub → Actions → Build and test Windows EXE → Run workflow → chọn main → commercial=true.
-3. Workflow sẽ fail nếu không có public key hợp lệ. Chỉ gửi artifact `LHM-Ads-AI-COMMERCIAL`, không gửi bản `PILOT` dưới tên bản bán.
-4. Artifact có EXE và tệp `LHM-Ads-AI.sha256`. Kiểm tra SHA256 của EXE sau khi tải. Chữ ký Authenticode vẫn cần được thực hiện riêng trước khi phát hành đại trà.
+3. Workflow sẽ fail nếu không có public key hợp lệ. Workflow tạo artifact `LHM-Ads-AI-COMMERCIAL-CANDIDATE-UNSIGNED` **CHƯA KÝ SỐ** để thử nội bộ. Không gửi khách, không gọi đây là bản phát hành chính thức.
+4. Artifact có EXE, SHA256, `release-manifest.json` (ghi rõ unsigned) và hướng dẫn. Chủ phần mềm phải ký Authenticode bằng chứng thư riêng **ngoài GitHub**, rồi kiểm tra bằng `windows/verify-release.ps1 -Exe .\\LHM-Ads-AI.exe -ExpectedThumbprint <PUBLISHER_CERT_SHA1> -HashOut .\\LHM-Ads-AI-signed.sha256`. Chỉ mã SHA256 **sau khi ký** mới dùng cho bản gửi khách. Không tự xuất bản file unsigned.
 
 ## Bước 3 — Cấp và gia hạn license 30 ngày
 
@@ -60,3 +60,7 @@ Quản lý riêng sổ bán hàng: mã khách, Device ID, license ID, ngày hế
 - [ ] Có quy trình thu phí, xuất hóa đơn và bảo mật thông tin khách hàng; phần hóa đơn/thanh toán chưa tích hợp tự động.
 
 **Không chuyển private vendor key cho đội hỗ trợ, khách hoặc CI.**
+
+## Vận hành khách thuê
+
+Xem [VENDOR_OPERATIONS.md](VENDOR_OPERATIONS.md) để đăng ký mã máy, xác minh file license, ghi nhận thanh toán thủ công, lọc khách sắp hết hạn và xuất báo cáo CSV ngoại tuyến. Không thu thập token Ads, không tự xác nhận giao dịch ngân hàng.

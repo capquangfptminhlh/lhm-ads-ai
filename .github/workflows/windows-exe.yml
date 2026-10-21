@@ -9,11 +9,12 @@ on:
       - 'tests/**'
       - 'requirements.txt'
       - 'tools/prepare_commercial_build.py'
+      - 'tools/vendor_ledger.py'
       - '.github/workflows/windows-exe.yml'
   workflow_dispatch:
     inputs:
       commercial:
-        description: 'Release signed-license commercial edition (requires vendor PUBLIC key secret)'
+        description: 'Build commercial licensing CANDIDATE, unsigned until owner signs EXE'
         required: true
         type: boolean
         default: false
@@ -79,7 +80,7 @@ jobs:
             $log = Join-Path $env:LHM_DATA_DIR 'logs\startup.log'
             if (Test-Path $log) { Get-Content $log -Tail 40 }
           }
-      - name: Emit SHA256 checksum for customer verification
+      - name: Emit SHA256 checksum and distribution safety manifest
         if: success()
         shell: pwsh
         run: |
@@ -87,13 +88,36 @@ jobs:
           $hash = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           Set-Content 'dist/LHM-Ads-AI.sha256' -Value "$hash  LHM-Ads-AI.exe" -Encoding ascii
           Write-Host "LHM Ads AI SHA256: $hash"
+          $edition = 'pilot'
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch' -and '${{ inputs.commercial }}' -eq 'true') {
+            $edition = 'commercial-candidate'
+          }
+          $manifest = @{
+            product = 'LHM Ads AI'
+            source_commit = '${{ github.sha }}'
+            edition = $edition
+            executable = 'LHM-Ads-AI.exe'
+            sha256 = $hash
+            created_at_utc = (Get-Date).ToUniversalTime().ToString('o')
+            authenticode = 'UNSIGNED'
+            distribution = 'NOT_APPROVED_FOR_SALE'
+          }
+          $manifest | ConvertTo-Json | Set-Content -Path 'dist/release-manifest.json' -Encoding utf8
+          Set-Content -Path 'dist/README-VERIFY-BEFORE-SALE.txt' -Value @(
+            'LHM Ads AI - INTERNAL TEST BUILD ONLY.'
+            'This EXE is not Authenticode signed in GitHub CI.'
+            'Do not distribute/sell until vendor signs the EXE and verifies the signature on Windows.'
+            'After signing, recompute SHA256; original checksum is for this unsigned candidate only.'
+          ) -Encoding ascii
       - name: Upload tested EXE and checksum
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ (github.event_name == 'workflow_dispatch' && inputs.commercial) && 'LHM-Ads-AI-COMMERCIAL' || 'LHM-Ads-AI-PILOT' }}
+          name: ${{ (github.event_name == 'workflow_dispatch' && inputs.commercial) && 'LHM-Ads-AI-COMMERCIAL-CANDIDATE-UNSIGNED' || 'LHM-Ads-AI-PILOT' }}
           path: |
             dist/LHM-Ads-AI.exe
             dist/LHM-Ads-AI.sha256
+            dist/release-manifest.json
+            dist/README-VERIFY-BEFORE-SALE.txt
           if-no-files-found: error
           retention-days: 14
