@@ -18,7 +18,9 @@ from .providers import account_token
 
 ID = re.compile(r'\d{5,30}\Z')
 GOOGLE_CUSTOMER = re.compile(r'\d{8,20}\Z')
-MAX_CAMPAIGNS = 100
+MAX_CAMPAIGNS = 500
+META_PAGE_SIZE = 100
+META_MAX_PAGES = 6  # A sixth page is only allowed to detect overflow.
 
 
 def _google_headers(credential, access_token):
@@ -66,7 +68,7 @@ async def google_campaigns(acc, client):
              "metrics.cost_micros, metrics.impressions, metrics.clicks, "
              "metrics.conversions, metrics.conversions_value "
              "FROM campaign WHERE campaign.status != REMOVED "
-             "AND segments.date DURING LAST_7_DAYS LIMIT 100")
+             "AND segments.date DURING LAST_7_DAYS LIMIT 501")
     try:
         response = await client.post(
             f'https://googleads.googleapis.com/{version}/customers/{customer}/googleAds:searchStream',
@@ -97,8 +99,8 @@ async def google_campaigns(acc, client):
                     'cpa': round(spend/conversions, 2) if conversions>0 else None,
                     'roas': round(value/spend, 3) if spend>0 else None,
                 })
-                if len(found) >= MAX_CAMPAIGNS:
-                    return found
+                if len(found) > MAX_CAMPAIGNS:
+                    raise HTTPException(409, 'Quá 500 chiến dịch; không thể kiểm tra đầy đủ và tạo cảnh báo an toàn.')
         return found
     except (httpx.HTTPError, ValueError, TypeError, KeyError, OverflowError):
         raise HTTPException(502, 'Không đọc được chiến dịch Google Ads; kiểm tra quyền API.') from None
@@ -121,6 +123,40 @@ def _meta_action_number(rows, action_type):
         return None
 
 
+async def _meta_pages(client, url, headers, params):
+    """Bounded Meta cursor pagination; never follow arbitrary paging.next URL.
+
+    Fails closed on truncation, repeated cursor, malformed JSON and HTTP errors.
+    No write API is called. This prevents falsely resolving existing alerts when
+    only one partial page of campaign/insight data was returned.
+    """
+    collected = []
+    seen = set()
+    args = dict(params)
+    for _ in range(META_MAX_PAGES):
+        response = await client.get(url, headers=headers, params=args)
+        response.raise_for_status()
+        body = response.json()
+        if not isinstance(body, dict) or not isinstance(body.get('data'), list):
+            raise ValueError('Invalid Meta Graph page')
+        collected.extend(body['data'])
+        if len(collected) > MAX_CAMPAIGNS:
+            raise HTTPException(409, 'Meta có trên 500 dòng dữ liệu: quét chưa đầy đủ; không đưa ra kết luận.')
+        paging = body.get('paging') or {}
+        if not isinstance(paging, dict):
+            raise ValueError('Invalid Graph paging')
+        if not paging.get('next'):
+            return collected
+        cursor = (paging.get('cursors') or {}).get('after')
+        if not isinstance(cursor, str) or not 1 <= len(cursor) <= 1024:
+            raise ValueError('Missing Meta cursor')
+        if cursor in seen:
+            raise ValueError('Repeated Meta cursor')
+        seen.add(cursor)
+        args['after'] = cursor  # Same trusted endpoint; never fetch paging.next.
+    raise HTTPException(409, 'Dữ liệu Meta phân trang vượt ngưỡng an toàn.')
+
+
 async def meta_campaigns(acc, client):
     aid = str(acc['external_id']).removeprefix('act_')
     if not re.fullmatch(r'\d{4,30}', aid):
@@ -134,36 +170,45 @@ async def meta_campaigns(acc, client):
     goal=goal_for(acc['org_id'],acc['id'])
     chosen_action=goal.get('meta_action_type') if goal and goal['enabled'] else None
     try:
-        response = await client.get(base + '/campaigns', headers=headers,
-                                    params={'fields': 'id,name,status,effective_status', 'limit': MAX_CAMPAIGNS})
-        response.raise_for_status()
-        body = response.json()
+        entries = await _meta_pages(client, base + '/campaigns', headers,
+                                    {'fields': 'id,name,status,effective_status',
+                                     'limit': META_PAGE_SIZE})
         found = []
-        for entry in body.get('data', []):
+        known_ids = set()
+        for entry in entries:
+            if not isinstance(entry, dict):
+                raise ValueError('Invalid campaign row')
             cid = str(entry.get('id', ''))
             if not ID.fullmatch(cid):
                 continue
+            if cid in known_ids:
+                raise ValueError('Duplicate campaign')
+            known_ids.add(cid)
             found.append({'id': cid, 'name': str(entry.get('name') or 'Meta Campaign')[:100],
                           'status': str(entry.get('status') or 'UNKNOWN'),
                           'effective_status': str(entry.get('effective_status') or 'UNKNOWN'),
                           'spend': None, 'clicks': None, 'impressions': None,
                           'conversions': None, 'conversion_value': None,
                           'ctr_percent': None, 'cpa': None, 'roas': None})
-            if len(found) >= MAX_CAMPAIGNS:
-                break
-        # Insights may fail independently; don't falsely report zero spent.
+        # Insights must be complete for reliable alerts; no silent partial success.
         try:
             fields='campaign_id,spend,clicks,impressions'
-            params={'level':'campaign','fields':fields,'date_preset':'last_7d','limit':MAX_CAMPAIGNS}
+            params={'level':'campaign','fields':fields,'date_preset':'last_7d','limit':META_PAGE_SIZE}
             if chosen_action:
                 # One exact conversion event; explicit click attribution window.
                 params['fields']+=',actions,action_values,account_currency'
                 params['action_attribution_windows']='["7d_click"]'
                 params['action_report_time']='conversion'
-            insights=await client.get(base+'/insights',headers=headers,params=params)
-            if insights.status_code == 200:
-                values={str(i.get('campaign_id')):i for i in insights.json().get('data',[])
-                        if isinstance(i,dict)}
+            insight_rows=await _meta_pages(client,base+'/insights',headers,params)
+            if True:
+                values={}
+                for item in insight_rows:
+                    if not isinstance(item,dict):
+                        raise ValueError('Invalid insight row')
+                    campaign_id=str(item.get('campaign_id',''))
+                    if not ID.fullmatch(campaign_id) or campaign_id in values:
+                        raise ValueError('Invalid or duplicate insight')
+                    values[campaign_id]=item
                 for c in found:
                     row=values.get(c['id'])
                     if not row:
@@ -191,11 +236,15 @@ async def meta_campaigns(acc, client):
                             if value is not None:
                                 c['conversion_value']=round(value,2)
                                 c['roas']=round(value/spend,3) if spend>0 else None
+        except HTTPException:
+            raise
         except (httpx.HTTPError, ValueError, TypeError, KeyError):
-            pass
+            raise HTTPException(502, 'Không thể đọc đầy đủ Meta Insights; không tạo cảnh báo dựa trên dữ liệu thiếu.') from None
         return found
+    except HTTPException:
+        raise
     except (httpx.HTTPError, ValueError, TypeError, KeyError):
-        raise HTTPException(502, 'Không đọc được danh sách chiến dịch Meta; kiểm tra quyền API.') from None
+        raise HTTPException(502, 'Không đọc đủ chiến dịch Meta; kiểm tra phân trang và quyền API.') from None
 
 
 async def list_live_campaigns(acc):
