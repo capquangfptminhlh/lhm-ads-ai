@@ -58,10 +58,17 @@ def sqlite_snapshot(path: Path) -> bytes:
         # Logging in again after restore is mandatory; no active browser sessions.
         target.execute('DELETE FROM sessions')
         target.commit()
-        content = target.serialize()
+        # sqlite3.backup() copies the source WAL header flags even though
+        # the in-memory snapshot has no accompanying -wal file. A restored
+        # standalone database must use rollback journal mode instead.
+        content = bytearray(target.serialize())
+        if content[18:20] == b'\x02\x02':
+            content[18:20] = b'\x01\x01'
+        if content[18:20] != b'\x01\x01':
+            raise ValueError('SQLite journal header không hợp lệ')
         if len(content) > MAX_DATABASE_BYTES:
             raise ValueError('Dữ liệu quá 64 MB')
-        return content
+        return bytes(content)
     finally:
         target.close()
         source.close()
