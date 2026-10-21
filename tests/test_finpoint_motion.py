@@ -34,4 +34,6 @@ def test_dashboard_kpi_animations_only_receive_true_api_totals():
     assert "t.currency" in motion
     assert "k-impressions" in motion and "k-clicks" in motion and "k-ctr" in motion
     assert "data-motion-updated" in (S/'finpoint-motion.css').read_text(encoding='utf-8')
-    assert "style=\"--fp-point:${i}\"" in chart
+    # The app CSP (style-src 'self') blocks inline style attributes, so the
+    # chart must not emit style="--fp-point:..." (visual-review fix 2026-10-21).
+    assert 'style="' not in chart

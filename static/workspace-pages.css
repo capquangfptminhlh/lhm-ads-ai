@@ -18,3 +18,19 @@
 @media(max-width:610px){.ws-report-metrics{gap:10px}.ws-metric{padding:15px;border-radius:14px}.ws-metric strong{font-size:19px}#page-reports .chart{min-height:190px}}
 @media(max-width:360px){.ws-report-metrics{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){#page-campaigns,#page-autopilot,#page-alerts,#page-reports,#page-license{animation:none}}
+/* 2026-10-21 UI defect fixes (visual review): the app CSP (style-src 'self')
+   blocks inline style attributes, so every layout rule the JS used to emit
+   as style="..." now lives here as a class. Keep it that way. */
+.wrap-anywhere{overflow-wrap:anywhere}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.inline-actions-spaced{margin:12px 0;flex-wrap:wrap}
+.ai-preview{white-space:pre-wrap;max-height:260px;overflow:auto;font-size:12px}
+#commercial-message.commercial-ok{color:#4ade80}
+#commercial-message.commercial-error{color:#f87171}
+.ai-consent{display:flex!important;gap:10px;align-items:flex-start;line-height:1.5}
+.ai-consent input{width:auto!important;margin:3px 0 0!important;flex:none}
+#opt-account{min-width:230px}
+#page-license label{display:block;margin:12px 0}
+#page-license textarea{width:100%}
+#page-license label>input[type="checkbox"]{width:auto;margin-right:8px}
+#page-license label>select{margin-left:8px}

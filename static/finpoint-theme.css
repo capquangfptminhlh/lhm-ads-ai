@@ -23,6 +23,7 @@ body,.shell,.main{background:var(--fp-bg)!important;color:var(--fp-fg)!important
 .btn.secondary,.small-btn{background:#27282e;color:#e9e8e7;border:1px solid #393a40}
 .btn.secondary:hover,.small-btn:hover{background:#35363d;color:#fff}
 .pill{background:#33251e;color:#ffb08e;border:1px solid #65402e;border-radius:40px}
+.login-mobile-logo{color:var(--fp-orange)}
 /* Flat, quiet sidebar modelled after high-end financial workstations. */
 .sidebar{background:#111214!important;border-right:1px solid #292a2e;width:240px;padding:29px 14px 22px;box-shadow:none!important}
 .sidebar>.brand{color:#fff!important;font-size:20px;letter-spacing:-.7px;padding:1px 10px 28px}
@@ -67,7 +68,7 @@ body,.shell,.main{background:var(--fp-bg)!important;color:var(--fp-fg)!important
 .kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:18px}
 .kpi-card{background:var(--fp-card)!important;border:1px solid var(--fp-edge);box-shadow:none;border-radius:17px;min-height:167px;padding:19px 21px;position:relative;overflow:hidden;gap:10px}
 .kpi-card:hover{transform:translateY(-3px);box-shadow:0 14px 30px #0004;border-color:#5a4b43}
-.kpi-card:after{content:"";position:absolute;width:100px;height:100px;border-radius:50%;background:radial-gradient(circle,#ff613020,transparent 70%);right:-30px;top:-37px;pointer-events:none}
+.kpi-card:after{content:none}
 .kpi-icon{width:36px;height:36px;border-radius:12px;font-size:18px}
 .kpi-icon.purple{background:#3c2f3b;color:#efa6dd}
 .kpi-icon.green{background:#1d4235;color:#68e3ae}

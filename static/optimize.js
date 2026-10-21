@@ -29,15 +29,20 @@
     try {
       const accounts=await api('/api/accounts');
       const previous=el('opt-account').value;
-      el('opt-account').innerHTML=accounts.filter(a=>['meta','google'].includes(a.platform)&&a.connected)
-        .map(a=>`<option value="${a.id}">${escHtml(a.platform.toUpperCase())}: ${escHtml(a.label)}</option>`).join('');
+      const usable=accounts.filter(a=>['meta','google'].includes(a.platform)&&a.connected);
+      el('opt-account').innerHTML=usable.length?usable
+        .map(a=>`<option value="${a.id}">${escHtml(a.platform.toUpperCase())}: ${escHtml(a.label)}</option>`).join('')
+        :'<option value="" disabled selected>Chưa có tài khoản đã kết nối</option>';
+      el('opt-inspect').disabled=!usable.length;
+      if(!usable.length)
+        el('optimization-message').textContent='Hãy kết nối tài khoản Google Ads hoặc Meta Ads ở mục Tài khoản Ads trước khi phân tích.';
       if(previous && [...el('opt-account').options].some(o=>o.value===previous))el('opt-account').value=previous;
     } catch(e) {show(e.message||String(e),true)}
   }
   document.addEventListener('DOMContentLoaded',()=>{
     const view=el('page-campaigns'); if(!view)return;
     const article=document.createElement('article');article.className='panel';
-    article.innerHTML='<h3>Trung tâm phân tích chiến dịch</h3><p class="muted tiny">Đọc hiệu suất Google/Meta 7 ngày, tìm điểm cần xem xét. Khuyến nghị không tự chỉnh quảng cáo hoặc ngân sách. Tạm dừng chỉ được thực hiện khi admin duyệt riêng.</p><div class="inline-actions"><select id="opt-account" aria-label="Tài khoản cần phân tích"></select><button id="opt-inspect" class="btn primary" type="button">Phân tích chiến dịch</button></div><p id="optimization-message" role="status" class="muted tiny"></p><div id="optimization-result" class="table-wrap"></div>';
+    article.innerHTML='<h3>Trung tâm phân tích chiến dịch</h3><p class="muted tiny">Đọc hiệu suất Google/Meta 7 ngày, tìm điểm cần xem xét. Khuyến nghị không tự chỉnh quảng cáo hoặc ngân sách. Tạm dừng chỉ được thực hiện khi admin duyệt riêng.</p><div class="inline-actions"><select id="opt-account" aria-label="Tài khoản cần phân tích"><option value="" disabled selected>Đang tải tài khoản…</option></select><button id="opt-inspect" class="btn primary" type="button">Phân tích chiến dịch</button></div><p id="optimization-message" role="status" class="muted tiny"></p><div id="optimization-result" class="table-wrap"></div>';
     view.append(article);
     el('opt-inspect').addEventListener('click',inspect);
     el('optimization-result').addEventListener('click',async e=>{
