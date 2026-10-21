@@ -7,6 +7,7 @@
 - CI push lên main tự build bản **PILOT** để kiểm thử, không phải EXE thương mại.
 - **COMMERCIAL** chỉ build bằng cách chạy thủ công GitHub Actions với commercial=true và có public key riêng của chủ phần mềm.
 - EXE chỉ chứa khóa CÔNG KHAI Ed25519. Khóa RIÊNG phải cất ngoài repo, cloud, EXE và máy khách.
+- Đã có MFA TOTP tùy chọn cho từng tài khoản (Cài đặt → Xác thực hai lớp) và giới hạn đăng nhập sai lưu bền trong cơ sở dữ liệu theo email + IP. Bên bán có lệnh `vendor_ledger.py remind [--send]` để liệt kê khách sắp/đã hết hạn và gửi một tin nhắc tới Telegram của chính bên bán.
 - Chưa có cổng thanh toán, hóa đơn tự động, cập nhật phần mềm có ký số hay hệ thống thu hồi license từ xa.
 - Chưa xác thực hoàn chỉnh API của tài khoản quảng cáo thật. Không quảng cáo tự động thay bid/budget/strategy 24/7 khi chưa nghiệm thu.
 
@@ -60,6 +61,15 @@ Quản lý riêng sổ bán hàng: mã khách, Device ID, license ID, ngày hế
 - [ ] Có quy trình thu phí, xuất hóa đơn và bảo mật thông tin khách hàng; phần hóa đơn/thanh toán chưa tích hợp tự động.
 
 **Không chuyển private vendor key cho đội hỗ trợ, khách hoặc CI.**
+
+## Thu tiền tự động — phần cần tài khoản/cấp phép của chủ phần mềm
+
+Các mục dưới đây **không thể hoàn thành bằng code trong repo**, vì chúng gắn với danh tính pháp lý và tài khoản của chính bên bán:
+
+1. **Cổng thanh toán**: đăng ký merchant PayOS (Việt Nam) hoặc Stripe/Paddle (cần pháp nhân/tài khoản ngân hàng tương ứng) và cấp API key + webhook secret cho khâu tích hợp. Khi có thông tin này, webhook xác nhận thanh toán có thể nối vào sổ bên bán (`confirm-payment`) — nhưng lưu ý đánh đổi kiến trúc: muốn license được cấp *tự động ngay khi tiền về* thì khóa ký riêng phải nằm trên một máy chủ trực tuyến, làm yếu mô hình "khóa ký chỉ ở máy bên bán ngoại tuyến" hiện tại. Phương án an toàn giữ nguyên: thanh toán trực tuyến chỉ tạo trạng thái `pending→paid`, việc ký license vẫn thực hiện trên máy bên bán.
+2. **Hóa đơn điện tử**: cần hợp đồng với nhà cung cấp hóa đơn (Viettel Invoice, VNPT Invoice, MISA meInvoice…) và thông tin xuất hóa đơn của bên bán.
+3. **Ký số EXE (Authenticode)**: mua chứng thư code-signing từ CA (DigiCert/Sectigo…) đứng tên bên bán; quy trình ký và kiểm chứng đã có sẵn trong tài liệu này.
+4. **Thu hồi license từ xa**: mô hình offline hiện tại không hỗ trợ; muốn có phải chuyển sang kiểm tra license trực tuyến định kỳ — một thay đổi kiến trúc cần quyết định riêng, đánh đổi quyền riêng tư/ngoại tuyến của khách.
 
 ## Vận hành khách thuê
 

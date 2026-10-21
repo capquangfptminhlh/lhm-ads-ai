@@ -165,6 +165,60 @@ def subscriptions(db,within_days=None,now=None):
             results.append(item)
     return results
 
+def renewal_reminders(db,within_days=7,now=None):
+    """Customers whose latest subscription is expired or expiring soon.
+
+    Seller-side only: contains internal customer references, never Ads data.
+    """
+    rows=subscriptions(db,within_days=within_days,now=now)
+    return [{'customer_ref':row['customer_ref'],'license_id':row['license_id'],
+             'plan':row['plan'],'state':row['state'],
+             'days_remaining':row['days_remaining'],
+             'payment_status':row['payment_status']}
+            for row in rows
+            if row['expires_at'] is not None and row['state'] in ('expired','expiring')]
+
+def format_reminder_message(records):
+    lines=['LHM Ads AI — nhắc gia hạn license:']
+    for row in records:
+        when=('đã hết hạn' if row['state']=='expired'
+              else f"còn {row['days_remaining']} ngày")
+        lines.append(f"- {row['customer_ref']}: gói {row['plan']}, {when}, "
+                     f"thanh toán {row['payment_status']}")
+    return '\n'.join(lines)
+
+def send_telegram(text,bot_token,chat_id,opener=None):
+    """POST one message to the seller's own Telegram chat (seller machine only)."""
+    import urllib.request
+    request=urllib.request.Request(
+        f'https://api.telegram.org/bot{bot_token}/sendMessage',
+        data=json.dumps({'chat_id':chat_id,'text':text}).encode('utf-8'),
+        headers={'Content-Type':'application/json'},method='POST')
+    open_fn=opener or urllib.request.urlopen
+    with open_fn(request,timeout=15) as response:
+        payload=json.loads(response.read().decode('utf-8'))
+    if not payload.get('ok'):
+        raise ValueError('Telegram rejected the reminder message')
+    return True
+
+def remind(db,within_days=7,send=False,environ=None,opener=None,now=None):
+    records=renewal_reminders(db,within_days=within_days,now=now)
+    result={'count':len(records),'reminders':records,'sent':False}
+    if not records:
+        return result
+    message=format_reminder_message(records)
+    result['message']=message
+    if send:
+        env=os.environ if environ is None else environ
+        token=env.get('VENDOR_TELEGRAM_BOT_TOKEN','')
+        chat_id=env.get('VENDOR_TELEGRAM_CHAT_ID','')
+        if not token or not chat_id:
+            raise ValueError('Set VENDOR_TELEGRAM_BOT_TOKEN and VENDOR_TELEGRAM_CHAT_ID '
+                             'on the seller machine before using --send')
+        send_telegram(message,token,chat_id,opener=opener)
+        result['sent']=True
+    return result
+
 def export_csv(path,records):
     """Explicit file export; cannot overwrite an existing customer registry."""
     fields=('customer_ref','device','license_id','plan','expires_at','days_remaining',
@@ -213,6 +267,10 @@ def main(argv=None):
     backup.add_argument('--out',required=True,type=Path)
     exp=cmd.add_parser('export',help='Export pseudonymous customer/device CSV')
     exp.add_argument('--out',required=True,type=Path)
+    rem=cmd.add_parser('remind',help='List expired/expiring subscriptions; optionally send one Telegram reminder to the seller')
+    rem.add_argument('--within-days',type=int,default=7)
+    rem.add_argument('--send',action='store_true',
+                     help='Send via Telegram using VENDOR_TELEGRAM_BOT_TOKEN/VENDOR_TELEGRAM_CHAT_ID')
     args=parser.parse_args(argv)
     try:
         db=connect(args.db)
@@ -228,6 +286,8 @@ def main(argv=None):
             elif args.command=='export':
                 rows=subscriptions(db);export_csv(args.out,rows)
                 result={'exported':len(rows),'path':str(args.out)}
+            elif args.command=='remind':
+                result=remind(db,within_days=args.within_days,send=args.send)
             else:raise ValueError('Unknown command')
         finally:db.close()
     except (ValueError,OSError,sqlite3.Error) as exc:

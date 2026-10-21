@@ -188,3 +188,6 @@ from . import reconciliation  # noqa: E402,F401
 
 # Local admin-only encrypted backup and commercial readiness checks.
 from . import secure_backup, desktop_readiness  # noqa: E402,F401
+
+# Optional per-user TOTP MFA enrolment/management endpoints.
+from . import mfa  # noqa: E402,F401
