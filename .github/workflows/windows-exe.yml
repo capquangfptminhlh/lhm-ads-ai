@@ -51,6 +51,9 @@ jobs:
         run: |
           python tools/prepare_commercial_build.py --commercial
           if ($LASTEXITCODE -ne 0) { throw 'Commercial key provisioning failed, EXE must not be shipped' }
+      - name: Validate commercial backup UI JavaScript
+        shell: pwsh
+        run: node --check static/commercial.js
       - name: Make branded Windows icon
         shell: pwsh
         run: python windows/make_icon.py

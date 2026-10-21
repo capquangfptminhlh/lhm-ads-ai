@@ -170,6 +170,16 @@ def main():
                 page.screenshot(path=str(ARTIFACTS/'06-finpoint-alerts.png'),full_page=True)
                 page.locator('button[data-page=license]').click()
                 page.locator('#license-device').wait_for(state='visible')
+                page.locator('#desktop-local-ops').wait_for(state='visible',timeout=12000)
+                assert 'CHƯA XÁC MINH' in page.locator('#readiness-checks').inner_text()
+                assert 'chưa' in page.locator('#readiness-summary').inner_text().lower()
+                page.locator('#secure-backup-password').fill('test-encrypted-backup-password-123456')
+                page.locator('#secure-backup-confirm').fill('test-encrypted-backup-password-123456')
+                with page.expect_download(timeout=30000) as result:
+                    page.locator('#secure-backup-export').click()
+                backup_download=result.value
+                assert backup_download.suggested_filename.endswith('.lhmbak')
+                assert page.locator('#secure-backup-password').input_value()==''
                 page.wait_for_timeout(650)
                 page.screenshot(path=str(ARTIFACTS/'07-finpoint-license.png'),full_page=True)
                 page.set_viewport_size({'width':390,'height':844})

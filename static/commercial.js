@@ -27,6 +27,68 @@
       if(!license.active)el('monitor-enable').checked=false;
     } catch(e) {show(e.message||String(e),true)}
   }
+  let localDiagnostics=null;
+  async function refreshReadiness(){
+    const panel=el('desktop-local-ops');
+    try{
+      const data=await api('/api/desktop/readiness');
+      localDiagnostics=data;
+      panel.classList.remove('hidden');
+      el('readiness-summary').textContent=data.ready_for_commercial_distribution?
+        'Đã hoàn tất các kiểm tra cơ bản.':
+        'Chưa nghiệm thu thương mại: '+data.reason;
+      const labels={ok:'Đạt',configured:'Đã cấu hình, chưa xác minh API',
+        available:'Sẵn có',manual:'Thao tác thủ công',action_required:'Cần thực hiện',
+        not_verified:'CHƯA XÁC MINH',blocked:'Lỗi'};
+      el('readiness-checks').innerHTML='<table><thead><tr><th>Hạng mục</th><th>Trạng thái</th></tr></thead><tbody>'+
+        data.checks.map(x=>'<tr><td>'+escape(x.detail)+'</td><td>'+
+          escape(labels[x.status]||x.status)+'</td></tr>').join('')+'</tbody></table>';
+    }catch(e){
+      localDiagnostics=null;panel.classList.add('hidden');
+    }
+  }
+  function downloadJsonDiagnostics(){
+    if(!localDiagnostics){show('Chưa tải được thông tin kiểm tra.',true);return;}
+    const content=new Blob([JSON.stringify(localDiagnostics,null,2)],{type:'application/json'});
+    const link=document.createElement('a');
+    const url=URL.createObjectURL(content);
+    link.href=url;link.download='lhm-ads-readiness.json';
+    document.body.append(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }
+  async function exportBackup(){
+    const first=el('secure-backup-password'),second=el('secure-backup-confirm');
+    const button=el('secure-backup-export');
+    const password=first.value;
+    if(password.length<16||password.length>256||password!==second.value){
+      show('Nhập mật khẩu sao lưu tối thiểu 16 ký tự và xác nhận trùng khớp.',true);
+      first.value='';second.value='';return;
+    }
+    if(!session?.csrf){
+      show('Cần đăng nhập tài khoản quản trị để sao lưu.',true);
+      first.value='';second.value='';return;
+    }
+    button.disabled=true;
+    try{
+      const response=await fetch('/api/desktop/backup/export',{
+        method:'POST',credentials:'same-origin',
+        headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf},
+        body:JSON.stringify({passphrase:password})
+      });
+      if(!response.ok){
+        const error=await response.json().catch(()=>({detail:'Không thể tạo sao lưu mã hóa'}));
+        throw Error(error.detail||'Không thể tạo sao lưu mã hóa');
+      }
+      const blob=await response.blob();
+      const url=URL.createObjectURL(blob);
+      const link=document.createElement('a');
+      link.href=url;link.download='lhm-ads-backup-'+new Date().toISOString().slice(0,10)+'.lhmbak';
+      document.body.append(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+      show('Đã xuất bản sao lưu mã hóa. Hãy lưu mật khẩu ở nơi khác; không gửi cho hỗ trợ.');
+    }catch(e){show(e.message||String(e),true)}
+    finally{first.value='';second.value='';button.disabled=false;}
+  }
   document.addEventListener('DOMContentLoaded', () => {
     const target=el('page-license');
     if(!target)return;
@@ -48,12 +110,30 @@
       <button type="button" class="btn secondary" id="monitor-autostart">Chạy nền khi đăng nhập Windows</button>
       <button type="button" class="btn secondary" id="monitor-stop">Tắt tự chạy</button></div>
       <p id="monitor-help" class="muted tiny"></p><div id="monitor-samples" class="table-wrap"></div>
+      <hr><section id="desktop-local-ops" class="hidden" aria-label="Sẵn sàng thương mại và sao lưu">
+      <h3>Kiểm tra sẵn sàng &amp; bảo vệ dữ liệu</h3>
+      <p id="readiness-summary" class="muted tiny" role="status" aria-live="polite"></p>
+      <div id="readiness-checks" class="table-wrap" tabindex="0"></div>
+      <div class="inline-actions" style="margin:12px 0;flex-wrap:wrap">
+        <button type="button" id="readiness-refresh" class="btn secondary">↻ Kiểm tra lại</button>
+        <button type="button" id="readiness-export" class="btn secondary">↓ Xuất báo cáo không chứa token</button>
+      </div>
+      <h3>Sao lưu dữ liệu có mã hóa</h3>
+      <p class="muted tiny">Bản sao lưu chứa dữ liệu khách và khóa Ads đã được mã hóa bằng mật khẩu riêng của bạn. Không gửi mật khẩu hay file backup cho bên thứ ba. Không bao gồm giấy phép theo máy; đổi máy phải kích hoạt lại.</p>
+      <label>Mật khẩu sao lưu (ít nhất 16 ký tự)<input type="password" id="secure-backup-password" autocomplete="new-password" minlength="16" maxlength="256"></label>
+      <label>Nhập lại mật khẩu<input type="password" id="secure-backup-confirm" autocomplete="new-password" minlength="16" maxlength="256"></label>
+      <button type="button" class="btn primary" id="secure-backup-export">↓ Tải bản sao lưu .lhmbak đã mã hóa</button>
+      <p class="muted tiny">Khôi phục cần kỹ thuật hỗ trợ khi phần mềm đã đóng, trên thư mục trống, không ghi đè dữ liệu đang có.</p>
+      </section>
       <p id="commercial-message" role="status" aria-live="polite"></p>`;
     target.append(panel);
     el('license-copy-device').addEventListener('click',async()=>{
       try{await navigator.clipboard.writeText(el('license-device').textContent);show('Đã sao chép mã máy. Chỉ gửi mã máy, không gửi token Ads.')}
       catch(e){show('Không thể sao chép tự động. Chọn và sao chép mã máy hiển thị ở trên.',true)}
     });
+    el('readiness-refresh').addEventListener('click',refreshReadiness);
+    el('readiness-export').addEventListener('click',downloadJsonDiagnostics);
+    el('secure-backup-export').addEventListener('click',exportBackup);
     el('license-activate').addEventListener('click', async()=>{try{
       await api('/api/license/activate',{method:'POST',body:JSON.stringify({license_text:el('license-input').value.trim()})});
       el('license-input').value='';show('Kích hoạt/gia hạn thành công');refresh();
@@ -70,6 +150,9 @@
     }catch(e){show(e.message,true)}});
     refresh();
     // Session may not be available at initial page load; refresh when settings selected.
-    const nav=document.querySelector('[data-page="license"]');if(nav)nav.addEventListener('click',()=>setTimeout(refresh,100));
+    const nav=document.querySelector('[data-page="license"]');
+    if(nav)nav.addEventListener('click',()=>setTimeout(()=>{
+      refresh();refreshReadiness();
+    },100));
   });
 })();

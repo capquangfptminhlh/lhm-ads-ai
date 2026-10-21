@@ -64,3 +64,7 @@ Quản lý riêng sổ bán hàng: mã khách, Device ID, license ID, ngày hế
 ## Vận hành khách thuê
 
 Xem [VENDOR_OPERATIONS.md](VENDOR_OPERATIONS.md) để đăng ký mã máy, xác minh file license, ghi nhận thanh toán thủ công, lọc khách sắp hết hạn và xuất báo cáo CSV ngoại tuyến. Không thu thập token Ads, không tự xác nhận giao dịch ngân hàng.
+
+## Sao lưu dữ liệu khách
+
+Bản Windows có trang **Bản quyền → Kiểm tra sẵn sàng & Bảo vệ dữ liệu** để tải bản backup mã hóa AES-GCM/Scrypt. Quy trình khôi phục ngoại tuyến và giới hạn chi tiết xem [CUSTOMER_BACKUP.md](CUSTOMER_BACKUP.md). Không sao chép DPAPI local-settings giữa máy và không giả định giấy phép tự chuyển máy.
