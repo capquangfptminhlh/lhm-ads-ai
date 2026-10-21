@@ -127,7 +127,7 @@ async def scan_account(acc, *, now=None, min_interval=DAY):
                         'high' if r.get('level')=='high' else 'review',str(r['message'])[:450],now,now))
         # Resolve a vanished issue only when its campaign is in this successful
         # provider response. A truncated API page must NOT clear unseen campaigns.
-        if len(findings) <= MAX_FINDINGS:
+        if len(findings) < MAX_FINDINGS:
             observed_ids={str(c.get('id')) for c in campaigns}
             active={(str(x['campaign_id']),x['code']) for x in suggestions}
             current=db.execute('''SELECT id,campaign_id,rule_code FROM advisor_findings
