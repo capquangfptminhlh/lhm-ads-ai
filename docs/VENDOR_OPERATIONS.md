@@ -57,3 +57,10 @@ python tools/vendor_ledger.py confirm-payment --license-id <LICENSE_ID> --receip
 - Công cụ **không kiểm tra số dư ngân hàng** hoặc thu phí tự động, không phát hành hóa đơn điện tử, không nhắc Zalo/SMS tự động.
 - Public key chỉ xác minh nguồn phát hành license; **không thay thế** chữ ký Authenticode của EXE.
 - Chỉ nên giao bản Commercial sau khi có bản EXE đã ký số, thử nghiệm với API thật và đối chiếu giấy phép qua từng bước. Artifact của GitHub hiện chưa phải bản cài đặt phát hành đại trà.
+**6. Sao lưu sổ khách hàng nhất quán**, sau đó chuyển bản sao lưu vào kho lưu trữ mã hóa bên bán (không gửi lên repo):
+
+```powershell
+python tools/vendor_ledger.py backup --out C:\\LHMKeys\\customers-backup-2026-10.sqlite3
+```
+
+Không ghi đè các bản sao lưu cũ. Đường dẫn thư mục đích phải tồn tại. Không dùng tùy chọn `--db` trỏ vào thư mục chia sẻ không an toàn, và không đặt dữ liệu bên bán trong repo.

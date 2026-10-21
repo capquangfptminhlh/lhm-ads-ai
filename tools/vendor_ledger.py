@@ -33,8 +33,9 @@ def default_database():
 
 def connect(path):
     path=Path(path).expanduser().resolve()
-    path.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
-    if os.name!='nt':os.chmod(path.parent,0o700)
+    # Never chmod an existing --db parent: it may be shared by other tools.
+    if not path.parent.exists():
+        path.parent.mkdir(parents=True,mode=0o700)
     db=sqlite3.connect(path,timeout=10)
     db.row_factory=sqlite3.Row
     db.execute('PRAGMA foreign_keys=ON')
@@ -173,6 +174,22 @@ def export_csv(path,records):
         writer.writeheader()
         writer.writerows(records)
 
+def backup_database(db,out_path):
+    """Make a consistent SQLite backup without overwriting any earlier backup."""
+    destination=Path(out_path).expanduser().resolve()
+    if not destination.parent.is_dir():
+        raise ValueError('Backup destination directory must exist')
+    fd=os.open(destination,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
+    os.close(fd)
+    try:
+        with sqlite3.connect(destination) as copy:
+            db.backup(copy)
+        if os.name!='nt':os.chmod(destination,0o600)
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise
+    return {'backup':str(destination),'contains_ads_tokens':False}
+
 def main(argv=None):
     parser=argparse.ArgumentParser(description='LHM Ads AI local seller ledger (no Ads tokens)')
     parser.add_argument('--db',type=Path,default=default_database())
@@ -192,6 +209,8 @@ def main(argv=None):
     cmd.add_parser('list',help='Display latest subscription status for all devices')
     due=cmd.add_parser('due',help='Show renewals due soon')
     due.add_argument('--within-days',type=int,default=7)
+    backup=cmd.add_parser('backup',help='Consistent offline SQLite backup; never overwrites')
+    backup.add_argument('--out',required=True,type=Path)
     exp=cmd.add_parser('export',help='Export pseudonymous customer/device CSV')
     exp.add_argument('--out',required=True,type=Path)
     args=parser.parse_args(argv)
@@ -205,6 +224,7 @@ def main(argv=None):
                 result=confirm_payment(db,args.license_id,args.receipt)
             elif args.command=='list':result=subscriptions(db)
             elif args.command=='due':result=subscriptions(db,within_days=args.within_days)
+            elif args.command=='backup':result=backup_database(db,args.out)
             elif args.command=='export':
                 rows=subscriptions(db);export_csv(args.out,rows)
                 result={'exported':len(rows),'path':str(args.out)}

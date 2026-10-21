@@ -103,3 +103,22 @@ def test_trial_explicit_and_term_validation(store,issuer):
     with pytest.raises(ValueError):v.confirm_payment(db,'license-trial22','BANKREF-04')
     excessive=signed(tmp,key,'a'*32,1795000000+371*86400,'license-longterm')
     with pytest.raises(ValueError):v.record(db,'TRIAL-1',excessive,pub)
+
+
+def test_vendor_backup_and_existing_parent_permission(store):
+    db,tmp=store
+    v.register(db,'BK01','a'*32)
+    destination=tmp/'vendor-backup.sqlite3'
+    result=v.backup_database(db,destination)
+    assert result['contains_ads_tokens'] is False
+    with pytest.raises(FileExistsError):v.backup_database(db,destination)
+    imported=v.connect(destination)
+    assert v.subscriptions(imported)[0]['customer_ref']=='BK01'
+    imported.close()
+    if os.name!='nt':
+        existing=tmp/'external-directory'
+        existing.mkdir(mode=0o755)
+        before=existing.stat().st_mode & 0o777
+        other=v.connect(existing/'local-ledger.sqlite3')
+        other.close()
+        assert (existing.stat().st_mode & 0o777)==before
