@@ -122,7 +122,7 @@ def test_vendor_ledger_einvoice_status(tmp_path):
     import sys
     out = subprocess.run([sys.executable, 'tools/vendor_ledger.py', '--db',
                           str(tmp_path / 'ledger.sqlite3'), 'einvoice-status'],
-                         capture_output=True, text=True, cwd=str(_repo_root()))
+                         capture_output=True, text=True, encoding='utf-8', errors='strict', cwd=str(_repo_root()))
     assert out.returncode == 0, out.stderr
     result = json.loads(out.stdout)
     assert result['einvoice_configured'] is False
@@ -140,14 +140,14 @@ def test_seller_clis_survive_windows_legacy_codepage(tmp_path):
     env = dict(os.environ, PYTHONIOENCODING='cp1252')
     out = subprocess.run([sys.executable, 'tools/vendor_ledger.py', '--db',
                           str(tmp_path / 'ledger.sqlite3'), 'einvoice-status'],
-                         capture_output=True, text=True, cwd=str(_repo_root()), env=env)
+                         capture_output=True, text=True, encoding='utf-8', errors='strict', cwd=str(_repo_root()), env=env)
     assert out.returncode == 0, out.stderr
     assert 'hóa đơn' in out.stdout
     env.update({'DB_PATH': str(tmp_path / 'd' / 'db.sqlite'),
                 'MASTER_KEY': base64.b64encode(b'k' * 32).decode(),
                 'SESSION_SECRET': 'a' * 48})
     out = subprocess.run([sys.executable, 'tools/acceptance_preflight.py'],
-                         capture_output=True, text=True, cwd=str(_repo_root()), env=env)
+                         capture_output=True, text=True, encoding='utf-8', errors='strict', cwd=str(_repo_root()), env=env)
     assert out.returncode == 0, out.stderr
     assert 'Tổng kết' in out.stdout
 
