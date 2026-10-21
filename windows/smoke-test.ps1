@@ -29,7 +29,7 @@ try {
     $studio = Invoke-WebRequest -Uri "http://127.0.0.1:$port/studio" -TimeoutSec 10
     if ($studio.StatusCode -ne 200 -or $studio.Content -notmatch 'LHM ADS AI') { throw 'Studio HTML mismatch' }
     if ($studio.Content -notmatch 'data-provider-choice="google"' -or $studio.Content -notmatch 'data-provider-choice="meta"') { throw 'Separate Google/Meta wizard missing' }
-    foreach ($path in @('/api/accounts', '/api/summary')) {
+    foreach ($path in @('/api/accounts', '/api/summary', '/api/desktop/readiness')) {
         $r = Invoke-WebRequest -Uri "http://127.0.0.1:$port$path" -SkipHttpErrorCheck -TimeoutSec 10
         if ($r.StatusCode -ne 401) { throw "Auth bypass: $path returned $($r.StatusCode)" }
     }
@@ -37,6 +37,9 @@ try {
         $r = Invoke-WebRequest -Uri "http://127.0.0.1:$port$path" -SkipHttpErrorCheck -TimeoutSec 10
         if ($r.StatusCode -ne 404) { throw "Unexpected MCP route: $path" }
     }
+    $backup = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/desktop/backup/export" -Method POST -ContentType 'application/json' -Body '{"passphrase":"good-backup-passphrase-12345"}' -SkipHttpErrorCheck -TimeoutSec 10
+    if ($backup.StatusCode -ne 401) { throw "Unauthenticated backup unexpectedly accepted: $($backup.StatusCode)" }
+    Write-Host 'PASS: desktop backup and diagnostic endpoints require authentication'
     Write-Host 'PASS: Ads endpoints protected, MCP disabled'
 } finally {
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
