@@ -134,10 +134,10 @@ def test_cli_subprocess_exit_codes(tmp_path):
     import subprocess
     env = dict(os.environ, **FULL_ENV, DB_PATH=str(tmp_path / "ads.sqlite3"))
     ok = subprocess.run([sys.executable, "tools/acceptance_preflight.py"],
-                        cwd=ROOT, env=env, capture_output=True, text=True)
+                        cwd=ROOT, env=env, capture_output=True, text=True, encoding='utf-8', errors='strict')
     assert ok.returncode == 0, ok.stdout + ok.stderr
     assert "Tổng kết" in ok.stdout
     bad_env = {k: v for k, v in env.items() if k != "MASTER_KEY"}
     bad = subprocess.run([sys.executable, "tools/acceptance_preflight.py"],
-                         cwd=ROOT, env=bad_env, capture_output=True, text=True)
+                         cwd=ROOT, env=bad_env, capture_output=True, text=True, encoding='utf-8', errors='strict')
     assert bad.returncode == 1
