@@ -18,6 +18,8 @@ Danh sách placeholder dùng chung:
 
 ## Mẫu 1 — Báo giá + hướng dẫn lấy mã máy
 
+> Giá hiện hành (chốt 2026-10-22, chi tiết ở `BANG-GIA-MAU.md`): gói Pilot **499.000 đ / 30 ngày / 1 máy**; trả 180 ngày 2.545.000 đ (−15%); trả 12 tháng 4.491.000 đ (−25%). Giá niêm yết chính thức sau đợt pilot: 799.000 đ / 30 ngày. Khi điền `[SO TIEN]` và `[THOI HAN]` trong mẫu, lấy đúng các con số này.
+
 ### Bản Zalo / Messenger (thân mật)
 
 ```

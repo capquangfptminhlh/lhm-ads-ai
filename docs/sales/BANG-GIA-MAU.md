@@ -1,6 +1,8 @@
-# Bảng giá — MẪU (chưa phải giá chính thức)
+# Bảng giá LHM Ads AI — giá pilot ĐÃ CHỐT ngày 2026-10-22
 
-> **Tài liệu nội bộ.** Đây là khung bảng giá để chủ sản phẩm điền. Mọi con số trong bảng đều là `[ ]` chờ quyết định — **chưa có giá nào được chốt**, và không được dùng bảng này để báo giá khách khi các ô còn trống. Điền giá xong phải đồng bộ vào Mẫu 1 và Mẫu 2 trong `MAU-TIN-NHAN.md`.
+> **Tài liệu nội bộ.** Giá gói **Pilot đã chốt** (chốt ngày 2026-10-22) và dùng được để báo giá khách pilot ngay. Gói Pro chưa mở bán (chỉ mở khi pilot có khách gia hạn thật); gói Agency báo giá riêng theo số máy. Các ô `[ ]` còn lại là quyết định chưa chốt — không tự điền khi báo giá. Giá đã đồng bộ tham chiếu vào Mẫu 1 trong `MAU-TIN-NHAN.md`.
+>
+> **Giá niêm yết chính thức (sau đợt pilot): 799.000 đ / 30 ngày / máy.** Giá pilot 499.000 đ chỉ áp dụng trong đợt pilot; khi kết thúc đợt, khách gia hạn theo giá niêm yết trừ khi có thông báo giữ giá riêng bằng văn bản.
 
 ## Bảng giá theo gói
 
@@ -13,20 +15,21 @@
 | Trợ lý phân tích AI | [ ] | [ ] | [ ] |
 | Hỗ trợ đổi máy | Theo chính sách đổi máy — xem FAQ | [ ] | [ ] |
 | Kênh hỗ trợ / thời gian phản hồi | [ ] | [ ] | [ ] |
-| Giá 30 ngày | [ ] đ | [ ] đ | [ ] đ |
-| Giá 90 ngày (nếu bán) | [ ] đ | [ ] đ | [ ] đ |
-| Giá 12 tháng (nếu bán) | [ ] đ | [ ] đ | [ ] đ |
-| Giảm giá khi trả dài hạn | [ ] % | [ ] % | [ ] % |
+| Giá 30 ngày | **499.000 đ** (giá pilot; niêm yết 799.000 đ) | Chưa mở bán | 1.500.000–2.500.000 đ / máy (báo giá theo số máy) |
+| Giá 90 ngày (nếu bán) | Chưa mở trong đợt pilot | Chưa mở bán | Báo giá riêng |
+| Giá 180 ngày | **2.545.000 đ** (đã giảm 15% so với trả từng tháng theo giá pilot) | Chưa mở bán | Báo giá riêng |
+| Giá 12 tháng (nếu bán) | **4.491.000 đ** (đã giảm 25% so với trả từng tháng theo giá pilot) | Chưa mở bán | Báo giá riêng |
+| Giảm giá khi trả dài hạn | 15% (180 ngày), 25% (12 tháng) — trả trước toàn bộ | [ ] % | [ ] % |
 
 > License ký theo gói `monthly` và số ngày (`--days`) trong `tools/license_issuer.py`; tên gói thương mại (Pilot/Pro/Agency) là cách gọi bán hàng — khi ký, ghi chú gói vào mã khách/sổ theo dõi để đối chiếu (xem `QUY-TRINH-BAN.md`). Nếu một gói cho nhiều máy, mỗi máy vẫn là một mã khách riêng trong sổ vì một mã khách chỉ gắn một mã máy.
 
 ## Chính sách đi kèm cần chốt cùng bảng giá
 
-- [ ] Thời hạn license mặc định cho đợt pilot: [ ] ngày (hiện quy trình bán dùng 30 ngày).
+- [x] Thời hạn license mặc định cho đợt pilot: **30 ngày** (giá pilot 499.000 đ — đã chốt 2026-10-22).
 - [ ] Có bán gói dùng thử miễn phí (`trial` trong sổ) không, và thử trong bao lâu: [ ].
 - [ ] Chính sách đổi máy: số lần miễn phí / phí mỗi lần — đồng bộ với FAQ câu 8.
 - [ ] Chính sách hoàn tiền — đồng bộ với FAQ câu 10.
-- [ ] Ưu đãi cho khách pilot đầu tiên (nếu có): [ ] — ghi rõ điều kiện và ngày kết thúc ưu đãi để tránh hứa miệng không kiểm soát được.
+- [x] Ưu đãi cho khách pilot đầu tiên: giá pilot 499.000 đ/30 ngày (niêm yết chính thức 799.000 đ). Điều kiện kết thúc đợt pilot và việc giữ giá khi gia hạn phải thông báo bằng văn bản — **không hứa miệng "giữ giá mãi mãi"**.
 
 ## Gợi ý cho chủ sản phẩm khi neo giá pilot (chỉ là gợi ý, không phải quyết định)
 
