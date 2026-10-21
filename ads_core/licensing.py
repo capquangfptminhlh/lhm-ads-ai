@@ -20,6 +20,8 @@ from pydantic import BaseModel, Field
 
 from .app import app, browser_admin, identify
 from .db import audit, connection
+from .security import seal, unseal
+from .release_info import EDITION
 
 PUBLIC_KEY_B64 = 'wfIl1u1iuW0wmtfnpoUIhMUNgWRmnn4wub36hTRzaGg='
 PRODUCT = 'LHM_ADS_AI'
@@ -101,15 +103,50 @@ def verify_signed_license(raw: str, *, now: int | None = None) -> dict:
         raise ValueError('Giấy phép không hợp lệ, hết hạn hoặc không thuộc máy này') from None
 
 
+def trusted_clock(now: int | None = None) -> tuple[bool,str | None]:
+    """Persist a sealed max-seen wall time; reject large backward clock jumps.
+
+    Not tamper-proof against a machine owner; prevents accidental clock rewind
+    and simple JSON edits without exposing or rotating the Ads encryption key.
+    """
+    current=int(time.time()) if now is None else int(now)
+    anchor=license_folder()/'clock-anchor.json'
+    previous=0
+    if anchor.exists():
+        try:
+            blob=json.loads(anchor.read_text(encoding='utf-8'))
+            if not isinstance(blob,dict) or set(blob)!={'sealed'}:
+                raise ValueError('Invalid clock anchor envelope')
+            previous=int(unseal(blob['sealed'],f'license-clock:{device_id()}'))
+            if previous<=0 or previous>4102444800:
+                raise ValueError('Invalid clock timestamp')
+        except Exception:
+            return False,'clock_state_invalid'
+    if current+300<previous:
+        return False,'clock_rollback'
+    if current>previous+60:
+        ciphertext=seal(str(current),f'license-clock:{device_id()}')
+        tmp=anchor.with_name(anchor.name+'.tmp')
+        with os.fdopen(os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600),'w',encoding='utf-8') as f:
+            json.dump({'sealed':ciphertext},f)
+            f.flush();os.fsync(f.fileno())
+        os.replace(tmp,anchor)
+    return True,None
+
+
 def read_license() -> dict:
     path=license_folder()/'license.json'
     if not path.is_file():
-        return {'active':False,'reason':'missing','device':device_id()}
+        return {'active':False,'reason':'missing','device':device_id(),'edition':EDITION}
     try:
         payload=verify_signed_license(path.read_text(encoding='utf-8'))
     except (ValueError,UnicodeError,OSError):
-        return {'active':False,'reason':'expired_or_invalid','device':device_id()}
-    return {'active':True,'device':device_id(),**{k:payload[k] for k in ('plan','license_id','expires_at')}}
+        return {'active':False,'reason':'expired_or_invalid','device':device_id(),'edition':EDITION}
+    safe,reason=trusted_clock()
+    if not safe:
+        return {'active':False,'reason':reason,'device':device_id(),'edition':EDITION}
+    return {'active':True,'device':device_id(),'edition':EDITION,
+            **{k:payload[k] for k in ('plan','license_id','expires_at')}}
 
 
 def license_required() -> dict:
@@ -135,6 +172,9 @@ def activate_license(body:Activation, ident=Depends(browser_admin)):
         payload=verify_signed_license(body.license_text)
     except ValueError:
         raise HTTPException(422,'Giấy phép không hợp lệ, hết hạn hoặc không thuộc máy này') from None
+    clock_ok, clock_reason=trusted_clock()
+    if not clock_ok:
+        raise HTTPException(409,'Đồng hồ Windows bị chỉnh lùi hoặc dữ liệu kiểm tra thời gian hỏng; đồng bộ lại giờ và liên hệ hỗ trợ')
     old=read_license()
     # Never replace a still-valid newer license with an older expiry, avoiding accidental downgrade.
     if old['active'] and payload['expires_at']<old['expires_at']:

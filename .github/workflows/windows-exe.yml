@@ -8,8 +8,15 @@ on:
       - 'windows/**'
       - 'tests/**'
       - 'requirements.txt'
+      - 'tools/prepare_commercial_build.py'
       - '.github/workflows/windows-exe.yml'
   workflow_dispatch:
+    inputs:
+      commercial:
+        description: 'Release signed-license commercial edition (requires vendor PUBLIC key secret)'
+        required: true
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -35,6 +42,14 @@ jobs:
       - name: Check provider wizard JavaScript
         shell: pwsh
         run: node --check static/provider-studio.js
+      - name: Pin vendor public key for manual COMMERCIAL build only
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.commercial }}
+        shell: pwsh
+        env:
+          LHM_COMMERCIAL_PUBLIC_KEY_B64: ${{ secrets.LHM_COMMERCIAL_PUBLIC_KEY_B64 }}
+        run: |
+          python tools/prepare_commercial_build.py --commercial
+          if ($LASTEXITCODE -ne 0) { throw 'Commercial key provisioning failed, EXE must not be shipped' }
       - name: Make branded Windows icon
         shell: pwsh
         run: python windows/make_icon.py
@@ -64,11 +79,21 @@ jobs:
             $log = Join-Path $env:LHM_DATA_DIR 'logs\startup.log'
             if (Test-Path $log) { Get-Content $log -Tail 40 }
           }
-      - name: Upload tested EXE
+      - name: Emit SHA256 checksum for customer verification
+        if: success()
+        shell: pwsh
+        run: |
+          $exe = Get-Item 'dist/LHM-Ads-AI.exe'
+          $hash = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content 'dist/LHM-Ads-AI.sha256' -Value "$hash  LHM-Ads-AI.exe" -Encoding ascii
+          Write-Host "LHM Ads AI SHA256: $hash"
+      - name: Upload tested EXE and checksum
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: LHM-Ads-AI-Native-Window
-          path: dist/LHM-Ads-AI.exe
+          name: ${{ (github.event_name == 'workflow_dispatch' && inputs.commercial) && 'LHM-Ads-AI-COMMERCIAL' || 'LHM-Ads-AI-PILOT' }}
+          path: |
+            dist/LHM-Ads-AI.exe
+            dist/LHM-Ads-AI.sha256
           if-no-files-found: error
           retention-days: 14
