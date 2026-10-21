@@ -14,10 +14,122 @@ function isAdmin(){return session?.role==='admin'}function showLogin(){stopNetwo
 function showApp(){$('login').classList.add('hidden');$('shell').classList.remove('hidden');$('user-name').textContent=session.email;document.querySelectorAll('.admin-only').forEach(x=>x.classList.toggle('hidden',!isAdmin()));const oauth=new URLSearchParams(location.search).get('oauth');history.replaceState(null,'','/studio');go(oauth?'accounts':'dashboard');beginNetworkMonitor();if(oauth&&oauth!=='ready')notify(({cancelled:'Đã hủy đăng nhập OAuth',no_accounts:'Không tìm thấy tài khoản quảng cáo được cấp quyền',provider_error:'Không kết nối được API quảng cáo. Kiểm tra quyền OAuth và ứng dụng.'})[oauth]||'Không hoàn thành kết nối OAuth',true)}
 function go(page){if(!names[page])return;if(['team','audit'].includes(page)&&!isAdmin())return;current=page;$('page-title').textContent=names[page];document.querySelectorAll('.view').forEach(el=>el.classList.toggle('hidden',el.id!=='page-'+page));document.querySelectorAll('.nav-link').forEach(el=>el.classList.toggle('active',el.dataset.page===page));$('sidebar').classList.remove('open');({dashboard:loadDashboard,accounts:loadAccounts,approvals:loadActions,team:loadTeam,audit:loadAudit,settings:()=>{loadAISettings();loadDesktopProviders()},assistant:loadAISettings})[page]?.()}
 async function initialize(){try{session=await api('/api/studio/me');showApp()}catch{showLogin()}}
-async function loadDashboard(){const chart=$('chart');chart.classList.add('loading');chart.textContent='Đang đọc dữ liệu...';try{const [s,accounts]=await Promise.all([api('/api/summary?period='+encodeURIComponent($('period').value)),api('/api/accounts')]);cache=accounts;const t=s.totals;$('k-spend').textContent=t.spend===null?'Đa tiền tệ':fmt(t.spend)+(t.currency?' '+t.currency:'');$('k-currency').textContent=t.currency?'Đơn vị '+t.currency:'Không cộng chi phí khác loại';$('k-impressions').textContent=fmt(t.impressions);$('k-clicks').textContent=fmt(t.clicks);$('k-ctr').textContent=fmt(t.ctr)+'%';const bad=s.accounts.filter(x=>x.error);const note=$('source-warning');note.classList.toggle('hidden',!(t.contains_demo||bad.length));note.textContent=[t.contains_demo?'DỮ LIỆU DEMO được đánh dấu riêng, không phải hiệu suất thật.':'',bad.length?`${bad.length} nguồn không lấy được dữ liệu / chưa hỗ trợ.`:''].filter(Boolean).join(' ');
-const platformIcon={meta:'∞',google:'G',tiktok:'♪',openai:'✧',demo:'◈'};$('platform-stats').innerHTML=Object.keys(platformIcon).map(p=>`<div class="platform-stat"><span><i class="platform-icon ${p}">${platformIcon[p]}</i>${esc(({meta:'Meta Ads',google:'Google Ads',tiktok:'TikTok Ads',openai:'OpenAI Ads',demo:'Demo'})[p])}</span><b>${accounts.filter(a=>a.platform===p&&!a.label.startsWith('[REVOKED]')).length}</b></div>`).join('');
-const dayMap={};for(const a of s.accounts){const r=a.result;if(!r||r.currency!==t.currency||!r.daily)continue;for(const d of r.daily){dayMap[d.date]=(dayMap[d.date]||0)+Number(d.spend)}}const entries=Object.entries(dayMap).sort(([a],[b])=>a.localeCompare(b));if(!entries.length){chart.innerHTML='<div class="empty">Không có dữ liệu biểu đồ đủ điều kiện cùng loại tiền tệ.</div>'}else{const max=Math.max(...entries.map(x=>x[1]),1);chart.innerHTML=window.LHMFinpointChart?window.LHMFinpointChart(entries,t.currency):entries.map(([d,v])=>`<div class="chart-col" title="${esc(d)}: ${esc(money(v,t.currency))}"><div class="chart-bar" style="height:${Math.max(3,Math.round(100*v/max))}%"></div><span class="chart-date">${esc(d.slice(5))}</span></div>`).join('')}
-const rows=s.accounts.map(a=>{const r=a.result;return `<tr><td><strong>${esc(a.label)}</strong></td><td>${esc(a.platform.toUpperCase())}</td><td>${r?esc(money(r.spend,r.currency)):'—'}</td><td>${r?fmt(r.clicks):'—'}</td><td>${r?fmt(r.ctr)+'%':'—'}</td><td>${r?status(r.source==='demo'?'Demo':'API thực',r.source==='demo'?'pending':'success'):status('Không khả dụng','error')}</td><td title="${esc(a.error||'')}">${esc((a.error||'').slice(0,70))}</td></tr>`});$('overview-table').innerHTML=table(['Tài khoản','Nền tảng','Chi tiêu','Clicks','CTR','Nguồn','Ghi chú'],rows);window.LHMFinpointSummary?.(t,accounts,s);document.dispatchEvent(new CustomEvent('lhm:dashboard-updated',{detail:{totals:t}}))}catch(e){chart.textContent='';notify(e.message,true)}finally{chart.classList.remove('loading')}}
+let dashboardRevision=0, latestDashboardSummary=null;
+function resetDashboard(reason=''){
+  for(const id of ['k-spend','k-currency','k-impressions','k-clicks','k-ctr','k-conversions','k-cpa','k-roas']) {
+    const node=$(id); if(node)node.textContent='—';
+  }
+  $('conversion-strip').classList.add('hidden');
+  $('chart').textContent=reason||'Chưa có biểu đồ từ API.';
+  $('overview-table').replaceChildren();
+  $('platform-stats').replaceChildren();
+  $('dashboard-data-status').textContent=reason||'Đang tải…';
+  $('source-warning').classList.add('hidden');
+  $('dashboard-currency-wrap').classList.add('hidden');
+  document.dispatchEvent(new Event('lhm:dashboard-reset'));
+}
+function renderDashboardChart(s){
+  const t=s.totals, chart=$('chart'), selector=$('dashboard-currency');
+  const currencies=Object.keys(t.by_currency||{}).sort();
+  const selected=currencies.includes(selector.value)?selector.value:(t.currency||currencies[0]||'');
+  selector.replaceChildren(...currencies.map(currency=>{
+    const o=document.createElement('option');o.value=currency;o.textContent=currency;return o;
+  }));
+  selector.value=selected;
+  $('dashboard-currency-wrap').classList.toggle('hidden',currencies.length<2);
+  const dayMap=new Map();
+  for(const item of s.accounts||[]){
+    const r=item.result;
+    if(!r||r.currency!==selected||!Array.isArray(r.daily))continue;
+    if((r.source==='demo')!==(t.data_mode==='demo'))continue;
+    for(const d of r.daily) {
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(String(d.date||'')))continue;
+      const v=Number(d.spend);
+      if(!Number.isFinite(v)||v<0)continue;
+      dayMap.set(d.date,(dayMap.get(d.date)||0)+v);
+    }
+  }
+  const entries=[...dayMap.entries()].sort(([a],[b])=>a.localeCompare(b));
+  chart.innerHTML=entries.length&&window.LHMFinpointChart?
+    window.LHMFinpointChart(entries,selected):
+    '<div class="empty">Không có dữ liệu chi tiêu hợp lệ để vẽ biểu đồ.</div>';
+}
+async function loadDashboard(){
+  const revision=++dashboardRevision;
+  latestDashboardSummary=null;
+  resetDashboard();
+  const chart=$('chart');
+  chart.classList.add('loading');
+  chart.textContent='Đang đọc báo cáo qua API...';
+  $('refresh-dashboard').disabled=true;
+  try{
+    const [s,accounts]=await Promise.all([
+      api('/api/summary?period='+encodeURIComponent($('period').value)),
+      api('/api/accounts')
+    ]);
+    if(revision!==dashboardRevision||current!=='dashboard')return;
+    const t=s.totals;
+    cache=accounts;
+    latestDashboardSummary=s;
+    $('k-spend').textContent=t.spend!==null?fmt(t.spend)+' '+t.currency:
+      Object.keys(t.by_currency||{}).length>1?'Đa tiền tệ':'—';
+    $('k-currency').textContent=t.currency?'Đơn vị '+t.currency:
+      Object.entries(t.by_currency||{}).map(([c,v])=>fmt(v.spend)+' '+c).join(' · ')||'Chưa có báo cáo';
+    $('k-impressions').textContent=t.included_accounts?fmt(t.impressions):'—';
+    $('k-clicks').textContent=t.included_accounts?fmt(t.clicks):'—';
+    $('k-ctr').textContent=t.included_accounts?fmt(t.ctr)+'%':'—';
+    const known=t.conversions!==null&&t.conversions!==undefined;
+    $('conversion-strip').classList.toggle('hidden',!known);
+    $('k-conversions').textContent=known?fmt(t.conversions):'—';
+    $('k-cpa').textContent=t.cpa!==null&&t.cpa!==undefined&&t.currency?fmt(t.cpa)+' '+t.currency:'—';
+    $('k-roas').textContent=t.roas!==null&&t.roas!==undefined?fmt(t.roas)+'x':'—';
+    const bad=(s.accounts||[]).filter(x=>x.error);
+    const warnings=[
+      t.data_mode==='demo'?'DỮ LIỆU DEMO: chỉ minh họa, không phải hiệu suất thật.':
+      t.has_demo_accounts?'Các tài khoản DEMO đã được loại khỏi KPI và biểu đồ thực.':'',
+      bad.length?bad.length+' tài khoản chưa lấy được báo cáo — tổng chỉ gồm nguồn đọc được.':'',
+      t.total_accounts>t.included_accounts&&t.data_mode!=='demo'?'Đang hiển thị '+t.included_accounts+'/'+t.total_accounts+' tài khoản có dữ liệu thực.':''
+    ].filter(Boolean);
+    const note=$('source-warning');
+    note.classList.toggle('hidden',!warnings.length);
+    note.textContent=warnings.join(' ');
+    $('dashboard-data-status').textContent=t.data_mode==='demo'?'BẢN XEM THỬ DEMO':
+      t.included_accounts?'Đã cập nhật '+new Date().toLocaleTimeString('vi-VN'):'Chưa có dữ liệu Ads thực';
+    const platformIcon={meta:'∞',google:'G',tiktok:'♪',openai:'✧',demo:'◈'};
+    $('platform-stats').innerHTML=Object.keys(platformIcon).map(p=>
+      '<div class="platform-stat"><span><i class="platform-icon '+p+'">'+platformIcon[p]+'</i>'+
+      esc(({meta:'Meta Ads',google:'Google Ads',tiktok:'TikTok Ads',openai:'OpenAI Ads',demo:'Demo'})[p])+
+      '</span><b>'+accounts.filter(a=>a.platform===p&&!a.label.startsWith('[REVOKED]')).length+'</b></div>'
+    ).join('');
+    renderDashboardChart(s);
+    const rows=(s.accounts||[]).map(a=>{
+      const r=a.result, isDemo=r?.source==='demo';
+      const label=isDemo?'DEMO (không tính vào tổng)':'API thực';
+      const valid=r&&!isDemo;
+      return '<tr><td><strong>'+esc(a.label)+'</strong></td><td>'+esc(String(a.platform).toUpperCase())+
+      '</td><td>'+(r?esc(money(r.spend,r.currency)):'—')+'</td><td>'+(r?fmt(r.clicks):'—')+
+      '</td><td>'+(r?fmt(r.ctr)+'%':'—')+'</td><td>'+(valid&&r.conversions!=null?fmt(r.conversions):'—')+
+      '</td><td>'+(valid&&r.cpa!=null?esc(money(r.cpa,r.currency)):'—')+
+      '</td><td>'+(valid&&r.roas!=null?fmt(r.roas)+'x':'—')+
+      '</td><td>'+(r?status(label,isDemo?'pending':'success'):status('Không khả dụng','error'))+
+      '</td><td title="'+esc(a.error||'')+'">'+esc((a.error||'').slice(0,90))+'</td></tr>';
+    });
+    $('overview-table').innerHTML=table(['Tài khoản','Nền tảng','Chi tiêu','Clicks','CTR','Chuyển đổi','CPA','ROAS','Nguồn','Ghi chú'],rows);
+    window.LHMFinpointSummary?.(t,accounts,s);
+    // Animation is driven by this actual API response, never default fixtures.
+    document.dispatchEvent(new CustomEvent('lhm:dashboard-updated',{detail:{totals:t}}));
+  }catch(e){
+    if(revision!==dashboardRevision)return;
+    resetDashboard('Không tải được báo cáo. Bấm Làm mới để thử lại.');
+    $('source-warning').classList.remove('hidden');
+    $('source-warning').textContent='Lỗi kết nối API: '+String(e.message||e);
+  }finally{
+    if(revision===dashboardRevision){
+      chart.classList.remove('loading');
+      $('refresh-dashboard').disabled=false;
+    }
+  }
+}
 function applyAccountSearch(){const el=$('global-account-search');const q=(el?.value||'').trim().toLocaleLowerCase('vi');const platform=window.lhmAccountFilter||'all';document.querySelectorAll('#accounts-table tbody tr').forEach(tr=>{tr.hidden=(!!q&&!tr.textContent.toLocaleLowerCase('vi').includes(q))||(platform!=='all'&&tr.dataset.platform!==platform)})}
 async function loadAccounts(){if(isAdmin())await loadOAuthStatusAndPending();try{cache=await api('/api/accounts');const rows=cache.map(a=>`<tr data-platform="${esc(a.platform)}"><td><strong>${esc(a.label)}</strong></td><td>${esc(a.platform.toUpperCase())}</td><td>${esc(a.external_id)}</td><td>${esc(a.currency)}</td><td>${status(a.platform==='demo'?'Demo':a.connected?'Đã lưu token':'Đã thu hồi',a.platform==='demo'?'pending':a.connected?'success':'error')}</td><td>${isAdmin()&&!a.label.startsWith('[REVOKED]')?`<button class="small-btn" data-revoke="${a.id}">Thu hồi</button>`:''}</td></tr>`);$('accounts-table').innerHTML=table(['Tài khoản','Nền tảng','ID','Tiền tệ','Trạng thái',''],rows);window.lhmProviderUI?.renderCounts?.(cache);applyAccountSearch();document.dispatchEvent(new CustomEvent('lhm:accounts-loaded',{detail:{accounts:cache}}))}catch(e){notify(e.message,true)}}
 async function loadActions(){try{[actions,cache]=await Promise.all([api('/api/actions'),api('/api/accounts')]);const pending=actions.filter(x=>x.status==='pending').length;$('nav-pending').textContent=pending;$('nav-pending').classList.toggle('hidden',!pending);const names={pending:'Chờ duyệt',executing:'Đang xử lý',completed:'Đã xong',failed:'Thất bại',rejected:'Từ chối'};const rows=actions.map(a=>`<tr><td>#${a.id}</td><td><strong>${esc(a.account_label)}</strong></td><td>${esc(a.target_id)}</td><td>${esc(a.created_at)}</td><td>${status(names[a.status]||a.status,a.status==='completed'?'success':a.status==='pending'?'pending':'error')}</td><td>${isAdmin()&&a.status==='pending'?`<button class="btn primary" data-approve="${a.id}">Duyệt</button> <button class="small-btn" data-reject="${a.id}">Từ chối</button>`:esc(a.failure_reason||'')}</td></tr>`);$('actions-table').innerHTML=table(['Mã','Tài khoản','Campaign ID','Ngày tạo','Trạng thái','Thao tác'],rows);$('pause-account').innerHTML=cache.filter(x=>['meta','google'].includes(x.platform)&&x.connected).map(x=>`<option value="${x.id}">${esc(x.label)} (${esc(x.external_id)})</option>`).join('')}catch(e){notify(e.message,true)}}
@@ -26,7 +138,7 @@ async function loadAudit(){try{const arr=await api('/api/audit');$('audit-table'
 function chatBubble(txt,user=false){const d=document.createElement('div');d.className='chat-bubble '+(user?'user':'bot');if(user){d.textContent=txt}else{const icon=document.createElement('span');icon.className='bot-icon';icon.textContent='✧';const content=document.createElement('div');content.textContent=txt;d.append(icon,content)}$('chat-messages').append(d);$('chat-messages').scrollTop=$('chat-messages').scrollHeight;return d}
 async function chat(text){if(!text.trim())return;chatBubble(text,true);$('chat-input').value='';$('chat-send').disabled=true;const bubble=chatBubble('Đang phân tích dữ liệu...');try{const r=await api('/api/assistant/chat',{method:'POST',body:JSON.stringify({message:text,period:$('period').value})});bubble.lastChild.textContent=r.reply+'\n\n'+(r.disclaimer||''); if(r.mode==='openrouter')$('ai-provider-label').textContent='OPENROUTER: '+r.model}catch(e){bubble.lastChild.textContent=e.message}finally{$('chat-send').disabled=false;$('chat-messages').scrollTop=$('chat-messages').scrollHeight}}
 function accountDialog(open){$('account-dialog').classList.toggle('hidden',!open);if(open){$('account-form').reset();$('acc-platform').dispatchEvent(new Event('change'))}}
-document.querySelectorAll('[data-page]').forEach(e=>e.addEventListener('click',()=>go(e.dataset.page)));document.querySelectorAll('[data-go]').forEach(e=>e.addEventListener('click',()=>go(e.dataset.go)));$('menu').onclick=()=>$('sidebar').classList.toggle('open');$('global-account-search')?.addEventListener('input',()=>{if(current!=='accounts')go('accounts');applyAccountSearch()});$('refresh-dashboard').onclick=loadDashboard;$('period').onchange=()=>{if(current==='dashboard')loadDashboard()};$('export').onclick=()=>{location.href='/api/export/reports?period='+encodeURIComponent($('period').value)};
+document.querySelectorAll('[data-page]').forEach(e=>e.addEventListener('click',()=>go(e.dataset.page)));document.querySelectorAll('[data-go]').forEach(e=>e.addEventListener('click',()=>go(e.dataset.go)));$('menu').onclick=()=>$('sidebar').classList.toggle('open');$('global-account-search')?.addEventListener('input',()=>{if(current!=='accounts')go('accounts');applyAccountSearch()});$('refresh-dashboard').onclick=loadDashboard;$('period').onchange=()=>{if(current==='dashboard')loadDashboard()};$('dashboard-currency').onchange=()=>{if(latestDashboardSummary)renderDashboardChart(latestDashboardSummary)};$('export').onclick=()=>{location.href='/api/export/reports?period='+encodeURIComponent($('period').value)};
 $('login-form').onsubmit=async e=>{e.preventDefault();$('login-error').textContent='';try{await api('/api/login',{method:'POST',body:JSON.stringify({email:$('login-email').value,password:$('login-pass').value})});session=await api('/api/studio/me');$('login-pass').value='';showApp()}catch(ex){$('login-error').textContent=ex.message}};
 $('logout').onclick=async()=>{try{await api('/api/logout',{method:'POST'})}catch{}session=null;showLogin()};$('add-account').onclick=()=>accountDialog(true);$('close-dialog').onclick=()=>accountDialog(false);$('cancel-account').onclick=()=>accountDialog(false);$('account-dialog').onclick=e=>{if(e.target===$('account-dialog'))accountDialog(false)};
 $('acc-platform').onchange=()=>{let p=$('acc-platform').value;let textarea=$('acc-token');textarea.disabled=p==='demo';textarea.required=p!=='demo';$('token-instruction').textContent=p==='demo'?'Demo hoàn toàn tách biệt số liệu thực.':p==='google'?'Google cần OAuth JSON gồm client_id, client_secret, refresh_token.':'Sử dụng token API chính thức. Meta yêu cầu ID số hoặc act_ID.'};

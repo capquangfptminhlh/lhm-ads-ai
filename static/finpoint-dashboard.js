@@ -39,6 +39,7 @@
     const issues=Array.isArray(summary?.accounts)?summary.accounts.filter(a=>a.error).length:0;
     if(id('fp-ops-connected'))id('fp-ops-connected').textContent=String(connected)+' tài khoản';
     if(id('fp-ops-failed'))id('fp-ops-failed').textContent=issues?String(issues)+' nguồn cần kiểm tra':'Không có lỗi báo cáo';
-    if(id('fp-data-source'))id('fp-data-source').textContent=total?.contains_demo?'Có dữ liệu DEMO':'Theo dữ liệu tài khoản';
+    if(id('fp-data-source'))id('fp-data-source').textContent=total?.data_mode==='demo'?'DỮ LIỆU DEMO':
+      total?.included_accounts?'Dữ liệu quảng cáo thật':'Chưa có dữ liệu thực';
   };
 })();
