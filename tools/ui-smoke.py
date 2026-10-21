@@ -72,6 +72,20 @@ def main():
                 page.locator('#login-pass').fill('preview_password_123!')
                 page.locator('#login-form button[type=submit]').click()
                 page.locator('#shell').wait_for(state='visible')
+                # Motion is progressive and never invents Ads totals.
+                assert page.locator('link[href="/static/finpoint-motion.css"]').count() == 1
+                assert page.locator('script[src="/static/finpoint-motion.js"]').count() == 1
+                assert page.locator('#navigation button[data-page=dashboard]').get_attribute('aria-current') == 'page'
+                page.keyboard.press('Control+k')
+                page.locator('button[data-page=accounts].active').wait_for(state='visible')
+                assert page.locator('#global-account-search').evaluate('(el) => document.activeElement === el')
+                assert page.locator('button[data-page=accounts]').get_attribute('aria-current') == 'page'
+                page.locator('[data-provider-choice=google]').wait_for(state='visible')
+                page.locator('button[data-page=dashboard]').click()
+                page.locator('#page-dashboard').wait_for(state='visible')
+                page.wait_for_timeout(1250)
+                assert page.locator('#k-clicks').inner_text().strip()
+                page.screenshot(path=str(ARTIFACTS/'10-finpoint-animated-overview.png'), full_page=True)
                 page.locator('button[data-page=accounts]').click()
                 page.locator('[data-provider-choice=google]').wait_for(state='visible')
                 assert page.locator('[data-provider-detail=google]').is_visible()
@@ -152,11 +166,26 @@ def main():
                 page.screenshot(path=str(ARTIFACTS/'07-finpoint-license.png'),full_page=True)
                 page.set_viewport_size({'width':390,'height':844})
                 page.locator('#menu').click()
+                page.locator('#sidebar-backdrop.open').wait_for(state='visible')
+                assert page.locator('#menu').get_attribute('aria-expanded') == 'true'
+                page.keyboard.press('Escape')
+                assert page.locator('#sidebar').get_attribute('class').find('open') == -1
+                assert page.locator('#menu').get_attribute('aria-expanded') == 'false'
+                page.locator('#menu').click()
+                page.locator('#sidebar-backdrop.open').wait_for(state='visible')
                 page.locator('button[data-page=reports]').click()
+                page.locator('#sidebar-backdrop.open').wait_for(state='hidden')
                 page.locator('#page-reports').wait_for(state='visible')
                 page.wait_for_timeout(400)
                 page.wait_for_timeout(650)
                 page.screenshot(path=str(ARTIFACTS/'08-finpoint-mobile-reports.png'),full_page=True)
+                page.emulate_media(reduced_motion='reduce')
+                assert page.evaluate("matchMedia('(prefers-reduced-motion: reduce)').matches")
+                page.locator('#menu').click()
+                page.locator('#sidebar-backdrop.open').wait_for(state='visible')
+                page.keyboard.press('Escape')
+                page.locator('#sidebar-backdrop.open').wait_for(state='hidden')
+                print('PASS: Ctrl+K, mobile drawer, Escape, reduced-motion and real KPI animation')
                 print('PASS: separate campaigns, autopilot, alerts, license and reports pages; report data is sourced from Demo API')
                 print('PASS: Google/Meta selected separately, Demo not mixed, native API/UI flow works')
                 browser.close()
