@@ -10,8 +10,14 @@
     try {
       const [license, monitor] = await Promise.all([api('/api/license'),api('/api/monitor')]);
       el('license-device').textContent=license.device||'—';
+      const edition=license.edition==='commercial'?'BẢN THƯƠNG MẠI':'BẢN PILOT / KIỂM THỬ';
+      el('license-edition').textContent=edition;
+      const days=license.active?Math.ceil((license.expires_at-Date.now()/1000)/86400):null;
       el('license-state').textContent=license.active?
-        `Đã kích hoạt · ${license.plan} · Hết hạn ${fmtDate(license.expires_at)}`:
+        `Đã kích hoạt · ${license.plan} · Hết hạn ${fmtDate(license.expires_at)}`+
+          (days<=7?` · Còn ${Math.max(days,0)} ngày, cần gia hạn`:''):
+        license.reason==='clock_rollback'?'Đồng hồ Windows bị chỉnh lùi. Vui lòng đồng bộ giờ chính xác để tiếp tục sử dụng.':
+        license.reason==='clock_state_invalid'?'Dữ liệu kiểm tra thời gian bị lỗi. Liên hệ hỗ trợ, không xóa dữ liệu ứng dụng.':
         'Chưa kích hoạt hoặc giấy phép hết hạn. Dữ liệu vẫn có thể xem và xuất báo cáo.';
       el('monitor-enable').checked=monitor.settings.enabled;
       el('monitor-interval').value=String(monitor.settings.poll_minutes);
@@ -27,8 +33,10 @@
     const panel=document.createElement('article');panel.className='panel';
     panel.innerHTML=`<h3>Bản quyền thuê bao theo tháng</h3>
       <p class="muted tiny">Mỗi máy có mã riêng; gia hạn bằng giấy phép ký số. Không chuyển dữ liệu Ads về máy chủ cấp phép.</p>
+      <p><b>Phiên bản:</b> <span id="license-edition">Đang kiểm tra...</span></p>
       <p><b>Trạng thái:</b> <span id="license-state">Đang kiểm tra...</span></p>
-      <p><b>Mã máy:</b> <code id="license-device" style="overflow-wrap:anywhere"></code></p>
+      <p><b>Mã máy:</b> <code id="license-device" style="overflow-wrap:anywhere"></code>
+      <button type="button" id="license-copy-device" class="btn secondary" title="Sao chép mã máy để gửi cho bên bán">Sao chép mã máy</button></p>
       <label>Nhập nội dung file license.json (do đơn vị cung cấp phát hành)
         <textarea id="license-input" rows="4" placeholder="Dán JSON giấy phép đã ký tại đây"></textarea></label>
       <button id="license-activate" type="button" class="btn primary">Kích hoạt / Gia hạn</button>
@@ -42,6 +50,10 @@
       <p id="monitor-help" class="muted tiny"></p><div id="monitor-samples" class="table-wrap"></div>
       <p id="commercial-message" role="status" aria-live="polite"></p>`;
     target.append(panel);
+    el('license-copy-device').addEventListener('click',async()=>{
+      try{await navigator.clipboard.writeText(el('license-device').textContent);show('Đã sao chép mã máy. Chỉ gửi mã máy, không gửi token Ads.')}
+      catch(e){show('Không thể sao chép tự động. Chọn và sao chép mã máy hiển thị ở trên.',true)}
+    });
     el('license-activate').addEventListener('click', async()=>{try{
       await api('/api/license/activate',{method:'POST',body:JSON.stringify({license_text:el('license-input').value.trim()})});
       el('license-input').value='';show('Kích hoạt/gia hạn thành công');refresh();

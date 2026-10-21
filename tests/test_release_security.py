@@ -28,15 +28,15 @@ def test_build_pins_only_valid_public_key_in_isolated_copy(tmp_path):
     sk=Ed25519PrivateKey.generate()
     pub=public_b64(sk)
     lic=tmp_path/'licensing.py'
-    lic.write_text("PUBLIC_KEY_B64 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='\\n",encoding='utf-8')
+    lic.write_text("PUBLIC_KEY_B64 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='\n",encoding='utf-8')
     info=tmp_path/'release_info.py'
-    info.write_text("EDITION = 'pilot'\\n",encoding='utf-8')
+    info.write_text("EDITION = 'pilot'\n",encoding='utf-8')
     with pytest.raises(ValueError):
         prepare_commercial('not-a-key',lic,info)
-    assert info.read_text()=="EDITION = 'pilot'\\n"
+    assert info.read_text()=="EDITION = 'pilot'\n"
     prepare_commercial(pub,lic,info)
     assert f"PUBLIC_KEY_B64 = '{pub}'" in lic.read_text()
-    assert info.read_text()=="EDITION = 'commercial'\\n"
+    assert info.read_text()=="EDITION = 'commercial'\n"
 
 
 def test_license_clock_anchor_detects_rollback_and_tampering(tmp_path,monkeypatch):
