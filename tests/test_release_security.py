@@ -54,5 +54,5 @@ def test_license_clock_anchor_detects_rollback_and_tampering(tmp_path,monkeypatc
 def test_no_private_key_found_in_shipped_sources():
     from pathlib import Path
     root=Path(__file__).resolve().parents[1]
-    assert 'Ed25519PrivateKey' not in (root/'ads_core'/'licensing.py').read_text()
-    assert 'private-key.pem' not in (root/'windows'/'launcher.py').read_text()
+    assert 'Ed25519PrivateKey' not in (root/'ads_core'/'licensing.py').read_text(encoding='utf-8')
+    assert 'private-key.pem' not in (root/'windows'/'launcher.py').read_text(encoding='utf-8')
