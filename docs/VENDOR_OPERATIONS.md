@@ -54,9 +54,25 @@ python tools/vendor_ledger.py confirm-payment --license-id <LICENSE_ID> --receip
 
 ## Ranh giới chưa triển khai
 
-- Công cụ **không kiểm tra số dư ngân hàng** hoặc thu phí tự động, không phát hành hóa đơn điện tử, không nhắc Zalo/SMS tự động.
+- Công cụ **không kiểm tra số dư ngân hàng** hoặc thu phí tự động, không phát hành hóa đơn điện tử, không nhắc Zalo/SMS tự động tới khách. Lệnh `remind` (mục 7) chỉ gửi nhắc tới Telegram của chính bên bán.
 - Public key chỉ xác minh nguồn phát hành license; **không thay thế** chữ ký Authenticode của EXE.
 - Chỉ nên giao bản Commercial sau khi có bản EXE đã ký số, thử nghiệm với API thật và đối chiếu giấy phép qua từng bước. Artifact của GitHub hiện chưa phải bản cài đặt phát hành đại trà.
+**7. Nhắc gia hạn cho chính bên bán.** Liệt kê khách đã hết hạn hoặc sắp hết hạn (mặc định 7 ngày):
+
+```powershell
+python tools/vendor_ledger.py remind --within-days 7
+```
+
+Muốn nhận danh sách này qua Telegram của bên bán, đặt hai biến môi trường trên máy bên bán rồi thêm `--send`:
+
+```powershell
+$env:VENDOR_TELEGRAM_BOT_TOKEN = '<bot token của bên bán>'
+$env:VENDOR_TELEGRAM_CHAT_ID = '<chat id của bên bán>'
+python tools/vendor_ledger.py remind --within-days 7 --send
+```
+
+Tin nhắn chỉ chứa mã khách nội bộ, gói, số ngày còn lại và trạng thái thanh toán — không chứa token Ads hay thông tin ngân hàng. Có thể đặt lệnh này vào Task Scheduler chạy hằng ngày.
+
 **6. Sao lưu sổ khách hàng nhất quán**, sau đó chuyển bản sao lưu vào kho lưu trữ mã hóa bên bán (không gửi lên repo):
 
 ```powershell

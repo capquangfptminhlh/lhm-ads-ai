@@ -4,7 +4,6 @@ import re
 import time
 import json
 import asyncio
-from collections import defaultdict
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
@@ -46,8 +45,49 @@ async def home():
 async def health():
     return {'ok':True}
 
-# Replace memory login throttling with proxy/WAF or Redis rate limits for multiple instances.
-login_failures = defaultdict(list)
+# Durable login throttling in the shared SQLite database: unlike the previous
+# in-memory counters it survives restarts and is shared by every process using
+# this database. Limits: 5 failures per email and 20 per source IP per 15
+# minutes. A reverse proxy/WAF or Redis limiter is still recommended in front
+# of multi-host deployments.
+LOGIN_WINDOW_SECONDS = 900
+LOGIN_MAX_PER_EMAIL = 5
+LOGIN_MAX_PER_IP = 20
+
+def _login_guard_init(db):
+    db.executescript('''
+    CREATE TABLE IF NOT EXISTS login_attempts (
+        scope TEXT NOT NULL,
+        attempted_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_login_attempts_scope
+        ON login_attempts(scope, attempted_at);
+    ''')
+
+def _login_blocked(db, email, ip, now):
+    _login_guard_init(db)
+    since = int(now) - LOGIN_WINDOW_SECONDS
+    per_email = db.execute('SELECT COUNT(*) c FROM login_attempts WHERE scope=? AND attempted_at>?',
+                           (f'email:{email}', since)).fetchone()['c']
+    per_ip = db.execute('SELECT COUNT(*) c FROM login_attempts WHERE scope=? AND attempted_at>?',
+                        (f'ip:{ip}', since)).fetchone()['c']
+    return per_email >= LOGIN_MAX_PER_EMAIL or per_ip >= LOGIN_MAX_PER_IP
+
+def _login_failed(db, email, ip, now):
+    _login_guard_init(db)
+    db.execute('INSERT INTO login_attempts(scope, attempted_at) VALUES(?,?)',
+               (f'email:{email}', int(now)))
+    db.execute('INSERT INTO login_attempts(scope, attempted_at) VALUES(?,?)',
+               (f'ip:{ip}', int(now)))
+    # Opportunistic prune so the table cannot grow without bound.
+    db.execute('DELETE FROM login_attempts WHERE attempted_at<?', (int(now) - 86400,))
+    # Commit immediately: the caller raises HTTPException for the failed
+    # login, which would otherwise roll these counters back.
+    db.commit()
+
+def _login_succeeded(db, email):
+    _login_guard_init(db)
+    db.execute('DELETE FROM login_attempts WHERE scope=?', (f'email:{email}',))
 
 def identify(request: Request):
     token = request.cookies.get('lhm_session')
@@ -79,24 +119,32 @@ def browser_admin(request: Request, ident=Depends(require('admin'))):
 class Login(BaseModel):
     email: str
     password: str
+    totp: str | None = None
 
 @app.post('/api/login')
 def login(data: Login, request: Request):
     ip = request.client.host if request.client else 'unknown'
     now = time.time()
-    login_failures[ip] = [t for t in login_failures[ip] if now-t<300]
-    if len(login_failures[ip]) >= 5:
-        raise HTTPException(429,'Đăng nhập sai quá nhiều; thử lại sau 5 phút')
+    email = data.email.strip().lower()
     with connection() as db:
-        user = db.execute('SELECT * FROM users WHERE email=?', (data.email.strip().lower(),)).fetchone()
+        if _login_blocked(db, email, ip, now):
+            raise HTTPException(429,'Đăng nhập sai quá nhiều; thử lại sau 15 phút')
+        user = db.execute('SELECT * FROM users WHERE email=?', (email,)).fetchone()
         if not user or user['disabled'] or not verify_password(user['password_hash'], data.password):
-            login_failures[ip].append(now)
+            _login_failed(db, email, ip, now)
             raise HTTPException(401,'Email hoặc mật khẩu không đúng')
+        from .mfa import mfa_enabled, verify_user_totp
+        if mfa_enabled(user['id']):
+            if not data.totp:
+                raise HTTPException(401,'mfa_required: Tài khoản đã bật MFA; nhập mã 6 số từ ứng dụng xác thực')
+            if not verify_user_totp(user['id'], data.totp):
+                _login_failed(db, email, ip, now)
+                raise HTTPException(401,'Mã MFA không đúng')
         raw = make_secret()
         csrf = make_secret()
         db.execute('INSERT INTO sessions(hash,user_id,csrf,expires_at) VALUES(?,?,?,?)',
                    (hash_secret(raw),user['id'],csrf,int(now)+86400))
-        login_failures[ip] = []
+        _login_succeeded(db, email)
         audit(db, dict(user),'auth.login','Browser session opened')
     from fastapi.responses import JSONResponse
     result = JSONResponse({'ok':True})

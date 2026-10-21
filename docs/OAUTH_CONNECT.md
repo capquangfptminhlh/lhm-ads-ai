@@ -57,4 +57,4 @@ python -m pytest -q
 node --check static/studio.js
 ```
 
-Các bài kiểm thử OAuth mock provider HTTP và **không xác nhận quyền trên tài khoản quảng cáo thật**. Để hoàn thiện sản phẩm thương mại cần đăng ký ứng dụng đã duyệt, triển khai HTTPS, MFA, vòng đời token và kiểm thử quyền trên tài khoản thực tế.
+Các bài kiểm thử OAuth mock provider HTTP và **không xác nhận quyền trên tài khoản quảng cáo thật**. Để hoàn thiện sản phẩm thương mại cần đăng ký ứng dụng đã duyệt, triển khai HTTPS, vòng đời token và kiểm thử quyền trên tài khoản thực tế. MFA TOTP trong ứng dụng đã có sẵn dạng tùy chọn cho từng tài khoản (Cài đặt → Xác thực hai lớp) và nên bật cho tài khoản quản trị.
