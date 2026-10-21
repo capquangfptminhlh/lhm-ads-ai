@@ -21,8 +21,8 @@ $('password').addEventListener('input', () => {
   const s = $('password').value;
   const score = [s.length >= 12, /[A-Z]/.test(s), /[a-z]/.test(s), /\d/.test(s), /[^a-zA-Z0-9]/.test(s)].filter(Boolean).length;
   const fill = $('strength-fill');
-  fill.style.width = (score * 20) + '%';
-  fill.style.background = score >= 4 ? '#57a681' : score >= 3 ? '#e7a250' : '#d66a55';
+  fill.className = (score ? 'w' + score : '') + ' ' +
+    (score >= 4 ? 'lvl-high' : score >= 3 ? 'lvl-mid' : 'lvl-low');
   $('strength-label').textContent = s.length ? (score >= 4 ? 'Mật khẩu mạnh' : 'Thêm chữ hoa, chữ thường, số hoặc ký tự đặc biệt') : 'Nên có chữ hoa, chữ thường, số và ký tự đặc biệt';
 });
 form.addEventListener('submit', async evt => {

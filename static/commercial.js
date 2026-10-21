@@ -3,7 +3,7 @@
 'use strict';
 (() => {
   const el = id => document.getElementById(id);
-  const show = (msg, bad=false) => {const p=el('commercial-message'); p.textContent=msg;p.style.color=bad?'#b91c1c':'#15803d'};
+  const show = (msg, bad=false) => {const p=el('commercial-message'); p.textContent=msg;p.className=bad?'commercial-error':'commercial-ok'};
   const fmtDate = sec => sec ? new Date(sec*1000).toLocaleString('vi-VN') : '—';
   const escape = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   async function refresh() {
@@ -25,7 +25,13 @@
       el('monitor-samples').innerHTML=rows ? `<table><thead><tr><th>Tài khoản</th><th>Lần đọc</th><th>Nguồn / lỗi</th></tr></thead><tbody>${rows}</tbody></table>` : '<span class="muted">Chưa có dữ liệu giám sát.</span>';
       el('monitor-help').textContent=monitor.note||'';
       if(!license.active)el('monitor-enable').checked=false;
-    } catch(e) {show(e.message||String(e),true)}
+      const msg=el('commercial-message'); if(msg)msg.textContent='';
+    } catch(e) {
+      // The initial load runs before login; only surface errors once the
+      // authenticated shell is actually visible, and clear them on success.
+      const shell=el('shell');
+      if(shell&&!shell.classList.contains('hidden'))show(e.message||String(e),true);
+    }
   }
   let localDiagnostics=null;
   async function refreshReadiness(){
@@ -97,7 +103,7 @@
       <p class="muted tiny">Mỗi máy có mã riêng; gia hạn bằng giấy phép ký số. Không chuyển dữ liệu Ads về máy chủ cấp phép.</p>
       <p><b>Phiên bản:</b> <span id="license-edition">Đang kiểm tra...</span></p>
       <p><b>Trạng thái:</b> <span id="license-state">Đang kiểm tra...</span></p>
-      <p><b>Mã máy:</b> <code id="license-device" style="overflow-wrap:anywhere"></code>
+      <p><b>Mã máy:</b> <code id="license-device" class="wrap-anywhere"></code>
       <button type="button" id="license-copy-device" class="btn secondary" title="Sao chép mã máy để gửi cho bên bán">Sao chép mã máy</button></p>
       <label>Nhập nội dung file license.json (do đơn vị cung cấp phát hành)
         <textarea id="license-input" rows="4" placeholder="Dán JSON giấy phép đã ký tại đây"></textarea></label>
@@ -106,7 +112,7 @@
       <p class="muted tiny">Chỉ đọc báo cáo Google/Meta qua API và ghi lỗi. Máy phải bật, đăng nhập Windows và có Internet. Không tự tăng ngân sách hay chỉnh giá thầu.</p>
       <label><input type="checkbox" id="monitor-enable"> Bật giám sát tài khoản đã kết nối</label>
       <label>Chu kỳ đọc báo cáo <select id="monitor-interval"><option value="15">15 phút</option><option value="30">30 phút</option><option value="60">60 phút</option><option value="120">120 phút</option><option value="240">240 phút</option></select></label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0"><button type="button" class="btn primary" id="monitor-save">Lưu cấu hình</button>
+      <div class="btn-row"><button type="button" class="btn primary" id="monitor-save">Lưu cấu hình</button>
       <button type="button" class="btn secondary" id="monitor-autostart">Chạy nền khi đăng nhập Windows</button>
       <button type="button" class="btn secondary" id="monitor-stop">Tắt tự chạy</button></div>
       <p id="monitor-help" class="muted tiny"></p><div id="monitor-samples" class="table-wrap"></div>
@@ -114,7 +120,7 @@
       <h3>Kiểm tra sẵn sàng &amp; bảo vệ dữ liệu</h3>
       <p id="readiness-summary" class="muted tiny" role="status" aria-live="polite"></p>
       <div id="readiness-checks" class="table-wrap" tabindex="0"></div>
-      <div class="inline-actions" style="margin:12px 0;flex-wrap:wrap">
+      <div class="inline-actions inline-actions-spaced">
         <button type="button" id="readiness-refresh" class="btn secondary">↻ Kiểm tra lại</button>
         <button type="button" id="readiness-export" class="btn secondary">↓ Xuất báo cáo không chứa token</button>
       </div>
