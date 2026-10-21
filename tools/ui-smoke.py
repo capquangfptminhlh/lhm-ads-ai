@@ -124,6 +124,14 @@ def main():
                 assert page.locator('#fp-accounts-all').inner_text() == '1'
                 assert page.locator('#fp-accounts-google').inner_text() == '0'
                 assert page.locator('#fp-accounts-meta').inner_text() == '0'
+                # Screenshot with explicitly labeled Demo source: showcase the orange
+                # chart without inventing real client performance numbers.
+                page.locator('button[data-page=dashboard]').click()
+                page.locator('.fp-chart .trendline').wait_for(state='visible',timeout=12000)
+                expect(page.locator('#source-warning')).to_contain_text('DỮ LIỆU DEMO',timeout=12000)
+                page.wait_for_timeout(1800)
+                page.screenshot(path=str(ARTIFACTS/'11-finpoint-orange-chart-demo.png'),full_page=True)
+                page.locator('button[data-page=accounts]').click()
                 page.locator('button[data-page=assistant]').click()
                 page.locator('#fp-ai-mode').wait_for(state='visible')
                 expect(page.locator('#fp-ai-mode')).to_have_text('Phân tích nội bộ', timeout=12000)
