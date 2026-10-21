@@ -18,6 +18,8 @@ from .db import audit, connection
 from .licensing import license_required
 from .optimizations import list_live_campaigns, rule_suggestions
 from .goals import goal_for, evaluate_goals
+from . import optimization_playbook
+import json as _json
 
 DAY = 86400
 RETRY = 3600
@@ -47,10 +49,21 @@ def init_advisor_db():
           singleton INTEGER PRIMARY KEY CHECK(singleton=1),
           last_seen_at INTEGER NOT NULL,
           mode TEXT NOT NULL DEFAULT 'monitor_only');
+        CREATE TABLE IF NOT EXISTS advisor_snapshots (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          org_id TEXT NOT NULL, account_id INTEGER NOT NULL,
+          taken_at INTEGER NOT NULL, campaigns_json TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS idx_advisor_snapshots_account
+          ON advisor_snapshots(org_id, account_id, taken_at DESC);
+        CREATE TABLE IF NOT EXISTS advisor_outcomes (
+          finding_id INTEGER PRIMARY KEY,
+          verdict TEXT NOT NULL, checked_at INTEGER NOT NULL);
         ''')
         existing={r['name'] for r in db.execute('PRAGMA table_info(advisor_findings)')}
         if 'resolved_at' not in existing:
             db.execute('ALTER TABLE advisor_findings ADD COLUMN resolved_at INTEGER')
+        if 'detail' not in existing:
+            db.execute('ALTER TABLE advisor_findings ADD COLUMN detail TEXT')
 
 
 def heartbeat(now=None):
@@ -102,6 +115,43 @@ async def scan_account(acc, *, now=None, min_interval=DAY):
         findings = rule_suggestions(campaigns,acc['platform'],acc['currency'])
         objective = goal_for(acc['org_id'],acc['id'])
         findings += evaluate_goals(campaigns,acc['platform'],acc['currency'],objective)
+        # LHM Optimization Loop (docs/OPTIMIZATION_SKILL.md): per-account
+        # baselines come from this install's own earlier scan snapshots —
+        # never from other customers or any central service.
+        baselines = {}
+        with connection() as db:
+            history = db.execute('''SELECT taken_at,campaigns_json FROM advisor_snapshots
+                WHERE org_id=? AND account_id=? ORDER BY taken_at DESC LIMIT 12''',
+                (acc['org_id'],acc['id'])).fetchall()
+        flat_history = []
+        for snap in history:
+            for c in _json.loads(snap['campaigns_json']):
+                flat_history.append({**c, 'period': str(snap['taken_at'])})
+        if flat_history:
+            baselines = optimization_playbook.compute_baselines(flat_history)
+        playbook_findings = optimization_playbook.evaluate_campaigns(
+            campaigns, acc['platform'], acc['currency'], goal=objective,
+            baselines=baselines)
+        playbook_findings += optimization_playbook.evaluate_account(
+            campaigns, acc['platform'], acc['currency'], goal=objective)
+        # The playbook's rules are richer (steps + guardrails) than the two
+        # older sources: when the playbook speaks on the same signal for a
+        # campaign, drop the older duplicate (goal CPA/ROAS codes, the
+        # zero-conversion code, and the identical low_ctr code).
+        covered = {str(f['campaign_id']) for f in playbook_findings
+                   if f['code'] in ('cpa_above_target','roas_below_target')}
+        covered_spend = {str(f['campaign_id']) for f in playbook_findings
+                         if f['code'] == 'spend_no_conversions'}
+        findings = [f for f in findings
+                    if not (f['code'] in ('cpa_above_goal','roas_below_goal')
+                            and str(f['campaign_id']) in covered)
+                    and not (f['code'] == 'no_reported_conversions'
+                             and str(f['campaign_id']) in covered_spend)
+                    and not (f['code'] == 'low_ctr'
+                             and any(p['code'] == 'low_ctr'
+                                     and str(p['campaign_id']) == str(f['campaign_id'])
+                                     for p in playbook_findings))]
+        findings += playbook_findings
         suggestions = findings[:MAX_FINDINGS]
     except Exception:
         # Do not store upstream response bodies or provider token-bearing error text.
@@ -115,23 +165,32 @@ async def scan_account(acc, *, now=None, min_interval=DAY):
             '''SELECT campaign_id,rule_code FROM advisor_findings
                WHERE org_id=? AND account_id=? AND resolved_at IS NULL''',
             (acc['org_id'],acc['id'])).fetchall()}
+        allowed_codes = {'low_ctr','no_reported_conversions','cpa_above_goal','roas_below_goal'}
+        allowed_codes |= {entry['code'] for entry in optimization_playbook.PLAYBOOK}
         for r in suggestions:
-            if r.get('code') not in ('low_ctr','no_reported_conversions','cpa_above_goal','roas_below_goal'):
+            if r.get('code') not in allowed_codes:
                 continue
             if (str(r['campaign_id']),r['code']) not in open_keys and r['code'] not in new_codes:
                 new_codes.append(r['code'])
+            severity = {'critical':'high','high':'high','review':'review',
+                        'opportunity':'opportunity'}.get(r.get('level'),'review')
+            detail = None
+            if r.get('playbook'):
+                detail = _json.dumps({'playbook': r['playbook'],
+                                      'suppressed': r.get('suppressed') or []},
+                                     ensure_ascii=False)[:4000]
             db.execute('''INSERT INTO advisor_findings(org_id,account_id,campaign_id,rule_code,
-                          severity,message,first_seen_at,last_seen_at) VALUES(?,?,?,?,?,?,?,?)
+                          severity,message,detail,first_seen_at,last_seen_at) VALUES(?,?,?,?,?,?,?,?,?)
                     ON CONFLICT(org_id,account_id,campaign_id,rule_code) DO UPDATE SET
                       last_seen_at=excluded.last_seen_at, message=excluded.message,
-                      severity=excluded.severity,
+                      severity=excluded.severity, detail=excluded.detail,
                       acknowledged_at=CASE WHEN advisor_findings.resolved_at IS NOT NULL
                                            THEN NULL ELSE advisor_findings.acknowledged_at END,
                       acknowledged_by=CASE WHEN advisor_findings.resolved_at IS NOT NULL
                                            THEN NULL ELSE advisor_findings.acknowledged_by END,
                       resolved_at=NULL''',
                        (acc['org_id'],acc['id'],str(r['campaign_id']),r['code'],
-                        'high' if r.get('level')=='high' else 'review',str(r['message'])[:450],now,now))
+                        severity,str(r['message'])[:450],detail,now,now))
         # Resolve a vanished issue only when its campaign is in this successful
         # provider response. A truncated API page must NOT clear unseen campaigns.
         if len(findings) < MAX_FINDINGS:
@@ -144,6 +203,44 @@ async def scan_account(acc, *, now=None, min_interval=DAY):
                 if previous['campaign_id'] in observed_ids and (previous['campaign_id'],previous['rule_code']) not in active:
                     db.execute('UPDATE advisor_findings SET resolved_at=? WHERE id=? AND org_id=?',
                                (now,previous['id'],acc['org_id']))
+                elif previous['campaign_id']=='ACCOUNT' and ('ACCOUNT',previous['rule_code']) not in active:
+                    # Account-level findings are recomputed from the full
+                    # campaign list each scan, so absence means resolved.
+                    db.execute('UPDATE advisor_findings SET resolved_at=? WHERE id=? AND org_id=?',
+                               (now,previous['id'],acc['org_id']))
+        # Snapshot this scan for future baselines; keep the newest 12.
+        db.execute('INSERT INTO advisor_snapshots(org_id,account_id,taken_at,campaigns_json) VALUES(?,?,?,?)',
+                   (acc['org_id'],acc['id'],now,_json.dumps(campaigns,ensure_ascii=False)[:200000]))
+        db.execute('''DELETE FROM advisor_snapshots WHERE org_id=? AND account_id=? AND id NOT IN
+                      (SELECT id FROM advisor_snapshots WHERE org_id=? AND account_id=?
+                       ORDER BY taken_at DESC LIMIT 12)''',
+                   (acc['org_id'],acc['id'],acc['org_id'],acc['id']))
+        # Outcome verification loop: for playbook findings first seen at
+        # least 7 days ago and not yet verdicted, compare the campaign's
+        # metrics in the snapshot nearest its first sighting with today's.
+        # The verdict describes metric movement only — it does not claim
+        # the recommendation caused it.
+        pending=db.execute('''SELECT f.id,f.campaign_id,f.rule_code,f.first_seen_at
+            FROM advisor_findings f LEFT JOIN advisor_outcomes o ON o.finding_id=f.id
+            WHERE f.org_id=? AND f.account_id=?
+              AND o.finding_id IS NULL AND f.first_seen_at<=?''',
+            (acc['org_id'],acc['id'],now-7*DAY)).fetchall()
+        snaps=db.execute('''SELECT taken_at,campaigns_json FROM advisor_snapshots
+            WHERE org_id=? AND account_id=? ORDER BY taken_at''',
+            (acc['org_id'],acc['id'])).fetchall()
+        current_by_id={str(c.get('id')):c for c in campaigns}
+        for f in pending:
+            if f['campaign_id']=='ACCOUNT' or not snaps:
+                continue
+            nearest=min(snaps,key=lambda s:abs(s['taken_at']-f['first_seen_at']))
+            base_list=_json.loads(nearest['campaigns_json'])
+            base=next((c for c in base_list if str(c.get('id'))==f['campaign_id']),None)
+            current=current_by_id.get(f['campaign_id'])
+            if base is None or current is None:
+                continue
+            verdict=optimization_playbook.verify_outcome(base,current,f['rule_code'])
+            db.execute('INSERT OR IGNORE INTO advisor_outcomes(finding_id,verdict,checked_at) VALUES(?,?,?)',
+                       (f['id'],verdict,now))
         db.execute('''UPDATE advisor_scan_runs SET last_success_at=?,error_code=''
                       WHERE org_id=? AND account_id=?''',(now,acc['org_id'],acc['id']))
     if new_codes:
@@ -162,8 +259,9 @@ def advisor_status(ident=Depends(require('admin','operator','reader'))):
     init_advisor_db()
     with connection() as db:
         rows=db.execute('''SELECT a.id,a.account_id,ac.label AS account_label,ac.platform,
-            a.campaign_id,a.rule_code,a.severity,a.message,a.first_seen_at,a.last_seen_at,
-            a.acknowledged_at,a.resolved_at FROM advisor_findings a
+            a.campaign_id,a.rule_code,a.severity,a.message,a.detail,a.first_seen_at,a.last_seen_at,
+            a.acknowledged_at,a.resolved_at,o.verdict AS outcome FROM advisor_findings a
+            LEFT JOIN advisor_outcomes o ON o.finding_id=a.id
             JOIN accounts ac ON ac.id=a.account_id AND ac.org_id=a.org_id
             WHERE a.org_id=? ORDER BY a.resolved_at IS NOT NULL,
             a.acknowledged_at IS NOT NULL,a.last_seen_at DESC, a.id DESC LIMIT 80''',(ident['org_id'],)).fetchall()
