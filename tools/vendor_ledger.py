@@ -13,9 +13,16 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import sys
 import time
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:  # Prefer the package module so tests and the CLI share one instance.
+    from tools import payos as payos_module  # noqa: E402
+except ImportError:  # Running as a loose script outside the repo root.
+    import payos as payos_module  # noqa: E402  (seller-side dormant PayOS integration)
 
 PRODUCT='LHM_ADS_AI'
 DEVICE=re.compile(r'^[a-f0-9]{32}$')
@@ -54,6 +61,18 @@ def connect(path):
         CHECK(payment_status IN ('pending','confirmed','trial')));
     CREATE INDEX IF NOT EXISTS idx_license_customer_expiry
         ON licenses(customer_ref,expires_at DESC);
+    CREATE TABLE IF NOT EXISTS payment_orders(
+        order_code INTEGER PRIMARY KEY,
+        customer_ref TEXT NOT NULL REFERENCES customers(customer_ref),
+        amount INTEGER NOT NULL,
+        description TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending'
+            CHECK(status IN ('pending','paid','cancelled','failed')),
+        payment_link_id TEXT,
+        checkout_url TEXT,
+        reference TEXT,
+        created_at INTEGER NOT NULL,
+        paid_at INTEGER);
     ''')
     if os.name!='nt':os.chmod(path,0o600)
     return db
@@ -219,6 +238,76 @@ def remind(db,within_days=7,send=False,environ=None,opener=None,now=None):
         result['sent']=True
     return result
 
+def create_payos_order(db,customer_ref,amount,now=None,order_code=None):
+    """Register a pending PayOS order for a known customer (no network here)."""
+    if not isinstance(amount,int) or amount<=0:
+        raise ValueError('Amount must be a positive integer (VND)')
+    customer=db.execute('SELECT device FROM customers WHERE customer_ref=?',
+                        (customer_ref,)).fetchone()
+    if not customer:raise ValueError('Customer must be registered first')
+    ts=int(time.time()) if now is None else now
+    code=payos_module.new_order_code(ts) if order_code is None else order_code
+    description=(f'LHM Ads AI {customer_ref}')[:payos_module.MAX_DESCRIPTION]
+    try:
+        with db:
+            db.execute('''INSERT INTO payment_orders(order_code,customer_ref,amount,
+                description,status,created_at) VALUES(?,?,?,?,'pending',?)''',
+                (code,customer_ref,amount,description,ts))
+    except sqlite3.IntegrityError as exc:
+        raise ValueError('Order code already exists; never overwrite orders') from exc
+    return {'order_code':code,'customer_ref':customer_ref,'amount':amount,
+            'description':description,'status':'pending'}
+
+def create_payos_link(db,customer_ref,amount,environ=None,transport=None,now=None):
+    """Create the order AND its PayOS checkout link. Requires merchant keys;
+    raises PayosNotConfigured while the integration is dormant (manual bank
+    transfer remains the active flow in that state)."""
+    config=payos_module.load_config(environ)
+    order=create_payos_order(db,customer_ref,amount,now=now)
+    try:
+        link=payos_module.create_payment_link(
+            config,order_code=order['order_code'],amount=amount,
+            description=order['description'],transport=transport)
+    except Exception:
+        with db:
+            db.execute("UPDATE payment_orders SET status='failed' WHERE order_code=?",
+                       (order['order_code'],))
+        raise
+    with db:
+        db.execute('''UPDATE payment_orders SET payment_link_id=?,checkout_url=?
+            WHERE order_code=?''',
+            (link.get('payment_link_id'),link.get('checkout_url'),order['order_code']))
+    return {**order,'checkout_url':link.get('checkout_url'),
+            'payment_link_id':link.get('payment_link_id')}
+
+def payments(db):
+    rows=db.execute('''SELECT order_code,customer_ref,amount,description,status,
+        payment_link_id,reference,created_at,paid_at FROM payment_orders
+        ORDER BY created_at DESC,order_code DESC''').fetchall()
+    return [dict(row) for row in rows]
+
+def apply_payos_webhook(db,payload,checksum_key,now=None):
+    """Mark an order paid from a signature-verified webhook.
+
+    This NEVER issues a license: the seller still signs licenses manually
+    after seeing the paid order, exactly like a confirmed manual transfer.
+    """
+    data=payos_module.verify_webhook(payload,checksum_key)
+    code=data.get('orderCode')
+    row=db.execute('SELECT * FROM payment_orders WHERE order_code=?',(code,)).fetchone()
+    if not row:raise ValueError('Webhook references an unknown order code')
+    if int(data.get('amount',-1))!=row['amount']:
+        raise ValueError('Webhook amount does not match the recorded order amount')
+    if row['status']=='paid':
+        return {'order_code':code,'status':'paid','already_paid':True,
+                'customer_ref':row['customer_ref']}
+    ts=int(time.time()) if now is None else now
+    with db:
+        db.execute("UPDATE payment_orders SET status='paid',paid_at=?,reference=? WHERE order_code=?",
+                   (ts,str(data.get('reference',''))[:80] or None,code))
+    return {'order_code':code,'status':'paid','already_paid':False,
+            'customer_ref':row['customer_ref'],'amount':row['amount']}
+
 def export_csv(path,records):
     """Explicit file export; cannot overwrite an existing customer registry."""
     fields=('customer_ref','device','license_id','plan','expires_at','days_remaining',
@@ -271,6 +360,11 @@ def main(argv=None):
     rem.add_argument('--within-days',type=int,default=7)
     rem.add_argument('--send',action='store_true',
                      help='Send via Telegram using VENDOR_TELEGRAM_BOT_TOKEN/VENDOR_TELEGRAM_CHAT_ID')
+    cmd.add_parser('payos-status',help='Show whether PayOS merchant keys are configured (never prints secrets)')
+    pc=cmd.add_parser('payos-create',help='Create a PayOS payment link for a registered customer (needs merchant keys)')
+    pc.add_argument('--customer',required=True)
+    pc.add_argument('--amount',required=True,type=int)
+    cmd.add_parser('payments',help='List PayOS payment orders and their status')
     args=parser.parse_args(argv)
     try:
         db=connect(args.db)
@@ -288,9 +382,16 @@ def main(argv=None):
                 result={'exported':len(rows),'path':str(args.out)}
             elif args.command=='remind':
                 result=remind(db,within_days=args.within_days,send=args.send)
+            elif args.command=='payos-status':
+                result={'payos_configured':payos_module.is_configured(),
+                        'manual_flow':'Chuyển khoản tài khoản bên bán, xác nhận tay rồi mới cấp license'}
+            elif args.command=='payos-create':
+                result=create_payos_link(db,args.customer,args.amount)
+            elif args.command=='payments':result=payments(db)
             else:raise ValueError('Unknown command')
         finally:db.close()
-    except (ValueError,OSError,sqlite3.Error) as exc:
+    except (ValueError,OSError,sqlite3.Error,
+            payos_module.PayosNotConfigured,payos_module.PayosError) as exc:
         parser.error(str(exc))
     print(json.dumps(result,ensure_ascii=False,indent=2))
 

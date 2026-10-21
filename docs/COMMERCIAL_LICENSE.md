@@ -8,7 +8,7 @@
 - **COMMERCIAL** chỉ build bằng cách chạy thủ công GitHub Actions với commercial=true và có public key riêng của chủ phần mềm.
 - EXE chỉ chứa khóa CÔNG KHAI Ed25519. Khóa RIÊNG phải cất ngoài repo, cloud, EXE và máy khách.
 - Đã có MFA TOTP tùy chọn cho từng tài khoản (Cài đặt → Xác thực hai lớp) và giới hạn đăng nhập sai lưu bền trong cơ sở dữ liệu theo email + IP. Bên bán có lệnh `vendor_ledger.py remind [--send]` để liệt kê khách sắp/đã hết hạn và gửi một tin nhắc tới Telegram của chính bên bán.
-- Chưa có cổng thanh toán, hóa đơn tự động, cập nhật phần mềm có ký số hay hệ thống thu hồi license từ xa.
+- Thu tiền hiện tại bằng chuyển khoản vào tài khoản bên bán + xác nhận tay; tích hợp PayOS đã có sẵn dạng chờ kích hoạt bằng khóa merchant của bên bán (xem PAYOS.md). Chưa có hóa đơn tự động, cập nhật phần mềm có ký số hay hệ thống thu hồi license từ xa.
 - Chưa xác thực hoàn chỉnh API của tài khoản quảng cáo thật. Không quảng cáo tự động thay bid/budget/strategy 24/7 khi chưa nghiệm thu.
 
 ## Bước 1 — Tạo khóa phát hành trên máy bên bán (chỉ một lần)
@@ -66,7 +66,7 @@ Quản lý riêng sổ bán hàng: mã khách, Device ID, license ID, ngày hế
 
 Các mục dưới đây **không thể hoàn thành bằng code trong repo**, vì chúng gắn với danh tính pháp lý và tài khoản của chính bên bán:
 
-1. **Cổng thanh toán**: đăng ký merchant PayOS (Việt Nam) hoặc Stripe/Paddle (cần pháp nhân/tài khoản ngân hàng tương ứng) và cấp API key + webhook secret cho khâu tích hợp. Khi có thông tin này, webhook xác nhận thanh toán có thể nối vào sổ bên bán (`confirm-payment`) — nhưng lưu ý đánh đổi kiến trúc: muốn license được cấp *tự động ngay khi tiền về* thì khóa ký riêng phải nằm trên một máy chủ trực tuyến, làm yếu mô hình "khóa ký chỉ ở máy bên bán ngoại tuyến" hiện tại. Phương án an toàn giữ nguyên: thanh toán trực tuyến chỉ tạo trạng thái `pending→paid`, việc ký license vẫn thực hiện trên máy bên bán.
+1. **Cổng thanh toán**: quy trình đang dùng là chuyển khoản vào tài khoản của chính bên bán, bên bán tự xác nhận tiền về rồi mới cấp license. Tích hợp **PayOS đã viết sẵn và đang tắt** (xem [PAYOS.md](PAYOS.md)): chỉ cần bên bán đăng ký merchant PayOS bằng pháp nhân/tài khoản của mình và đặt `PAYOS_CLIENT_ID`/`PAYOS_API_KEY`/`PAYOS_CHECKSUM_KEY` trên máy bên bán là tạo được link thanh toán và nhận webhook xác minh chữ ký — webhook chỉ đánh dấu đơn `paid`, việc ký license vẫn ở máy bên bán. Lưu ý đánh đổi kiến trúc: muốn license được cấp *tự động ngay khi tiền về* thì khóa ký riêng phải nằm trên một máy chủ trực tuyến, làm yếu mô hình "khóa ký chỉ ở máy bên bán ngoại tuyến" hiện tại.
 2. **Hóa đơn điện tử**: cần hợp đồng với nhà cung cấp hóa đơn (Viettel Invoice, VNPT Invoice, MISA meInvoice…) và thông tin xuất hóa đơn của bên bán.
 3. **Ký số EXE (Authenticode)**: mua chứng thư code-signing từ CA (DigiCert/Sectigo…) đứng tên bên bán; quy trình ký và kiểm chứng đã có sẵn trong tài liệu này.
 4. **Thu hồi license từ xa**: mô hình offline hiện tại không hỗ trợ; muốn có phải chuyển sang kiểm tra license trực tuyến định kỳ — một thay đổi kiến trúc cần quyết định riêng, đánh đổi quyền riêng tư/ngoại tuyến của khách.

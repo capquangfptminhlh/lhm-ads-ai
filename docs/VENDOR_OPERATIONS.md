@@ -73,6 +73,16 @@ python tools/vendor_ledger.py remind --within-days 7 --send
 
 Tin nhắn chỉ chứa mã khách nội bộ, gói, số ngày còn lại và trạng thái thanh toán — không chứa token Ads hay thông tin ngân hàng. Có thể đặt lệnh này vào Task Scheduler chạy hằng ngày.
 
+**8. PayOS (tùy chọn, đang tắt cho tới khi bên bán có khóa merchant).** Quy trình mặc định vẫn là chuyển khoản vào tài khoản của bên bán và xác nhận tay (mục 2–3). Khi đã cấu hình khóa PayOS của chính bên bán theo [PAYOS.md](PAYOS.md):
+
+```powershell
+python tools/vendor_ledger.py payos-status
+python tools/vendor_ledger.py payos-create --customer KH001 --amount 299000
+python tools/vendor_ledger.py payments
+```
+
+Webhook đã xác minh chữ ký sẽ chuyển đơn sang `paid`; bên bán vẫn tự ký license như thường — thanh toán PayOS không tự kích hoạt license.
+
 **6. Sao lưu sổ khách hàng nhất quán**, sau đó chuyển bản sao lưu vào kho lưu trữ mã hóa bên bán (không gửi lên repo):
 
 ```powershell
