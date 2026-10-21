@@ -66,6 +66,36 @@ def test_dashboard_chips_no_longer_duplicate_each_other():
     assert "'Chưa có dữ liệu thực'" not in js
 
 
+def test_inter_font_is_bundled_and_declared():
+    # Windows has no Inter by default; without the bundled faces the UI
+    # silently falls back to Segoe UI and typography differs per machine.
+    # The faces ship as data URIs inside fonts.css (self-contained, no
+    # external requests); the OFL license ships alongside.
+    css = _read("fonts.css")
+    assert css.count("@font-face") >= 3
+    assert css.count("data:font/woff2;base64,") >= 3
+    assert "U+1EA0-1EF9" in css               # Vietnamese diacritics subset
+    assert "font-weight:100 900" in css       # variable weight range
+    assert (S / "fonts" / "LICENSE-Inter.txt").exists()
+    for page in ("studio.html", "setup.html"):
+        assert "/static/fonts.css" in _read(page), page
+    # The CSP must permit data: fonts or the browser drops the faces.
+    app_py = (S.parent / "ads_core" / "app.py").read_text(encoding="utf-8")
+    assert "font-src 'self' data:;" in app_py
+
+
+def test_motion_additions_cover_login_and_panels():
+    css = _read("finpoint-motion.css")
+    assert "#login .login-box" in css          # login entrance
+    assert "#login .login-features>*" in css   # staggered feature list
+    assert ".view:not(.hidden) .panel{animation:fp-card-arrive" in css
+    # The login screen is outside #shell, so the reduced-motion block
+    # must name it explicitly or the new animations would ignore the OS
+    # accessibility setting.
+    reduce_block = css.split("@media(prefers-reduced-motion:reduce)")[1]
+    assert "#login *" in reduce_block
+
+
 def test_theme_leftovers_removed():
     theme = _read("finpoint-theme.css")
     assert "radial-gradient(circle,#ff613020" not in theme  # KPI corner smudge

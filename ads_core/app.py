@@ -34,7 +34,7 @@ async def security_headers(request, call_next):
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['Referrer-Policy'] = 'no-referrer'
     response.headers['Cache-Control'] = 'no-store'
-    response.headers['Content-Security-Policy'] = "default-src 'none'; connect-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    response.headers['Content-Security-Policy'] = "default-src 'none'; connect-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
     return response
 
 @app.get('/')
