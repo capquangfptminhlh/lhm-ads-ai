@@ -174,7 +174,19 @@ def run_drill(base: Path) -> list[tuple[str, bool, str]]:
     return checks
 
 
+def _force_utf8_streams():
+    # Windows consoles/pipes default to a legacy codepage (cp1252/cp437)
+    # that cannot encode Vietnamese; these CLIs print Vietnamese status
+    # text, so pin stdout/stderr to UTF-8 when the runtime allows it.
+    import sys as _sys
+    for stream in (_sys.stdout, _sys.stderr):
+        try:
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, ValueError):
+            pass
+
 def main() -> int:
+    _force_utf8_streams()
     print("DIỄN TẬP SAO LƯU / KHÔI PHỤC — LHM Ads AI")
     print("Dùng code thật: ads_core.secure_backup (AES-256-GCM + Scrypt).")
     print("Lớp cổng desktop (admin/loopback) không nằm trong drill headless này.")
