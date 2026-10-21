@@ -1,5 +1,10 @@
 /* LHM Ads AI — FinPoint-inspired original dark command center (2026).
    Pure visual skin. No third-party assets, trackers or external font requests. */
+/* Inter itself is declared in fonts.css (bundled, SIL OFL): the UI stacks
+   name "Inter" first, but Windows ships without it, so without the bundle
+   most users silently fell back to Segoe UI and the typography differed
+   per machine. */
+body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 :root {
   color-scheme:dark;
   --fp-bg:#0b0c0e;--fp-card:#17181c;--fp-card-2:#1e2025;
