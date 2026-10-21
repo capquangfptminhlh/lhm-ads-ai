@@ -1,51 +1,62 @@
-# LHM Ads AI — thương mại bản Windows, không gom Ads lên VPS
+# LHM Ads AI — Quy trình phát hành thương mại Windows
 
-## Ranh giới thực tế
+**Cập nhật 21/10/2026.** Phần mềm dùng license offline, dữ liệu Ads và token ở máy khách. Không có VPS lưu tập trung.
 
-- Phần mềm `.exe` chạy trên máy mỗi khách; API Google Ads, Meta Ads và OpenRouter (nếu bật) kết nối HTTPS trực tiếp ra Internet.
-- Không có MCP hoặc kho token quảng cáo tập trung. **Bản quyền vận hành offline**, không cần VPS hay máy chủ thanh toán để kiểm tra quyền.
-- Mỗi máy được cấp một **Device ID** riêng. License JSON ký Ed25519; app chỉ chứa **public key**, bí mật phát hành ở công cụ bên bán.
-- Mặc định chưa có giấy phép: **không chạy collector nền**, không duyệt thao tác có thể thay đổi quảng cáo thật. Có thể đăng nhập/xem dữ liệu/xuất báo cáo của chính khách để tránh khóa dữ liệu.
-- Giấy phép hết hạn khóa tác vụ trả phí, không xóa dữ liệu hay token, có thể gia hạn ngay. Ngày hết hạn tính theo UTC.
+## Trạng thái sản phẩm
 
-## Quy trình bán và gia hạn tháng
+- CI push lên main tự build bản **PILOT** để kiểm thử, không phải EXE thương mại.
+- **COMMERCIAL** chỉ build bằng cách chạy thủ công GitHub Actions với commercial=true và có public key riêng của chủ phần mềm.
+- EXE chỉ chứa khóa CÔNG KHAI Ed25519. Khóa RIÊNG phải cất ngoài repo, cloud, EXE và máy khách.
+- Chưa có cổng thanh toán, hóa đơn tự động, cập nhật phần mềm có ký số hay hệ thống thu hồi license từ xa.
+- Chưa xác thực hoàn chỉnh API của tài khoản quảng cáo thật. Không quảng cáo tự động thay bid/budget/strategy 24/7 khi chưa nghiệm thu.
 
-1. Khách tải EXE, tự tạo Admin, vào **Cài đặt → Bản quyền thuê bao theo tháng**, gửi **Mã máy** cho bên bán (không gửi mật khẩu/token Google/Meta).
-2. Thu phí theo chính sách bán hàng của chủ dự án. **Chưa tích hợp cổng thanh toán và hóa đơn tự động**.
-3. Trên máy bên bán **khác máy khách**, bảo quản riêng khóa Ed25519 `vendor-private-key.pem`:
+## Bước 1 — Tạo khóa phát hành trên máy bên bán (chỉ một lần)
 
-   ```sh
-   python tools/license_issuer.py sign --private /safe/vendor-private-key.pem \
-     --device <MA_MAY_KHACH> --days 30 --out customer-2026-11.json
-   ```
+Trên máy riêng của bên bán có Python và cryptography, chạy:
 
-4. Gửi **file JSON đã ký** cho khách (Zalo/email). Khách mở và dán nội dung vào màn hình kích hoạt; máy tự xác minh chữ ký, không cần Internet.
-5. Trước khi hết hạn, phát hành giấy phép gia hạn:
+```bash
+python tools/license_issuer.py keygen --private /secure/vendor-private-key.pem --public /secure/vendor-public.b64
+```
 
-   ```sh
-   python tools/license_issuer.py sign --private /safe/vendor-private-key.pem \
-     --device <MA_MAY_KHACH> --days 30 --renew-from customer-2026-11.json \
-     --out customer-2026-12.json
-   ```
+Chương trình yêu cầu mật khẩu ít nhất 16 ký tự và xuất private key được mã hóa. Sao lưu khóa riêng ở hai nơi tách biệt, bảo quản mật khẩu riêng. Tuyệt đối không gửi private key/mật khẩu lên GitHub, ChatGPT hoặc cho khách. Không thay bộ khóa sau khi đã bán, nếu không bản EXE cũ sẽ không xác minh được license mới.
 
-   Nếu khách gia hạn sớm, ngày còn lại được cộng dồn. Mỗi lần cấp mới sẽ có license ID mới.
+## Bước 2 — Cấu hình GitHub và build
 
-**Cực kỳ quan trọng:** khóa **private** không bao giờ upload lên GitHub, gửi cho khách, nhúng EXE hoặc đặt trong website. Sao lưu offline mã hóa ở ít nhất 2 nơi; mất khóa đồng nghĩa không thể gia hạn giấy phép cho EXE dùng public key hiện tại. Tránh cấp lại key công khai khác khi đã có khách.
+1. Tại GitHub repository → Settings → Secrets and variables → Actions, tạo repository secret `LHM_COMMERCIAL_PUBLIC_KEY_B64` chứa đúng một dòng trong `vendor-public.b64`. Đây chỉ là khóa CÔNG KHAI.
+2. GitHub → Actions → Build and test Windows EXE → Run workflow → chọn main → commercial=true.
+3. Workflow sẽ fail nếu không có public key hợp lệ. Chỉ gửi artifact `LHM-Ads-AI-COMMERCIAL`, không gửi bản `PILOT` dưới tên bản bán.
+4. Artifact có EXE và tệp `LHM-Ads-AI.sha256`. Kiểm tra SHA256 của EXE sau khi tải. Chữ ký Authenticode vẫn cần được thực hiện riêng trước khi phát hành đại trà.
 
-## Giám sát nền
+## Bước 3 — Cấp và gia hạn license 30 ngày
 
-- Đăng nhập Windows, bật cấu hình giám sát và chọn chu kỳ 15–240 phút. Bấm **Chạy nền khi đăng nhập Windows** để tự đăng ký HKCU Run (không đòi quyền Admin máy).
-- Tác nhân `--agent-only` chỉ đọc API, không tạo inbound server, không gọi OpenRouter và không thay đổi bid/budget. Windows vẫn có thể suspend tác nhân khi sleep.
-- Dữ liệu giám sát hiện là báo cáo **7 ngày gần nhất**, chưa phải realtime conversions/ROAS/campaign-level. Đọc 20 tài khoản mỗi chu kỳ, ưu tiên tài khoản lâu chưa kiểm tra.
-- Tắt giám sát trong Cài đặt để xóa HKCU Run. Dừng ngay mọi tiến trình nền hiện còn chạy nếu muốn ngừng tức thì. Emergency Stop hoàn chỉnh chưa được triển khai.
+Khách mở EXE, vào Bản quyền, sao chép Mã máy rồi gửi bên bán. Không gửi token quảng cáo.
 
-## Chính sách giá / thuê bao
+```bash
+python tools/license_issuer.py sign --private /secure/vendor-private-key.pem --expected-public /secure/vendor-public.b64 --device <DEVICE_ID> --plan monthly --days 30 --out customer-nov.json
+```
 
-Các gói và giá bán chưa được người sở hữu chỉ định. Đề xuất gói theo **số lượng tài khoản Ads**, số lượt OpenRouter, quyền Auto-limited và số máy được cấp; cấu hình đơn giá sau. Không tự áp mức tiền cụ thể.
+Gửi file JSON đã ký cho khách; khách dán vào Kích hoạt/Gia hạn. Không cần Internet. Gia hạn sớm được cộng dồn ngày:
 
-## Giới hạn bảo mật trước khi thương mại rộng rãi
+```bash
+python tools/license_issuer.py sign --private /secure/vendor-private-key.pem --expected-public /secure/vendor-public.b64 --device <DEVICE_ID> --plan monthly --days 30 --renew-from customer-nov.json --out customer-dec.json
+```
 
-- Không nên quảng cáo là DRM không thể bẻ khóa. Một EXE Python offline vẫn có thể bị chỉnh sửa, đồng hồ Windows có thể bị thay đổi; cần bổ sung chống tua lùi đồng hồ, xác minh thời gian an toàn, ký số Authenticode và bảo vệ khóa bằng DPAPI.
-- **Private key ký giấy phép là tài sản quan trọng nhất của bên bán.** Khóa MASTER_KEY của khách hiện được lưu cục bộ và chưa áp dụng DPAPI hoàn chỉnh; máy bị nhiễm mã độc có thể lộ dữ liệu.
-- Chưa triển khai cổng thanh toán, quản lý công nợ, gia hạn tự động, mã giảm giá, chuyển máy, thu hồi license offline, cập nhật EXE đã ký số.
-- Chưa có write API Google bid/budget/strategy, Meta bid/budget hoặc khả năng AI tự tối ưu. Chưa thử quyền OAuth trên tài khoản quảng cáo thực tế. **Không được cam kết tối ưu tự động 24/7 trước khi các phân hệ này đạt nghiệm thu.**
+Quản lý riêng sổ bán hàng: mã khách, Device ID, license ID, ngày hết hạn, tiền đã thu, hóa đơn và filename JSON. Không lưu access token quảng cáo trong sổ kinh doanh.
+
+## Bảo mật và giới hạn
+
+- Windows master key được bảo vệ bằng DPAPI theo người dùng. API token lưu mã hóa AES-GCM trong SQLite ở máy khách.
+- Mốc thời gian đã xác minh được lưu có mã hóa; khi chỉnh lùi đồng hồ quá 5 phút, tính năng trả phí bị chặn. Đồng bộ giờ Windows để khôi phục. Đây không phải DRM không thể bẻ khóa, vì chủ máy có thể sửa chương trình.
+- Hết hạn license không xóa dữ liệu quảng cáo. Giám sát nền chỉ đọc API và chỉ hoạt động khi máy có điện, Windows chạy và Internet sẵn.
+- Không cam kết API Google/Meta production nếu chưa có quyền hợp lệ và được nhà cung cấp cho phép.
+
+## Checklist trước khi thu tiền khách hàng diện rộng
+
+- [ ] Public/private key của chính bên bán đã được sao lưu; build COMMERCIAL thực có thể cấp, kích hoạt và gia hạn license trên Windows sạch.
+- [ ] GitHub CI và native WebView2 EXE smoke đều thành công; hash kiểm chứng chính xác.
+- [ ] Đã test Google Ads + Meta Ads với quyền thật và đối chiếu số liệu đúng nền tảng.
+- [ ] Kiểm tra khôi phục dữ liệu, máy Windows 10/11, restart, offline, hết hạn, gia hạn sớm, chỉnh giờ.
+- [ ] Có chứng thư ký mã EXE Authenticode, trang tải chính thức, điều khoản sử dụng, bảo mật, chính sách giá và hỗ trợ kỹ thuật.
+- [ ] Có quy trình thu phí, xuất hóa đơn và bảo mật thông tin khách hàng; phần hóa đơn/thanh toán chưa tích hợp tự động.
+
+**Không chuyển private vendor key cho đội hỗ trợ, khách hoặc CI.**
