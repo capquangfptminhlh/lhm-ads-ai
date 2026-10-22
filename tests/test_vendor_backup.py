@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+from contextlib import closing
 from pathlib import Path
 import sqlite3
 
@@ -21,7 +22,7 @@ def seller(tmp_path):
     backup_password='completely-separate-backup-password-2026'
     create_vendor_keys(private,public,signing_password)
     dbpath=tmp_path/'live'/'customers.sqlite3'
-    with ledger.connect(dbpath) as db:
+    with closing(ledger.connect(dbpath)) as db:
         ledger.register(db,'KH001','a'*32)
         ledger.register(db,'KH002','b'*32)
     directory=tmp_path/'issued'
@@ -129,7 +130,7 @@ def test_empty_seller_ledger_backup_supported(tmp_path):
     public=tmp_path/'key.b64'
     create_vendor_keys(private,public,'a-long-private-key-password')
     dbpath=tmp_path/'fresh.sqlite3'
-    with ledger.connect(dbpath):
+    with closing(ledger.connect(dbpath)):
         pass
     outfile=tmp_path/'blank.lhmvault'
     data=vault.export_vault(dbpath,tmp_path/'not-yet-issued',
