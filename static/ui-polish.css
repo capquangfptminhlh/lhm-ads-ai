@@ -1,0 +1,109 @@
+/* LHM Ads AI • Original interface polish: no remote assets, no fake data.
+   Overrides load LAST after existing layout, motion and dark FinPoint theme. */
+:root{--ui-line:#35383f;--ui-elevated:#212329;--ui-copy:#d1d3db;--ui-accent:#ff6843;--ui-focus:#ffa476}
+#shell .topbar{position:sticky;top:0;z-index:20;box-shadow:0 9px 24px #00000020;backdrop-filter:blur(14px)}
+#shell .content{width:100%}
+#shell .section-heading h1{font-size:clamp(27px,2.5vw,35px);line-height:1.18;letter-spacing:-.95px}
+#shell .section-heading .muted{font-size:13px;line-height:1.65;max-width:780px}
+#shell .kpi-name,#shell .panel .muted,#shell .fp-v2-card p{line-height:1.55}
+#shell .kpi-card,#shell .panel,#shell .fp-v2-card{transition:border-color .2s ease,box-shadow .25s ease,transform .25s ease}
+#shell .panel:hover,#shell .fp-v2-card:hover{border-color:#42444c!important}
+#shell .kpi-card:focus-within,#shell .panel:focus-within{border-color:#ae684d!important}
+#shell button:not(:disabled):focus-visible,#shell a:focus-visible,
+#shell select:focus-visible,#shell input:focus-visible,#shell textarea:focus-visible,
+#shell [tabindex="0"]:focus-visible{outline:2px solid var(--ui-focus)!important;outline-offset:3px}
+#shell .sidebar .nav-link{min-height:43px}
+#shell .top-right .icon-btn{flex-shrink:0}
+#shell .inline-actions .btn,#shell .inline-actions select{min-height:44px}
+#shell .panel .panel-title{flex-wrap:wrap}
+#shell .table-wrap{scrollbar-color:#646773 #24262c;scrollbar-width:thin;overflow-x:auto;overscroll-behavior-x:contain}
+#shell .table-wrap table{min-width:700px}
+#shell .table-wrap thead th{position:sticky;top:0;background:#24262b;color:#c0c3cf;z-index:2;letter-spacing:.06em;font-size:10px}
+#shell .table-wrap tbody tr{transition:background-color .15s ease}
+#shell .table-wrap tbody tr:hover{background:#24262c}
+#shell .table-wrap td{line-height:1.6;color:#c3c6cf}
+#shell .table-wrap td strong{color:#fff}
+#shell .table-wrap .empty{padding:30px 18px!important;color:#c6c8cf}
+#shell .status{font-size:11px}
+#shell .top-search:focus-within{border-color:#fd906e!important;box-shadow:0 0 0 3px #ff603324}
+#shell .btn,#shell .small-btn,#shell .text-link{touch-action:manipulation}
+#shell .notice{border-radius:13px;line-height:1.65}
+#shell #toast{max-width:min(440px,calc(100vw - 28px));line-height:1.55}
+/* Helpful onboarding replaces the silent empty dashboard on first run.
+   This banner only appears when the API reports no connected live accounts. */
+#dashboard-onboarding{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.88fr);
+  align-items:center;gap:24px;margin:0 0 23px;padding:27px 29px;
+  background:radial-gradient(ellipse at 95% 5%,#ff774529,transparent 51%),linear-gradient(130deg,#24201f,#171a1e 70%);
+  border:1px solid #63443a;border-radius:22px;position:relative;overflow:hidden}
+#dashboard-onboarding.hidden{display:none!important}
+#dashboard-onboarding:before{content:"";position:absolute;pointer-events:none;right:-95px;top:-95px;
+  width:280px;height:280px;border:1px solid #ff9a4f2f;border-radius:50%;box-shadow:0 0 0 36px #ff9a4f0c,0 0 0 72px #ff9a4f08}
+.ui-onboarding-primary,.ui-onboarding-steps{position:relative;z-index:1}
+.ui-overline{display:inline-flex;align-items:center;gap:9px;color:#ffb596;letter-spacing:1.4px;font-size:10px;font-weight:800}
+.ui-spark{display:grid;place-items:center;width:27px;height:27px;border-radius:9px;background:#ff623a;color:white;font-size:17px}
+.ui-onboarding h2{font-size:clamp(23px,2.2vw,31px);line-height:1.23;letter-spacing:-.75px;color:#f7f7f7;margin:14px 0 11px;max-width:610px}
+.ui-onboarding h2 em{font-style:normal;color:#ff9872}
+.ui-onboarding-primary>p{font-size:12px;color:#bdc0ca;max-width:600px;line-height:1.75;margin:0 0 18px}
+.ui-onboarding-actions{display:flex;flex-wrap:wrap;gap:9px}
+.ui-onboarding-actions .btn{min-height:44px}
+.ui-onboarding-actions .btn.primary span{margin-left:9px}
+.ui-onboarding-steps{list-style:none;margin:0;padding:5px 0;display:grid;gap:11px}
+.ui-onboarding-steps li{display:flex;align-items:center;gap:13px;background:#222429df;
+  border:1px solid #454247;border-radius:13px;padding:12px 14px}
+.ui-onboarding-steps li>span{font-size:14px;font-variant-numeric:tabular-nums;font-weight:800;color:#ff9d79;
+  border:1px solid #66473b;border-radius:10px;width:38px;height:38px;display:grid;place-items:center}
+.ui-onboarding-steps strong{font-size:12px;color:#f2f1f0;display:block;line-height:1.4}
+.ui-onboarding-steps small{font-size:11px;color:#aeb1ba;display:block;margin-top:4px;line-height:1.4}
+#shell .chart .empty{display:grid;place-items:center;align-self:center;line-height:1.65;padding:22px;
+  background:#23252b;border:1px dashed #52535d;border-radius:14px;width:100%;text-align:center;
+  color:#c9cbd4;max-width:600px;margin:0 auto}
+#shell .ui-mobile-dock{display:none}
+/* Tablet: headings, onboarding and tables remain usable without horizontal document scroll. */
+@media(max-width:1100px){
+  #dashboard-onboarding{grid-template-columns:1fr;gap:15px}
+  .ui-onboarding-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .ui-onboarding-steps li{align-items:flex-start;flex-direction:column;min-width:0}
+  #shell .section-heading .inline-actions{flex-wrap:wrap;justify-content:flex-start}
+}
+@media(max-width:900px){
+  #shell .topbar{z-index:20}
+  #shell .content{padding-bottom:calc(108px + env(safe-area-inset-bottom))}
+  #shell .ui-mobile-dock{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:stretch;
+    position:fixed;bottom:0;left:0;right:0;z-index:23;gap:3px;
+    padding:8px 9px calc(8px + env(safe-area-inset-bottom));
+    background:#17191ef5;border-top:1px solid #393a41;
+    box-shadow:0 -12px 40px #0008;backdrop-filter:blur(18px)}
+  #shell .ui-mobile-dock button{border:0;border-radius:12px;background:transparent;color:#adaeb9;
+    min-width:0;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:4px;padding:7px 2px;cursor:pointer}
+  #shell .ui-mobile-dock button>span{font-size:19px;line-height:1.1}
+  #shell .ui-mobile-dock button>small{font-size:10px;line-height:1.2;font-weight:650;white-space:nowrap}
+  #shell .ui-mobile-dock button:hover{background:#292b32;color:#fff}
+  #shell .ui-mobile-dock button.is-current{background:#372924;color:#ffac8c}
+  #shell .ui-mobile-dock button:focus-visible{outline-offset:-2px!important}
+  #shell .sidebar{z-index:27}
+  #shell .sidebar-backdrop{z-index:26}
+  #shell .toast:not(.hidden){bottom:calc(85px + env(safe-area-inset-bottom));right:13px;left:13px}
+}
+@media(max-width:650px){
+  #dashboard-onboarding{padding:19px 17px;border-radius:17px;gap:17px}
+  .ui-onboarding h2{font-size:23px}
+  .ui-onboarding-steps{grid-template-columns:1fr}
+  .ui-onboarding-steps li{flex-direction:row;align-items:center;padding:10px}
+  .ui-onboarding-actions .btn{flex:1;min-width:180px;text-align:center;white-space:normal}
+  #shell .content{padding-left:12px;padding-right:12px}
+  #shell .topbar{padding-left:10px;padding-right:10px}
+  #shell .top-search{display:none}
+  #shell .section-heading h1{font-size:26px}
+  #shell .section-heading .inline-actions{gap:8px}
+  #shell .section-heading .inline-actions>*{flex:1 1 42%;min-width:0}
+  #shell .kpi-card{min-height:152px}
+  #shell .kpi-card strong{font-size:clamp(18px,4.4vw,24px)}
+  #shell .panel{padding:16px}
+  #shell .panel .panel-title{align-items:flex-start}
+  #shell .table-wrap table{min-width:650px}
+}
+@media(prefers-reduced-motion:reduce){
+  #shell .panel,#shell .table-wrap tbody tr,#shell .ui-mobile-dock button,
+  #shell .top-search,#dashboard-onboarding *{transition:none!important;animation:none!important}
+}
