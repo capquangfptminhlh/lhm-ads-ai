@@ -56,7 +56,8 @@ def test_unsigned_release_is_signed_by_vendor_key_and_checks_exe(parts):
     data=pack.verify_package(parts['out'],parts['pub'])
     assert data['sha256']==hashlib.sha256(parts['exe'].read_bytes()).hexdigest()
     assert data['edition']=='commercial-unsigned'
-    assert 'No Microsoft' in zipfile.ZipFile(parts['out']).read('README-CUSTOMER.txt').decode()
+    with zipfile.ZipFile(parts['out']) as released:
+        assert 'no Microsoft Authenticode' in released.read('README-CUSTOMER.txt').decode()
     with pytest.raises(FileExistsError):
         run(parts)
 
