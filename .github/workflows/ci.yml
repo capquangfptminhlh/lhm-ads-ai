@@ -19,6 +19,7 @@ jobs:
       - run: node --check static/provider-studio.js
       - run: node --check static/finpoint-accounts-ai.js
       - run: node --check static/finpoint-motion.js
+      - run: node --check static/command-palette.js
       - run: node --check static/goal-settings.js
       - run: node --check static/workspace-pages.js
       - run: node --check static/commercial.js

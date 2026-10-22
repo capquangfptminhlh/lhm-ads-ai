@@ -81,17 +81,38 @@ def main():
                 expect(page.locator('#dashboard-onboarding')).to_contain_text('Ủy quyền an toàn')
                 assert page.locator('#k-spend').inner_text().strip() == '—'
                 page.screenshot(path=str(ARTIFACTS/'12-first-run-onboarding.png'),full_page=True)
+                # New command palette does not mutate ads or bypass role navigation.
+                page.locator('#ui-command-open').click()
+                expect(page.locator('#ui-command-overlay')).to_be_visible()
+                expect(page.locator('#ui-command-open')).to_have_attribute('aria-expanded','true')
+                expect(page.locator('#ui-command-input')).to_be_focused()
+                page.locator('#ui-command-input').fill('phe duyet')
+                expect(page.locator('#ui-command-results [data-page=approvals]')).to_be_visible()
+                expect(page.locator('#ui-command-results [data-page=team]')).to_have_count(0)
+                page.wait_for_timeout(380)  # Capture AFTER palette entrance animation finishes
+                assert page.locator('.ui-command-dialog').evaluate('node => getComputedStyle(node).opacity') == '1'
+                page.screenshot(path=str(ARTIFACTS/'13-command-palette-desktop.png'))
+                page.locator('#ui-command-input').press('Enter')
+                expect(page.locator('#page-approvals')).to_be_visible()
+                expect(page.locator('#ui-command-overlay')).to_be_hidden()
+                page.locator('#ui-command-open').click()
+                page.locator('#ui-command-input').fill('nhat ky')
+                expect(page.locator('#ui-command-results [data-page=audit]')).to_be_visible()
+                page.keyboard.press('Escape')
+                expect(page.locator('#ui-command-overlay')).to_be_hidden()
+                expect(page.locator('#ui-command-open')).to_be_focused()
+                # Original Ctrl+K account search remains intact.
                 page.keyboard.press('Control+k')
-                page.locator('button[data-page=accounts].active').wait_for(state='visible')
+                page.locator('#navigation button[data-page=accounts].active').wait_for(state='visible')
                 expect(page.locator('#global-account-search')).to_be_focused(timeout=5000)
-                assert page.locator('button[data-page=accounts]').get_attribute('aria-current') == 'page'
+                assert page.locator('#navigation button[data-page=accounts]').get_attribute('aria-current') == 'page'
                 page.locator('[data-provider-choice=google]').wait_for(state='visible')
-                page.locator('button[data-page=dashboard]').click()
+                page.locator('#navigation button[data-page=dashboard]').click()
                 page.locator('#page-dashboard').wait_for(state='visible')
                 page.wait_for_timeout(1250)
                 assert page.locator('#k-clicks').inner_text().strip()
                 page.screenshot(path=str(ARTIFACTS/'10-finpoint-animated-overview.png'), full_page=True)
-                page.locator('button[data-page=accounts]').click()
+                page.locator('#navigation button[data-page=accounts]').click()
                 page.locator('[data-provider-choice=google]').wait_for(state='visible')
                 assert page.locator('[data-provider-detail=google]').is_visible()
                 assert not page.locator('[data-provider-detail=meta]').is_visible()
@@ -131,14 +152,14 @@ def main():
                 assert page.locator('#fp-accounts-meta').inner_text() == '0'
                 # Screenshot with explicitly labeled Demo source: showcase the orange
                 # chart without inventing real client performance numbers.
-                page.locator('button[data-page=dashboard]').click()
+                page.locator('#navigation button[data-page=dashboard]').click()
                 page.locator('.fp-chart .trendline').wait_for(state='visible',timeout=12000)
                 expect(page.locator('#source-warning')).to_contain_text('DỮ LIỆU DEMO',timeout=12000)
                 expect(page.locator('#dashboard-onboarding')).to_be_visible()  # Demo is NOT live Ads
                 page.wait_for_timeout(1800)
                 page.screenshot(path=str(ARTIFACTS/'11-finpoint-orange-chart-demo.png'),full_page=True)
-                page.locator('button[data-page=accounts]').click()
-                page.locator('button[data-page=assistant]').click()
+                page.locator('#navigation button[data-page=accounts]').click()
+                page.locator('#navigation button[data-page=assistant]').click()
                 page.locator('#fp-ai-mode').wait_for(state='visible')
                 expect(page.locator('#fp-ai-mode')).to_have_text('Phân tích nội bộ', timeout=12000)
                 page.locator('[data-fp-prompt]').first.click()
@@ -146,7 +167,7 @@ def main():
                 # Choosing an AI template only fills the text field; it never sends an API request.
                 page.wait_for_timeout(500)
                 page.screenshot(path=str(ARTIFACTS/'09-finpoint-ai-center.png'),full_page=True)
-                page.locator('button[data-page=accounts]').click()
+                page.locator('#navigation button[data-page=accounts]').click()
                 page.locator('#accounts-table tr[data-platform=demo]').wait_for(state='visible')
                 page.screenshot(path=str(ARTIFACTS/'03-demo-filter.png'),full_page=True)
                 # Regression smoke: independent FinPoint workspace pages.
@@ -156,7 +177,7 @@ def main():
                     ('alerts', '#advisor-list'),
                     ('license', '#license-device'),
                     ('reports', '#ws-report-table')]:
-                    page.locator(f'button[data-page={name}]').click()
+                    page.locator(f'#navigation button[data-page={name}]').click()
                     page.locator(f'#page-{name}').wait_for(state='visible')
                     page.locator(marker).wait_for(state='visible')
                     assert page.locator('#page-approvals').is_hidden(), name
@@ -166,15 +187,15 @@ def main():
                 assert 'DEMO' in page.locator('#ws-report-table').inner_text()
                 page.wait_for_timeout(650)
                 page.screenshot(path=str(ARTIFACTS/'04-finpoint-reports.png'),full_page=True)
-                page.locator('button[data-page=autopilot]').click()
+                page.locator('#navigation button[data-page=autopilot]').click()
                 page.locator('#ap-panel').wait_for(state='visible')
                 page.wait_for_timeout(650)
                 page.screenshot(path=str(ARTIFACTS/'05-finpoint-autopilot.png'),full_page=True)
-                page.locator('button[data-page=alerts]').click()
+                page.locator('#navigation button[data-page=alerts]').click()
                 page.locator('#advisor-list').wait_for(state='visible')
                 page.wait_for_timeout(650)
                 page.screenshot(path=str(ARTIFACTS/'06-finpoint-alerts.png'),full_page=True)
-                page.locator('button[data-page=license]').click()
+                page.locator('#navigation button[data-page=license]').click()
                 page.locator('#license-device').wait_for(state='visible')
                 page.locator('#desktop-local-ops').wait_for(state='visible',timeout=12000)
                 assert 'CHƯA XÁC MINH' in page.locator('#readiness-checks').inner_text()
@@ -189,6 +210,16 @@ def main():
                 page.wait_for_timeout(650)
                 page.screenshot(path=str(ARTIFACTS/'07-finpoint-license.png'),full_page=True)
                 page.set_viewport_size({'width':390,'height':844})
+                page.locator('#ui-command-open').click()
+                expect(page.locator('#ui-command-overlay')).to_be_visible()
+                page.locator('#ui-command-input').fill('bao cao')
+                expect(page.locator('#ui-command-results [data-page=reports]')).to_be_visible()
+                page.wait_for_timeout(380)  # Capture AFTER palette entrance animation finishes
+                assert page.locator('.ui-command-dialog').evaluate('node => getComputedStyle(node).opacity') == '1'
+                page.screenshot(path=str(ARTIFACTS/'14-command-palette-mobile.png'))
+                page.locator('#ui-command-results [data-page=reports]').click()
+                expect(page.locator('#page-reports')).to_be_visible()
+                expect(page.locator('#ui-command-overlay')).to_be_hidden()
                 page.locator('#menu').click()
                 page.locator('#sidebar-backdrop.open').wait_for(state='visible')
                 assert page.locator('#menu').get_attribute('aria-expanded') == 'true'
@@ -197,7 +228,7 @@ def main():
                 assert page.locator('#menu').get_attribute('aria-expanded') == 'false'
                 page.locator('#menu').click()
                 page.locator('#sidebar-backdrop.open').wait_for(state='visible')
-                page.locator('button[data-page=reports]').click()
+                page.locator('#navigation button[data-page=reports]').click()
                 page.locator('#sidebar-backdrop.open').wait_for(state='hidden')
                 page.locator('#page-reports').wait_for(state='visible')
                 page.wait_for_timeout(400)
