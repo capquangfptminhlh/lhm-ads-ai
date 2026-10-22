@@ -45,7 +45,8 @@ jobs:
         shell: pwsh
         run: |
           python windows/make_icon.py
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --name LHM-Ads-AI-Vendor --icon windows/lhm-ads-ai.ico --paths . --collect-all cryptography --collect-submodules tools --distpath vendor-dist --workpath vendor-build --specpath vendor-build windows/vendor_manager.py
+          $icon = (Resolve-Path 'windows/lhm-ads-ai.ico').Path
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name LHM-Ads-AI-Vendor --icon $icon --paths . --collect-all cryptography --distpath vendor-dist --workpath vendor-build --specpath vendor-build windows/vendor_manager.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Test-Path 'vendor-dist/LHM-Ads-AI-Vendor.exe')) { throw 'Vendor EXE missing' }
       - name: Inspect vendor EXE without owner private data
