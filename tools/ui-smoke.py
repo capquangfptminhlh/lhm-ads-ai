@@ -89,6 +89,8 @@ def main():
                 page.locator('#ui-command-input').fill('phe duyet')
                 expect(page.locator('#ui-command-results [data-page=approvals]')).to_be_visible()
                 expect(page.locator('#ui-command-results [data-page=team]')).to_have_count(0)
+                page.wait_for_timeout(380)  # Capture AFTER palette entrance animation finishes
+                assert page.locator('.ui-command-dialog').evaluate('node => getComputedStyle(node).opacity') == '1'
                 page.screenshot(path=str(ARTIFACTS/'13-command-palette-desktop.png'))
                 page.locator('#ui-command-input').press('Enter')
                 expect(page.locator('#page-approvals')).to_be_visible()
@@ -212,6 +214,8 @@ def main():
                 expect(page.locator('#ui-command-overlay')).to_be_visible()
                 page.locator('#ui-command-input').fill('bao cao')
                 expect(page.locator('#ui-command-results [data-page=reports]')).to_be_visible()
+                page.wait_for_timeout(380)  # Capture AFTER palette entrance animation finishes
+                assert page.locator('.ui-command-dialog').evaluate('node => getComputedStyle(node).opacity') == '1'
                 page.screenshot(path=str(ARTIFACTS/'14-command-palette-mobile.png'))
                 page.locator('#ui-command-results [data-page=reports]').click()
                 expect(page.locator('#page-reports')).to_be_visible()
