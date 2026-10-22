@@ -1,0 +1,101 @@
+name: Build LHM Vendor License Manager
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/vendor_sales.py'
+      - 'tools/vendor_ledger.py'
+      - 'tools/license_issuer.py'
+      - 'windows/vendor_manager.py'
+      - 'tests/test_vendor_sales.py'
+      - '.github/workflows/windows-vendor.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/vendor_sales.py'
+      - 'tools/vendor_ledger.py'
+      - 'tools/license_issuer.py'
+      - 'windows/vendor_manager.py'
+      - 'tests/test_vendor_sales.py'
+      - '.github/workflows/windows-vendor.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  vendor-exe:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: Install local seller dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "cryptography>=43,<48" pytest pyinstaller pillow
+      - name: Verify paid-only signing and renewal rules
+        shell: pwsh
+        run: python -m pytest tests/test_vendor_sales.py -q
+      - name: Build SEPARATE vendor EXE (never place in customer artifact)
+        shell: pwsh
+        run: |
+          python windows/make_icon.py
+          $icon = (Resolve-Path 'windows/lhm-ads-ai.ico').Path
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name LHM-Ads-AI-Vendor --icon $icon --paths . --collect-all cryptography --distpath vendor-dist --workpath vendor-build --specpath vendor-build windows/vendor_manager.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path 'vendor-dist/LHM-Ads-AI-Vendor.exe')) { throw 'Vendor EXE missing' }
+      - name: Inspect vendor EXE without owner private data
+        shell: pwsh
+        run: |
+          $env:LOCALAPPDATA=Join-Path $env:RUNNER_TEMP 'lhm-vendor-smoke'
+          New-Item -ItemType Directory -Path $env:LOCALAPPDATA -Force | Out-Null
+          $check=Start-Process -FilePath (Join-Path $PWD 'vendor-dist\LHM-Ads-AI-Vendor.exe') -ArgumentList @('--self-test') -PassThru
+          try {
+            if (-not $check.WaitForExit(30000)) { throw 'Vendor self-test did not exit within 30s' }
+            if ($check.ExitCode -ne 0) { throw "Vendor engine self-test failed: $($check.ExitCode)" }
+          } finally {
+            if (-not $check.HasExited) { Stop-Process -Id $check.Id -Force }
+          }
+          $proc=Start-Process -FilePath (Join-Path $PWD 'vendor-dist\LHM-Ads-AI-Vendor.exe') -ArgumentList @('--window-smoke') -PassThru
+          try {
+            if (-not $proc.WaitForExit(30000)) { throw 'Vendor GUI did not exit within 30s' }
+            if ($proc.ExitCode -ne 0) { throw "Vendor GUI smoke failed: $($proc.ExitCode)" }
+          } finally {
+            if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
+          }
+          Write-Host 'PASS: seller-only native EXE startup'
+      - name: Create seller checksum and transparency manifest
+        if: success()
+        shell: pwsh
+        run: |
+          $sha=(Get-FileHash 'vendor-dist/LHM-Ads-AI-Vendor.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content 'vendor-dist/LHM-Ads-AI-Vendor.sha256' "$sha  LHM-Ads-AI-Vendor.exe" -Encoding ascii
+          $manifest = @{
+            product = 'LHM Ads AI - Vendor-only licensing utility'
+            executable = 'LHM-Ads-AI-Vendor.exe'
+            sha256 = $sha
+            source_commit = '${{ github.sha }}'
+            local_storage = 'LOCALAPPDATA/LHMAdsAI-Vendor'
+            stores_private_key_in_exe = $false
+            stores_ads_tokens_in_exe = $false
+            code_signing = 'UNSIGNED'
+            distribution = 'VENDOR_ONLY_DO_NOT_SHARE_WITH_CUSTOMERS'
+          }
+          $manifest | ConvertTo-Json | Set-Content 'vendor-dist/vendor-manifest.json' -Encoding utf8
+          Write-Host "Vendor tool SHA256: $sha"
+      - name: Upload vendor tool separately from customer EXE
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: LHM-Ads-AI-VENDOR-ONLY-Windows
+          path: |
+            vendor-dist/LHM-Ads-AI-Vendor.exe
+            vendor-dist/LHM-Ads-AI-Vendor.sha256
+            vendor-dist/vendor-manifest.json
+          if-no-files-found: error
+          retention-days: 14
