@@ -54,8 +54,13 @@ jobs:
         run: |
           $env:LOCALAPPDATA=Join-Path $env:RUNNER_TEMP 'lhm-vendor-smoke'
           New-Item -ItemType Directory -Path $env:LOCALAPPDATA -Force | Out-Null
-          & .\vendor-dist\LHM-Ads-AI-Vendor.exe --self-test
-          if ($LASTEXITCODE -ne 0) { throw 'Vendor engine failed self-test' }
+          $check=Start-Process -FilePath (Join-Path $PWD 'vendor-dist\LHM-Ads-AI-Vendor.exe') -ArgumentList @('--self-test') -PassThru
+          try {
+            if (-not $check.WaitForExit(30000)) { throw 'Vendor self-test did not exit within 30s' }
+            if ($check.ExitCode -ne 0) { throw "Vendor engine self-test failed: $($check.ExitCode)" }
+          } finally {
+            if (-not $check.HasExited) { Stop-Process -Id $check.Id -Force }
+          }
           $proc=Start-Process -FilePath (Join-Path $PWD 'vendor-dist\LHM-Ads-AI-Vendor.exe') -ArgumentList @('--window-smoke') -PassThru
           try {
             if (-not $proc.WaitForExit(30000)) { throw 'Vendor GUI did not exit within 30s' }
