@@ -19,7 +19,8 @@ try {
     $setup = Invoke-WebRequest -Uri "http://127.0.0.1:$port/setup" -TimeoutSec 10
     if ($setup.StatusCode -ne 200 -or $setup.Content -notmatch 'Tạo tài khoản quản trị') { throw 'Onboarding page missing' }
     Write-Host 'PASS: first-run onboarding page returned 200'
-    foreach ($path in @('/static/setup.css','/static/setup.js','/static/reference-theme.css','/static/provider-studio.css','/static/provider-studio.js')) {
+    if ($setup.Content -notmatch 'setup-dark.css' -or $setup.Content -notmatch 'Dashboard đen') { throw 'First-run screen does not match dark Studio theme' }
+    foreach ($path in @('/static/setup.css','/static/setup-dark.css','/static/setup.js','/static/finpoint-theme.css','/static/reference-theme.css','/static/provider-studio.css','/static/provider-studio.js')) {
         $r = Invoke-WebRequest -Uri "http://127.0.0.1:$port$path" -TimeoutSec 10
         if ($r.StatusCode -ne 200 -or $r.Content.Length -lt 150) { throw "Missing asset: $path" }
     }
