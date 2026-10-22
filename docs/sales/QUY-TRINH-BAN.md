@@ -39,7 +39,7 @@ Phần này dùng khi khách hỏi "khác gì công cụ miễn phí / gợi ý 
 
 ## Bước 1 — Tư vấn và gửi báo giá
 
-**Gửi cho khách:** mẫu tin nhắn số 1 trong `MAU-TIN-NHAN.md` (báo giá + hướng dẫn lấy mã máy), kèm file cài đặt bản COMMERCIAL đã ký số [CHU SAN PHAM QUYET DINH: kênh gửi file cài đặt — link tải / gửi trực tiếp qua Zalo].
+**Gửi cho khách:** mẫu tin nhắn số 1 trong `MAU-TIN-NHAN.md` (báo giá + hướng dẫn lấy mã máy), kèm bản COMMERCIAL đã được nghiệm thu, kiểm tra manifest và công bố rõ trạng thái ký số Windows [CHU SAN PHAM QUYET DINH: kênh gửi file cài đặt — link tải / gửi trực tiếp qua Zalo].
 
 **Nói đúng khả năng phần mềm, không hứaเกิน:**
 
@@ -148,4 +148,4 @@ Khách đổi/sửa máy thì mã máy thay đổi, license cũ không dùng đ�
 - Không nhận, không lưu token quảng cáo, mật khẩu tài khoản Ads hay thông tin ngân hàng của khách trong sổ bán hàng.
 - Không gửi khóa ký riêng hoặc mật khẩu khóa cho bất kỳ ai, không đưa lên GitHub/ChatGPT/CI.
 - Không hứa: tự động xác nhận tiền về, tự thu tiền định kỳ, thu hồi license từ xa, giám sát khi máy khách tắt, hay tự động tối ưu quảng cáo không cần người duyệt — phần mềm hiện **không có** các khả năng này.
-- Không giao bản EXE chưa ký số Authenticode cho khách và không gọi bản build thử nội bộ là bản phát hành chính thức (xem checklist trong `docs/COMMERCIAL_LICENSE.md`).
+- Theo lựa chọn của chủ sở hữu, có thể giao **COMMERCIAL-UNSIGNED** sau khi đã kiểm chứng manifest Ed25519 và đủ nghiệm thu; phải thông báo trước Windows có thể cảnh báo Unknown Publisher/SmartScreen, không đổi tên Pilot để bán và không hướng dẫn khách tắt cơ chế bảo mật (xem `docs/COMMERCIAL_UNSIGNED.md`).

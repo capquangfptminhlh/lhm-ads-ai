@@ -148,3 +148,8 @@ Người duy nhất quyết định phát hành và số phiên bản là chủ 
 - [ ] Lưu trữ artifact + checksum + ghi chú ở một nơi ngoài GitHub.
 - [ ] Cập nhật `CHANGELOG.md`: chuyển mục *Chưa phát hành* thành mục có
       số phiên bản và ngày phát hành.
+
+
+### Phương án khác: chủ sở hữu chọn không ký Authenticode
+
+Nếu bên bán chính thức chọn EXE **COMMERCIAL-UNSIGNED**, áp dụng quy trình [COMMERCIAL_UNSIGNED.md](COMMERCIAL_UNSIGNED.md) thay mục bắt buộc ký Authenticode. **Giữ nguyên** toàn bộ kiểm thử và bằng chứng nghiệm thu API thật, so khớp khóa ký license, SHA256 và xác minh Ed25519 release manifest. Trong ghi chú bán hàng phải có câu **"EXE chưa có chữ ký số được Windows tin cậy; Windows có thể cảnh báo Unknown publisher/SmartScreen"**. Không gắn tên SIGNED, không tuyên bố chứng thư đã được cấp.

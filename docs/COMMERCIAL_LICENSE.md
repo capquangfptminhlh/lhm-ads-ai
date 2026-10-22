@@ -84,3 +84,8 @@ Bản Windows có trang **Bản quyền → Kiểm tra sẵn sàng & Bảo vệ 
 Bản build **Commercial Candidate** từ GitHub vẫn là EXE **chưa ký số**. Để tạo bản thương mại đã ký, chủ phần mềm phải dùng script `windows/package-commercial-release.ps1` trên Windows có chứng thư Code Signing của chính chủ. Script đối chiếu checksum CI, phiên bản/commit, **public key Ed25519** đã nhúng vào EXE, tám mục nghiệm thu có chứng cứ và chữ ký Authenticode do Windows tin cậy; chỉ sau đó mới tạo ZIP thương mại. Xem chi tiết [COMMERCIAL_RELEASE.md](COMMERCIAL_RELEASE.md) và mẫu [COMMERCIAL_ACCEPTANCE_TEMPLATE.json](COMMERCIAL_ACCEPTANCE_TEMPLATE.json).
 
 Nếu thiếu chứng thư, quyền Google/Meta thật hoặc chứng cứ nghiệm thu, script cố ý báo lỗi — **không được đổi nhãn Pilot thành Commercial để bán**. Giữ private key cấp bản quyền ngoài repo, CI và file phân phối.
+
+
+## Không sử dụng chứng thư Code Signing
+
+Chủ sở hữu chọn phát hành không ký số Windows. Xem [COMMERCIAL_UNSIGNED.md](COMMERCIAL_UNSIGNED.md) để tạo bản COMMERCIAL-UNSIGNED **sau khi** kích hoạt khóa Ed25519 bên bán, kiểm thử Google/Meta thật, kiểm tra checksum và xác nhận nghiệm thu. Cảnh báo Unknown Publisher/SmartScreen có thể xuất hiện; không hướng dẫn khách vô hiệu hóa bảo mật để chạy EXE.

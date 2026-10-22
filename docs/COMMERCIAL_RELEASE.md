@@ -27,3 +27,8 @@ Script **không** ký file bằng khóa Ed25519 cấp license: đây là hai h�
 Đối chiếu thêm trên máy Windows sạch bằng `windows/verify-release.ps1` và chạy đăng nhập/thao tác đọc Ads trên bản đã ký. Đăng ký kênh tải chính thức thuộc quyền chủ phần mềm; chỉ công bố đúng ZIP và SHA256 của bản **SIGNED**. Lưu bản unsigned gốc, checklist và bằng chứng nghiệm thu nội bộ, không đăng file chứa token/người dùng.
 
 **Giới hạn:** Script kiểm tra tính đầy đủ và sự nhất quán của biên bản do chủ phần mềm xác nhận; nó **không thể tự chứng minh** các ảnh/bằng chứng Google/Meta là thật. CI cũng không thể tự cung cấp merchant key, chứng thư do CA cấp, hay App Review/Ads API production.
+
+
+## Tùy chọn chủ sở hữu KHÔNG dùng chứng thư Authenticode
+
+Chủ sở hữu đã chọn bán bản EXE không ký số Windows. Có quy trình độc lập tại [COMMERCIAL_UNSIGNED.md](COMMERCIAL_UNSIGNED.md) để tạo gói **COMMERCIAL-UNSIGNED** với chữ ký Ed25519 trên manifest, sau khi nghiệm thu thật. Quy trình signed ở tài liệu này vẫn khả dụng nếu sau này cần; **không được gọi gói unsigned là signed**.
