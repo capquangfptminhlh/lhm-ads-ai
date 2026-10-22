@@ -1,0 +1,78 @@
+/* LHM Ads AI / keyboard navigation – dark command surface, no remote assets */
+#shell .ui-command-trigger{display:inline-flex;align-items:center;gap:9px;height:38px;min-height:38px;
+  min-width:0;background:#23252b;border:1px solid #41434a;color:#dbdce2;
+  border-radius:11px;padding:0 10px;cursor:pointer;flex-shrink:0;
+  transition:background .18s ease,border-color .18s ease,box-shadow .18s ease}
+#shell .ui-command-trigger>span{color:#ffab87;font-size:22px;line-height:1}
+#shell .ui-command-trigger strong{font-size:11px;font-weight:650;white-space:nowrap}
+#shell .ui-command-trigger kbd{font:600 10px/1.1 Inter,'Segoe UI',sans-serif;
+  border:1px solid #515259;background:#30323a;border-radius:5px;padding:4px 5px;color:#aeb0b9}
+#shell .ui-command-trigger:hover{border-color:#a1664c;background:#323035}
+#shell .ui-command-trigger[aria-expanded="true"]{border-color:#ff956e;box-shadow:0 0 0 3px #ff6a4424}
+#shell .ui-command-overlay{position:fixed;inset:0;z-index:100;display:flex;align-items:flex-start;
+  justify-content:center;padding:min(15vh,120px) 16px 18px;background:#05060bd9;
+  backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);overflow-y:auto}
+#shell .ui-command-overlay.hidden{display:none!important}
+#shell .ui-command-dialog{background:#1c1e23;border:1px solid #5b4a45;
+  border-radius:19px;box-shadow:0 35px 110px #000b,0 0 0 1px #ffffff0c;
+  width:min(100%,600px);max-height:min(74vh,660px);display:flex;flex-direction:column;min-height:0;
+  overflow:hidden;animation:ui-command-in .22s cubic-bezier(.18,.85,.26,1) both}
+#shell .ui-command-head{display:flex;align-items:center;gap:13px;padding:19px 20px 17px}
+#shell .ui-command-symbol{display:grid;place-items:center;flex-shrink:0;width:42px;height:42px;
+  border-radius:12px;color:#fff;background:linear-gradient(135deg,#ff8755,#f14b2d);font-size:21px;
+  box-shadow:0 9px 23px #f7522830}
+#shell .ui-command-head>div{min-width:0;flex:1}
+#shell .ui-command-head h2{color:#fff;margin:0;font-size:17px;letter-spacing:-.4px}
+#shell .ui-command-head p{color:#aeb0b9;margin:5px 0 0;font-size:11px}
+#shell .ui-command-close{width:32px;height:32px;border-radius:10px;border:1px solid #454750;
+  background:#292b31;color:#bfc1ca;font-size:15px;display:grid;place-items:center;cursor:pointer}
+#shell .ui-command-close:hover{background:#3a3b41;color:white}
+#shell .ui-command-input-wrap{display:flex;align-items:center;gap:12px;margin:0 18px;padding:0 14px;
+  min-height:54px;background:#27292f;border:1px solid #525058;border-radius:12px}
+#shell .ui-command-input-wrap:focus-within{border-color:#ff9873;box-shadow:0 0 0 3px #fe6a3d1e}
+#shell .ui-command-input-wrap>span{color:#ffa07c;font-size:24px}
+#shell .ui-command-input-wrap input{min-width:0;flex:1;background:transparent;border:0;
+  box-shadow:none!important;outline:0!important;color:#faf8f5;font-size:14px;padding:12px 0;
+  margin:0;-webkit-appearance:none;appearance:none}
+#shell .ui-command-input-wrap input::placeholder{color:#9295a2}
+#shell .ui-command-input-wrap kbd{flex-shrink:0;color:#b5b6c0;
+  border:1px solid #54565e;border-radius:6px;font-size:10px;font-family:inherit;padding:5px 7px}
+#shell .ui-command-group{font-size:10px;color:#9fa2b1;font-weight:800;letter-spacing:1.5px;
+  padding:22px 25px 8px}
+#shell .ui-command-results{padding:0 12px 12px;overflow-y:auto;overscroll-behavior:contain;
+  min-height:60px;max-height:355px;scrollbar-color:#6a6060 transparent;scrollbar-width:thin}
+#shell .ui-command-option{display:flex;gap:12px;align-items:center;width:100%;min-height:49px;
+  border:1px solid transparent;background:transparent;border-radius:11px;
+  text-align:left;color:#dedfe5;cursor:pointer;padding:7px 10px}
+#shell .ui-command-option:hover,#shell .ui-command-option.is-highlighted{
+  background:#383036;border-color:#68483d;color:#fff}
+#shell .ui-command-option-icon{display:grid;place-items:center;flex-shrink:0;
+  width:34px;height:34px;border-radius:10px;color:#ff9d72;background:#383239;font-size:18px}
+#shell .ui-command-option-label{font-size:13px;font-weight:700;flex:1;min-width:0}
+#shell .ui-command-option-hint{color:#a9a3a5;font-size:10px;white-space:nowrap}
+#shell .ui-command-empty{padding:18px;text-align:center;color:#b2b5c0;font-size:12px;line-height:1.7}
+#shell .ui-command-footer{display:flex;gap:15px;align-items:center;padding:13px 19px;
+  border-top:1px solid #34373e;background:#191b1f;color:#989ba7;font-size:10px}
+#shell .ui-command-footer b{margin-left:auto;color:#98e1b9;font-size:10px;font-weight:650}
+@keyframes ui-command-in{from{opacity:0;transform:translateY(-13px) scale(.985)}to{opacity:1;transform:none}}
+@media(max-width:1280px){#shell .ui-command-trigger kbd{display:none}}
+@media(max-width:700px){
+ #shell .ui-command-trigger{width:38px;height:38px;min-width:38px;justify-content:center;padding:0}
+ #shell .ui-command-trigger strong,#shell .ui-command-trigger kbd{display:none}
+ #shell .ui-command-overlay{padding:calc(20px + env(safe-area-inset-top)) 11px
+   calc(20px + env(safe-area-inset-bottom))}
+ #shell .ui-command-dialog{max-height:calc(100dvh - 54px - env(safe-area-inset-bottom));
+   width:100%;border-radius:16px}
+ #shell .ui-command-head{padding:15px}
+ #shell .ui-command-head h2{font-size:15px}
+ #shell .ui-command-input-wrap{margin:0 11px;padding:0 10px}
+ #shell .ui-command-input-wrap input{font-size:16px}
+ #shell .ui-command-results{max-height:min(53dvh,410px)}
+ #shell .ui-command-footer{flex-wrap:wrap;gap:8px 16px;padding:12px}
+ #shell .ui-command-footer b{width:100%;margin:0}
+ #shell .ui-command-option{min-height:51px}
+}
+@media(prefers-reduced-motion:reduce){
+ #shell .ui-command-dialog{animation:none!important}
+ #shell .ui-command-trigger,#shell .ui-command-option{transition:none!important}
+}
