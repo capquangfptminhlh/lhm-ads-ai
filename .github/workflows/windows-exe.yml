@@ -2,6 +2,9 @@ name: Build and test Windows EXE
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+  # Windows must pass BEFORE a PR is merged, not only after main turns red.
     paths:
       - 'ads_core/**'
       - 'static/**'
