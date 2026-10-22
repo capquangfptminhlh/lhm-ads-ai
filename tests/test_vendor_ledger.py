@@ -122,3 +122,45 @@ def test_vendor_backup_and_existing_parent_permission(store):
         other=v.connect(existing/'local-ledger.sqlite3')
         other.close()
         assert (existing.stat().st_mode & 0o777)==before
+
+
+def test_one_confirmed_receipt_cannot_pay_for_two_customers_or_licenses(store,issuer):
+    db,tmp=store
+    private,pub=issuer
+    v.register(db,'REC-1','a'*32)
+    v.register(db,'REC-2','b'*32)
+    first=signed(tmp,private,'a'*32,1797592000,'license-receipt-1')
+    second=signed(tmp,private,'b'*32,1797592000,'license-receipt-2')
+    v.record(db,'REC-1',first,pub,payment_status='confirmed',receipt_ref='BANK-ONE')
+    with pytest.raises(ValueError,match='biên nhận'):
+        v.record(db,'REC-2',second,pub,payment_status='confirmed',receipt_ref='BANK-ONE')
+    assert db.execute('SELECT COUNT(*) FROM licenses').fetchone()[0]==1
+    v.record(db,'REC-2',second,pub,payment_status='pending')
+    with pytest.raises(ValueError,match='biên nhận'):
+        v.confirm_payment(db,'license-receipt-2','BANK-ONE')
+    assert db.execute('SELECT payment_status FROM licenses WHERE license_id=?',
+                      ('license-receipt-2',)).fetchone()['payment_status']=='pending'
+
+
+def test_legacy_duplicate_receipts_fail_closed_on_open(tmp_path,issuer):
+    private,pub=issuer
+    path=tmp_path/'legacy.sqlite3'
+    db=v.connect(path)
+    try:
+        v.register(db,'OLD-1','a'*32)
+        v.register(db,'OLD-2','b'*32)
+        # Simulate pre-migration ledger that never had a unique receipt index.
+        db.execute('DROP INDEX idx_paid_receipt_unique')
+        db.commit()
+        one=signed(tmp_path,private,'a'*32,1797592000,'license-legacy001')
+        two=signed(tmp_path,private,'b'*32,1797592000,'license-legacy002')
+        v.record(db,'OLD-1',one,pub,payment_status='confirmed',receipt_ref='BANK-DUP')
+        v.record(db,'OLD-2',two,pub,payment_status='confirmed',receipt_ref='BANK-DUP')
+    finally:
+        db.close()
+    with pytest.raises(ValueError,match='đã dùng nhiều lần'):
+        v.connect(path)
+    # No reconciliation data is silently discarded during migration.
+    import sqlite3
+    with sqlite3.connect(path) as raw:
+        assert raw.execute('SELECT COUNT(*) FROM licenses').fetchone()[0]==2
