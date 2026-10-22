@@ -64,7 +64,17 @@ async def google_access(client, acc):
 async def google_campaigns(acc, client):
     customer, version, headers = await google_access(client, acc)
     # No date dimension here: one aggregate metric row per campaign over 7 days.
+    # Bidding/budget fields (API v25) let the optimization playbook compare
+    # actual CPA/ROAS against the PLATFORM's own targets — detection that
+    # used to be checklist-only. campaign_budget.amount_micros is a daily
+    # amount only when the budget period is DAILY.
     query = ("SELECT campaign.id, campaign.name, campaign.status, "
+             "campaign.bidding_strategy_type, "
+             "campaign.target_cpa.target_cpa_micros, "
+             "campaign.maximize_conversions.target_cpa_micros, "
+             "campaign.target_roas.target_roas, "
+             "campaign.maximize_conversion_value.target_roas, "
+             "campaign_budget.amount_micros, campaign_budget.period, "
              "metrics.cost_micros, metrics.impressions, metrics.clicks, "
              "metrics.conversions, metrics.conversions_value "
              "FROM campaign WHERE campaign.status != REMOVED "
@@ -90,6 +100,11 @@ async def google_campaigns(acc, client):
                 value = float(metrics.get('conversionsValue') or 0)
                 clicks = int(metrics.get('clicks') or 0)
                 impressions = int(metrics.get('impressions') or 0)
+                budget = entry.get('campaignBudget') or {}
+                target_cpa_micros = ((item.get('targetCpa') or {}).get('targetCpaMicros')
+                                     or (item.get('maximizeConversions') or {}).get('targetCpaMicros'))
+                target_roas = ((item.get('targetRoas') or {}).get('targetRoas')
+                               or (item.get('maximizeConversionValue') or {}).get('targetRoas'))
                 found.append({
                     'id': cid, 'name': str(item.get('name') or 'Google Campaign')[:100],
                     'status': str(item.get('status') or 'UNKNOWN'),
@@ -98,6 +113,12 @@ async def google_campaigns(acc, client):
                     'ctr_percent': round(clicks*100/impressions, 2) if impressions else None,
                     'cpa': round(spend/conversions, 2) if conversions>0 else None,
                     'roas': round(value/spend, 3) if spend>0 else None,
+                    'bidding_strategy': str(item.get('biddingStrategyType') or '') or None,
+                    'bid_target_cpa': round(int(target_cpa_micros)/1_000_000, 2) if target_cpa_micros else None,
+                    'bid_target_roas': float(target_roas) if target_roas else None,
+                    'daily_budget': (round(int(budget['amountMicros'])/1_000_000, 2)
+                                     if budget.get('amountMicros') and budget.get('period') in ('DAILY', None)
+                                     else None),
                 })
                 if len(found) > MAX_CAMPAIGNS:
                     raise HTTPException(409, 'Quá 500 chiến dịch; không thể kiểm tra đầy đủ và tạo cảnh báo an toàn.')
@@ -174,7 +195,8 @@ async def meta_campaigns(acc, client):
     chosen_action=goal.get('meta_action_type') if goal and goal['enabled'] else None
     try:
         entries = await _meta_pages(client, base + '/campaigns', headers,
-                                    {'fields': 'id,name,status,effective_status',
+                                    {'fields': 'id,name,status,effective_status,'
+                                               'bid_strategy,daily_budget,lifetime_budget',
                                      'limit': META_PAGE_SIZE})
         found = []
         known_ids = set()
@@ -187,12 +209,26 @@ async def meta_campaigns(acc, client):
             if cid in known_ids:
                 raise ValueError('Duplicate campaign')
             known_ids.add(cid)
+            def _meta_money(raw):
+                # Meta budget fields are integers in the account currency's
+                # minor unit (cents); non-numeric/absent stays None, never 0.
+                try:
+                    return round(int(raw) / 100, 2) if raw not in (None, '') else None
+                except (TypeError, ValueError):
+                    return None
             found.append({'id': cid, 'name': str(entry.get('name') or 'Meta Campaign')[:100],
                           'status': str(entry.get('status') or 'UNKNOWN'),
                           'effective_status': str(entry.get('effective_status') or 'UNKNOWN'),
                           'spend': None, 'clicks': None, 'impressions': None,
                           'conversions': None, 'conversion_value': None,
-                          'ctr_percent': None, 'cpa': None, 'roas': None})
+                          'ctr_percent': None, 'cpa': None, 'roas': None,
+                          # Campaign-level (CBO/Advantage+) bid configuration.
+                          # Ad-set level bid amounts are a separate surface
+                          # and stay out of scope for campaign findings.
+                          'bidding_strategy': str(entry.get('bid_strategy') or '') or None,
+                          'bid_target_cpa': None, 'bid_target_roas': None,
+                          'daily_budget': _meta_money(entry.get('daily_budget')),
+                          'lifetime_budget': _meta_money(entry.get('lifetime_budget'))})
         # Insights must be complete for reliable alerts; no silent partial success.
         try:
             fields='campaign_id,spend,clicks,impressions'
