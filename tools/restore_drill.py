@@ -13,6 +13,8 @@ riêng trong tests/test_secure_backup.py. Không có crypto nào được viết
 """
 from __future__ import annotations
 
+from contextlib import closing
+
 import base64
 import hashlib
 import json
@@ -32,7 +34,9 @@ DRILL_MASTER_KEY = base64.b64encode(b"D" * 32).decode()
 
 
 def _tables(db_path: Path) -> dict[str, int]:
-    with sqlite3.connect(db_path) as db:
+    # SQLite connection context manager does NOT close on exit; Windows needs
+    # all handles released before TemporaryDirectory can delete the database.
+    with closing(sqlite3.connect(db_path)) as db:
         names = [r[0] for r in db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' "
             "AND name NOT LIKE 'sqlite_%' ORDER BY name")]
@@ -98,7 +102,7 @@ def run_drill(base: Path) -> list[tuple[str, bool, str]]:
         return checks
 
     # --- (d) Kiểm chứng ------------------------------------------------------
-    with sqlite3.connect(restored_db) as db:
+    with closing(sqlite3.connect(restored_db)) as db:
         row = db.execute("SELECT password_hash, role FROM users WHERE email=?",
                          (DRILL_EMAIL,)).fetchone()
     check("User admin có mặt sau khôi phục", row is not None, DRILL_EMAIL)
@@ -106,10 +110,10 @@ def run_drill(base: Path) -> list[tuple[str, bool, str]]:
         check("Mật khẩu đăng nhập kiểm chứng được (verify_password)",
               verify_password(row[0], DRILL_USER_PASSWORD), f"role={row[1]}")
 
-    with sqlite3.connect(db_file) as db:
+    with closing(sqlite3.connect(db_file)) as db:
         src_acc = db.execute(
             "SELECT org_id,platform,label,external_id,currency FROM accounts").fetchall()
-    with sqlite3.connect(restored_db) as db:
+    with closing(sqlite3.connect(restored_db)) as db:
         new_acc = db.execute(
             "SELECT org_id,platform,label,external_id,currency FROM accounts").fetchall()
     check("Dòng tài khoản khớp bản gốc", src_acc == new_acc and len(new_acc) == 1,

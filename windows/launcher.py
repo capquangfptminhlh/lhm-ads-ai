@@ -72,7 +72,11 @@ def _force_utf8_streams():
 
 
 def show_startup_error(message: str):
-    if sys.platform == 'win32':
+    # A Windows MessageBox is modal: in --headless tests/support commands it
+    # blocks the process indefinitely (and CI times out after 60 seconds).
+    # Use a popup only in the actual frozen interactive desktop edition.
+    if (sys.platform == 'win32' and getattr(sys, 'frozen', False)
+            and '--headless' not in sys.argv and '--agent-only' not in sys.argv):
         try:
             import ctypes
             ctypes.windll.user32.MessageBoxW(
