@@ -76,6 +76,11 @@ def main():
                 assert page.locator('link[href="/static/finpoint-motion.css"]').count() == 1
                 assert page.locator('script[src="/static/finpoint-motion.js"]').count() == 1
                 assert page.locator('#navigation button[data-page=dashboard]').get_attribute('aria-current') == 'page'
+                # First run has NO connected Ads API: show actions, not fake figures.
+                expect(page.locator('#dashboard-onboarding')).to_be_visible(timeout=12000)
+                expect(page.locator('#dashboard-onboarding')).to_contain_text('Ủy quyền an toàn')
+                assert page.locator('#k-spend').inner_text().strip() == '—'
+                page.screenshot(path=str(ARTIFACTS/'12-first-run-onboarding.png'),full_page=True)
                 page.keyboard.press('Control+k')
                 page.locator('button[data-page=accounts].active').wait_for(state='visible')
                 expect(page.locator('#global-account-search')).to_be_focused(timeout=5000)
@@ -129,6 +134,7 @@ def main():
                 page.locator('button[data-page=dashboard]').click()
                 page.locator('.fp-chart .trendline').wait_for(state='visible',timeout=12000)
                 expect(page.locator('#source-warning')).to_contain_text('DỮ LIỆU DEMO',timeout=12000)
+                expect(page.locator('#dashboard-onboarding')).to_be_visible()  # Demo is NOT live Ads
                 page.wait_for_timeout(1800)
                 page.screenshot(path=str(ARTIFACTS/'11-finpoint-orange-chart-demo.png'),full_page=True)
                 page.locator('button[data-page=accounts]').click()
@@ -197,6 +203,19 @@ def main():
                 page.wait_for_timeout(400)
                 page.wait_for_timeout(650)
                 page.screenshot(path=str(ARTIFACTS/'08-finpoint-mobile-reports.png'),full_page=True)
+                dock=page.locator('.ui-mobile-dock')
+                expect(dock).to_be_visible()
+                expect(dock.locator('[data-ui-tab=reports]')).to_have_attribute('aria-current','page')
+                dock.locator('[data-ui-tab=accounts]').click()
+                expect(page.locator('#page-accounts')).to_be_visible()
+                expect(dock.locator('[data-ui-tab=accounts]')).to_have_attribute('aria-current','page')
+                dock.locator('#ui-dock-more').click()
+                expect(page.locator('#sidebar-backdrop.open')).to_be_visible()
+                expect(dock.locator('#ui-dock-more')).to_have_attribute('aria-expanded','true')
+                page.keyboard.press('Escape')
+                expect(dock.locator('#ui-dock-more')).to_have_attribute('aria-expanded','false')
+                dock.locator('[data-ui-tab=reports]').click()
+                page.locator('#page-reports').wait_for(state='visible')
                 page.emulate_media(reduced_motion='reduce')
                 assert page.evaluate("matchMedia('(prefers-reduced-motion: reduce)').matches")
                 page.locator('#menu').click()
