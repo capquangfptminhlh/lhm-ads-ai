@@ -106,22 +106,26 @@ def test_scan_tracks_goal_recovers_and_reappears(context,monkeypatch):
     async def read_campaigns(acc):return output
     monkeypatch.setattr(advisor,'list_live_campaigns',read_campaigns)
     first=asyncio.run(advisor.scan_account(acc,now=2000000000))
-    assert first['recommendations']==1
+    # Since the optimization playbook was wired in, the richer playbook rule
+    # (cpa_above_target, with steps + guardrails) replaces cpa_above_goal and
+    # a scan may surface additional playbook findings; this test tracks the
+    # CPA finding's lifecycle, not the total count.
+    assert first['recommendations']>=1
     status=c.get('/api/advisor/status').json()
-    warning=status['findings'][0]
-    assert warning['rule_code']=='cpa_above_goal' and warning['severity']=='high'
+    warning=next(x for x in status['findings'] if x['rule_code']=='cpa_above_target')
+    assert warning['severity']=='high'
     assert warning['resolved_at'] is None
     assert c.post('/api/advisor/findings/'+str(warning['id'])+'/acknowledge',headers=h).status_code==200
     output[:]=[campaign(spend=90000)]
     second=asyncio.run(advisor.scan_account(acc,now=2000000000+86401))
     assert second['scanned']
-    recovered=c.get('/api/advisor/status').json()['findings'][0]
+    recovered=next(x for x in c.get('/api/advisor/status').json()['findings'] if x['id']==warning['id'])
     assert recovered['resolved_at'] is not None
     output[:]=[campaign()]
     third=asyncio.run(advisor.scan_account(acc,now=2000000000+86401*2))
-    assert third['recommendations']==1
-    again=c.get('/api/advisor/status').json()['findings'][0]
-    assert again['id']==warning['id'] and again['resolved_at'] is None
+    assert third['recommendations']>=1
+    again=next(x for x in c.get('/api/advisor/status').json()['findings'] if x['id']==warning['id'])
+    assert again['resolved_at'] is None
     assert again['acknowledged_at'] is None
 
 def test_partial_campaign_scan_keeps_unseen_findings(context,monkeypatch):
