@@ -13,8 +13,11 @@ seller machine, invoice payloads can be built and signed.
 Deliberate boundaries, mirroring the PayOS integration:
 - There is NO provider endpoint hard-coded anywhere in this module. The
   base URL comes only from the seller's own EINVOICE_API_BASE, and this
-  module performs no network I/O at all — it only builds, validates and
-  signs request payloads, and verifies/parses provider webhooks.
+  module performs no network I/O at all: `issue_invoice` builds, signs
+  and validates, but sends only through a transport injected by the
+  caller (the vendor ledger supplies the real HTTP transport on the
+  seller machine). It refuses to run while unconfigured and is only
+  invoked by an explicit seller command for an already-paid order.
 - Configuration missing -> EinvoiceNotConfigured with a clear Vietnamese
   message, raised before anything is built. Nothing is ever sent while
   dormant.
@@ -35,6 +38,7 @@ import hashlib
 import hmac
 import json
 import os
+import time
 
 # Path appended to the seller-provided EINVOICE_API_BASE when a create
 # request is built. Only a path — never a host — lives in the source.
@@ -258,6 +262,59 @@ def build_create_request(order: dict, environ=None) -> dict:
                     'x-api-key': config['api_key']},
         'body': body,
     }
+
+
+def issue_invoice(order: dict, environ=None, transport=None) -> dict:
+    """Submit a confirmed order to the configured provider and return
+    {'invoice_no', 'series', 'issued_at'} (issued_at = epoch seconds).
+
+    This module performs no network I/O itself: `transport` is the
+    caller's sender with the tools/payos.py contract
+    transport(method, url, headers, body) -> decoded JSON response; the
+    vendor ledger injects the real HTTP transport. Raises
+    EinvoiceNotConfigured while dormant — before anything is built or
+    sent — and EinvoiceError when no transport is supplied, the order is
+    invalid, or the provider response carries no invoice number (or
+    reports a non-issued state), so a caller can never record an invoice
+    that was not issued. Response field names follow the same tolerant
+    conventions as parse_webhook; the exact provider response shape must
+    be re-checked against the signed provider's API documentation (see
+    docs/EINVOICE.md).
+    """
+    config = load_config(environ)
+    if transport is None:
+        raise EinvoiceError('Chưa nối kênh gửi tới nhà cung cấp hóa đơn: '
+                            'issue_invoice cần transport do bên gọi cung cấp '
+                            '(sổ bán hàng đã nối sẵn kênh này).')
+    request = build_create_request(order, environ)
+    try:
+        payload = transport(request['method'], request['url'],
+                            request['headers'], request['body'])
+    except EinvoiceError:
+        raise
+    except Exception as exc:
+        raise EinvoiceError(
+            f'Gửi yêu cầu xuất hóa đơn tới nhà cung cấp thất bại: {exc}') from exc
+    if not isinstance(payload, dict):
+        raise EinvoiceError('Nhà cung cấp trả phản hồi không phải object; '
+                            'chưa thể ghi nhận hóa đơn nào')
+    data = payload.get('data') if isinstance(payload.get('data'), dict) else payload
+    status_raw = data.get('status') or data.get('state')
+    if status_raw is not None and str(status_raw).strip().upper() not in ISSUED_STATES:
+        raise EinvoiceError(
+            f'Nhà cung cấp chưa xác nhận phát hành hóa đơn (trạng thái: {status_raw!r})')
+    invoice_no = data.get('invoiceNo') or data.get('invoice_no')
+    if not isinstance(invoice_no, str) or not invoice_no.strip():
+        raise EinvoiceError('Nhà cung cấp không trả số hóa đơn (invoiceNo); '
+                            'chưa thể ghi nhận hóa đơn nào')
+    series = data.get('series')
+    if not isinstance(series, str) or not series.strip():
+        series = config['series']
+    issued_at = data.get('issuedAt') or data.get('issued_at')
+    if isinstance(issued_at, bool) or not isinstance(issued_at, int) or issued_at <= 0:
+        issued_at = int(time.time())
+    return {'invoice_no': invoice_no.strip(), 'series': series.strip(),
+            'issued_at': issued_at}
 
 
 def parse_webhook(payload: dict) -> dict:

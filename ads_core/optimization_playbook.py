@@ -64,6 +64,14 @@ PLATFORM_HEADROOM_CPA_RATIO = 0.8      # CPA < 0,8x target nền tảng -> dư �
 PLATFORM_HEADROOM_ROAS_RATIO = 1.25    # ROAS > 1,25x target nền tảng -> dư địa
 MANUAL_BIDDING_MIN_CONVERSIONS = 30    # >=30 chuyển đổi/7 ngày trên bid tay = đủ dữ liệu thử Smart Bidding
 GOOGLE_MANUAL_STRATEGIES = ('MANUAL_CPC', 'MANUAL_CPM', 'MANUAL_CPV')
+BUDGET_LOST_IS_MIN = 0.20              # mất >= 20% impression share vì ngân sách = nghẽn đáng kể
+ADSET_TARGET_REVIEW_RATIO = PLATFORM_TARGET_REVIEW_RATIO    # CPA > 1,3x target ad set (Meta) -> review
+ADSET_TARGET_CRITICAL_RATIO = PLATFORM_TARGET_CRITICAL_RATIO  # CPA > 1,6x target ad set (Meta) -> critical
+# Quy tắc mệt mỏi đối tượng (Meta): cùng một người thấy quảng cáo lặp lại.
+FATIGUE_FREQUENCY_REVIEW = 4.0         # tần suất >= 4,0/7 ngày kèm CTR yếu -> nghi mệt mỏi
+FATIGUE_FREQUENCY_HIGH = 6.0           # tần suất >= 6,0/7 ngày: báo bất kể CTR
+FATIGUE_CTR_MAX_PERCENT = 1.0          # CTR (%) dưới mức này kèm tần suất cao = tín hiệu mệt
+FATIGUE_MIN_IMPRESSIONS = 1000         # mẫu hiển thị tối thiểu để kết luận mệt mỏi
 ACCOUNT_INEFFICIENT_CPA_RATIO = CPA_CRITICAL_RATIO
 OUTCOME_NOISE_BAND = 0.05              # biến động trong ±5% coi là nhiễu
 OUTCOME_MIN_CONVERSIONS = 5            # kiểm chứng CPA/ROAS cần >=5 chuyển đổi ở cả hai kỳ
@@ -75,7 +83,7 @@ APPROVAL_NOTE = ('Mọi thay đổi phải do người phụ trách duyệt tron
 
 # Mã quy tắc thuộc nhóm "mở rộng" (scale-up). Conflict guard dùng danh sách này.
 SCALE_CODES = ('cpa_well_below_target_scale', 'roas_above_target_scale',
-               'platform_target_headroom')
+               'platform_target_headroom', 'budget_constrained_winner')
 
 # Nhóm finding "cắt/giảm" chặn mở rộng khi ở mức review: hiệu quả vượt mục
 # tiêu, lệch khỏi nền, hoặc chi tiền mà không ghi nhận chuyển đổi. Các cảnh
@@ -84,21 +92,36 @@ SCALE_CODES = ('cpa_well_below_target_scale', 'roas_above_target_scale',
 # finding mức critical ở bất kỳ mã nào cũng chặn.
 CUT_CODES = ('cpa_above_target', 'roas_below_target', 'cpa_drift_vs_baseline',
              'roas_drift_vs_baseline', 'spend_no_conversions', 'high_ctr_no_conversions',
-             'platform_target_missed')
+             'platform_target_missed', 'adset_target_missed')
 
 
 # ---------------------------------------------------------------------------
 # Tiện ích
 # ---------------------------------------------------------------------------
 def _num(value):
-    """Trả float hữu hạn hoặc None; không bao giờ biến dữ liệu thiếu thành 0."""
+    """Trả float hữu hạn, không âm hoặc None; không bao giờ biến dữ liệu
+    thiếu thành 0. Mọi chỉ số module này tiêu thụ (chi tiêu, lượt nhấp,
+    chuyển đổi, CPA, ROAS, target...) đều không thể âm trong thực tế, nên
+    số âm là dữ liệu suy biến và được coi như thiếu — nếu không, một CPA âm
+    giả sẽ bịa ra cơ hội mở rộng."""
     if value is None or isinstance(value, bool):
         return None
     try:
         value = float(value)
     except (TypeError, ValueError, OverflowError):
         return None
-    return value if math.isfinite(value) else None
+    return value if math.isfinite(value) and value >= 0 else None
+
+
+def _dict_list(value):
+    """Chỉ nhận list/tuple và chỉ giữ các phần tử dict; khác -> rỗng.
+
+    Dữ liệu chiến dịch/snapshot đến từ adapter và tầng trên — một container
+    lạ hoặc phần tử không phải dict phải bị bỏ qua, không được làm sập
+    vòng đánh giá."""
+    if not isinstance(value, (list, tuple)):
+        return []
+    return [item for item in value if isinstance(item, dict)]
 
 
 def _money(value, currency):
@@ -116,10 +139,17 @@ def _ratio(value):
 
 
 def _pct_delta(actual, reference):
-    """Phần trăm chênh lệch actual so với reference (số nguyên, có dấu)."""
+    """Phần trăm chênh lệch actual so với reference (số nguyên, có dấu).
+
+    Tỉ lệ cực đoan (ví dụ CPA 1e308 so với target 1e-300) làm phép chia
+    tràn float thành inf — round(inf) sẽ ném OverflowError. Bão hòa ở một
+    trần lớn thay vì sập: thông điệp vẫn đúng bản chất "lệch cực xa"."""
     if not reference:
         return 0
-    return round((actual / reference - 1) * 100)
+    delta = (actual / reference - 1) * 100
+    if not math.isfinite(delta):
+        return 10**15 if delta > 0 else -100
+    return round(delta)
 
 
 def _is_active(campaign, platform):
@@ -140,7 +170,7 @@ def _goal_targets(goal, currency):
     khác tiền tệ với tài khoản, hoặc target không hợp lệ -> coi như không có.
     """
     out = {'cpa_target': None, 'roas_target': None, 'min_conversions': CPA_MIN_CONVERSIONS}
-    if not goal or not goal.get('enabled'):
+    if not isinstance(goal, dict) or not goal.get('enabled'):
         return out
     if goal.get('currency') and currency and goal['currency'] != currency:
         return out
@@ -415,7 +445,7 @@ def _cond_dead_campaign(c, t, ctx):
 
 def _cond_cpa_drift_vs_baseline(c, t, ctx):
     baseline = (ctx.get('baselines') or {}).get(str(c.get('id')))
-    if not baseline:
+    if not isinstance(baseline, dict):
         return None
     median_cpa, cpa = _num(baseline.get('median_cpa')), _num(c.get('cpa'))
     conversions = _num(c.get('conversions'))
@@ -425,7 +455,7 @@ def _cond_cpa_drift_vs_baseline(c, t, ctx):
         return None
     level = 'critical' if cpa > median_cpa * DRIFT_CPA_CRITICAL_RATIO else 'review'
     drift = _pct_delta(cpa, median_cpa)
-    band = baseline.get('cpa_volatility')
+    band = _num(baseline.get('cpa_volatility'))
     band_text = f" (biên dao động lịch sử ±{round(band * 100)}%)" if band is not None else ''
     return {
         'level': level,
@@ -445,7 +475,7 @@ def _cond_cpa_drift_vs_baseline(c, t, ctx):
 
 def _cond_roas_drift_vs_baseline(c, t, ctx):
     baseline = (ctx.get('baselines') or {}).get(str(c.get('id')))
-    if not baseline:
+    if not isinstance(baseline, dict):
         return None
     median_roas, roas = _num(baseline.get('median_roas')), _num(c.get('roas'))
     conversions = _num(c.get('conversions'))
@@ -618,6 +648,147 @@ def _cond_manual_bidding_at_scale(c, t, ctx):
     return None
 
 
+def _cond_budget_constrained_winner(c, t, ctx):
+    """Google: chiến dịch đang đạt mục tiêu nhưng mất >= 20% impression share
+    vì ngân sách (budget_lost_is do adapter đọc về từ Google Ads) — ngân sách,
+    không phải hiệu quả, đang là nút thắt tăng trưởng.
+
+    Chỉ số này chỉ có ý nghĩa với chiến dịch dạng Search; công cụ không nhìn
+    thấy loại chiến dịch nên thông điệp bắt buộc người phụ trách xác nhận
+    trước. "Đang khỏe" = đạt ít nhất một trong bốn mốc: mục tiêu CPA nội bộ,
+    mục tiêu ROAS nội bộ, target tCPA nền tảng, target tROAS nền tảng.
+    """
+    if ctx['platform'] != 'google':
+        return None
+    lost = _num(c.get('budget_lost_is'))
+    conversions = _num(c.get('conversions'))
+    if lost is None or lost < BUDGET_LOST_IS_MIN:
+        return None
+    if conversions is None or conversions < SCALE_MIN_CONVERSIONS:
+        return None
+    cpa, roas = _num(c.get('cpa')), _num(c.get('roas'))
+    healthy = (
+        (t['cpa_target'] is not None and cpa is not None and cpa <= t['cpa_target'])
+        or (t['roas_target'] is not None and roas is not None and roas >= t['roas_target'])
+        or (_num(c.get('bid_target_cpa')) is not None and cpa is not None
+            and cpa <= _num(c.get('bid_target_cpa')))
+        or (_num(c.get('bid_target_roas')) is not None and roas is not None
+            and roas >= _num(c.get('bid_target_roas'))))
+    if not healthy:
+        return None
+    lost_pct = round(lost * 100)
+    return {
+        'level': 'opportunity',
+        'message': (f"Chiến dịch đang đạt mục tiêu nhưng mất khoảng {lost_pct}% thị phần hiển thị vì ngân sách "
+                    f"(lost impression share do ngân sách, 7 ngày) với {int(conversions)} chuyển đổi: ngân sách "
+                    f"đang là nút thắt tăng trưởng. Trước tiên hãy xác nhận đây là chiến dịch dạng Search — chỉ số "
+                    f"này chỉ có ý nghĩa với Search, và công cụ không nhìn thấy loại chiến dịch."),
+        'why': ('Khi hiệu quả đã đạt mục tiêu mà thị phần hiển thị bị mất vì ngân sách, mỗi đồng ngân sách thêm '
+                'có xác suất cao mua được chuyển đổi ở mức CPA/ROAS tương đương — khác hẳn tăng ngân sách cho '
+                'chiến dịch chưa đạt mục tiêu. Nhưng impression share bị mất vì ngân sách chỉ đo được đáng tin '
+                'ở chiến dịch Search; ở các dạng khác con số này không mang cùng ý nghĩa.'),
+        'actions': [
+            'Xác nhận trong Google Ads đây là chiến dịch Search (và ngân sách không dùng chung với chiến dịch khác) trước khi làm bất cứ điều gì.',
+            f"Tăng ngân sách ngày từng bước tối đa {MAX_STEP_PERCENT}%, theo dõi CPA/ROAS và lost IS sau mỗi bước 3–7 ngày.",
+            'Nếu không muốn tăng tổng ngân sách: chuyển dần ngân sách từ các chiến dịch chưa đạt mục tiêu trong cùng tài khoản sang chiến dịch này.',
+            'Dừng tăng khi lost IS vì ngân sách về gần 0 hoặc CPA bắt đầu vượt mục tiêu.',
+        ],
+        'guardrails': [
+            'Chỉ áp dụng cho chiến dịch Search đã xác nhận; không suy ra từ con số này cho Display/Video/Performance Max.',
+            f'Không tăng quá {MAX_STEP_PERCENT}% ngân sách trong một bước; không tăng đồng thời ngân sách và target.',
+            'Cơ hội này tự động bị ẩn khi chiến dịch có cảnh báo cắt/giảm (conflict guard) — xử lý cảnh báo đó trước.',
+        ],
+    }
+
+
+def _cond_adset_target_missed(c, t, ctx):
+    """Meta: CPA thực tế lệch xa cost-per-result goal đặt ở cấp AD SET.
+
+    Trên Meta, target giá thầu nằm ở cấp ad set, không phải cấp chiến dịch
+    (bid_target_cpa cấp chiến dịch vì vậy thường trống). Adapter tổng hợp
+    adset_bid_target_cpa = TRUNG VỊ (median) các goal của các ad set trong
+    chiến dịch — một xấp xỉ, và thông điệp phải nói rõ điều đó. Chỉ kích
+    hoạt khi chiến dịch không có target cấp chiến dịch để tránh trùng với
+    platform_target_missed.
+    """
+    if ctx['platform'] != 'meta':
+        return None
+    if _num(c.get('bid_target_cpa')) is not None:
+        return None
+    target = _num(c.get('adset_bid_target_cpa'))
+    cpa, conversions = _num(c.get('cpa')), _num(c.get('conversions'))
+    if target is None or cpa is None or conversions is None:
+        return None
+    if conversions < CPA_MIN_CONVERSIONS or cpa <= target * ADSET_TARGET_REVIEW_RATIO:
+        return None
+    level = 'critical' if cpa > target * ADSET_TARGET_CRITICAL_RATIO else 'review'
+    over = _pct_delta(cpa, target)
+    return {
+        'level': level,
+        'message': (f"CPA thực tế {_money(cpa, ctx['currency'])} cao hơn mục tiêu giá mỗi kết quả "
+                    f"{_money(target, ctx['currency'])} khoảng {over}% (dựa trên {int(conversions)} chuyển đổi "
+                    f"trong 7 ngày). Lưu ý: trên Meta mục tiêu này nằm ở cấp nhóm quảng cáo (ad set), không phải "
+                    f"cấp chiến dịch; con số mục tiêu ở đây là giá trị trung vị của các ad set trong chiến dịch — "
+                    f"một xấp xỉ để tham chiếu, từng ad set có thể đặt mục tiêu khác nhau."),
+        'why': ('Cost per result goal ở cấp ad set là con số hệ thống Meta dùng để giữ CPA trung bình của từng '
+                'ad set. CPA toàn chiến dịch cao hơn hẳn trung vị goal cho thấy phần lớn ad set đang mua kết quả '
+                'đắt hơn mục tiêu đã khai — cần rà soát theo từng ad set thay vì kết luận ở cấp chiến dịch.'),
+        'actions': [
+            'Mở chiến dịch trong Meta Ads Manager và đối chiếu CPA TỪNG ad set với goal của chính ad set đó; xử lý các ad set lệch nhất trước.',
+            'Kiểm chứng tracking/CAPI và độ trễ chuyển đổi trước khi kết luận (loại trừ cảnh báo tracking nếu đang mở).',
+            f"Với ad set lệch kéo dài: hạ chi tiêu hoặc nới goal từng bước tối đa {MAX_STEP_PERCENT}%, chờ ít nhất 7 ngày sau mỗi bước.",
+            'Dồn ngân sách về các ad set đang bám sát goal trong cùng chiến dịch.',
+        ],
+        'guardrails': [
+            'Giá trị trung vị chỉ là xấp xỉ: không dùng nó để kết luận về một ad set cụ thể.',
+            f'Không chỉnh quá {MAX_STEP_PERCENT}% trong một lần; tôn trọng giai đoạn học của ad set sau mỗi lần chỉnh.',
+        ],
+    }
+
+
+def _cond_audience_fatigue_risk(c, t, ctx):
+    """Meta: tần suất hiển thị lặp lại cao trên cùng một nhóm người xem.
+
+    Hai nhánh kích hoạt (dữ liệu 7 ngày, tối thiểu FATIGUE_MIN_IMPRESSIONS
+    lượt hiển thị): (a) frequency >= 4,0 VÀ CTR đã biết và < 1,0% — người xem
+    thấy quảng cáo nhiều lần mà tỉ lệ nhấp yếu đi; (b) frequency >= 6,0 bất kể
+    CTR — mức lặp lại tự nó đã là rủi ro bão hòa đối tượng. Thiếu frequency
+    hoặc hiển thị thì im lặng: không suy đoán từ dữ liệu không có.
+    """
+    frequency, impressions, ctr = _num(c.get('frequency')), _num(c.get('impressions')), _num(c.get('ctr_percent'))
+    if frequency is None or impressions is None or impressions < FATIGUE_MIN_IMPRESSIONS:
+        return None
+    high = frequency >= FATIGUE_FREQUENCY_HIGH
+    tired = frequency >= FATIGUE_FREQUENCY_REVIEW and ctr is not None and ctr < FATIGUE_CTR_MAX_PERCENT
+    if not (high or tired):
+        return None
+    if high:
+        message = (f"Tần suất hiển thị {_ratio(frequency)} lần/người trong 7 ngày với {int(impressions)} lượt hiển thị: "
+                   f"cùng một nhóm người đang bị lặp quảng cáo ở mức cao, kể cả khi CTR chưa tụt rõ.")
+    else:
+        message = (f"Tần suất hiển thị {_ratio(frequency)} lần/người trong 7 ngày với CTR {_ratio(ctr)}% "
+                   f"({int(impressions)} lượt hiển thị): người xem thấy quảng cáo lặp lại mà phản hồi đang yếu đi.")
+    return {
+        'level': 'review',
+        'message': message,
+        'why': ('Tần suất cao kéo dài làm creative mất tác dụng: cùng thông điệp chạm cùng người quá nhiều lần '
+                'khiến tỉ lệ nhấp và chuyển đổi suy giảm, chi phí mỗi kết quả tăng dần — dấu hiệu cổ điển của '
+                'mệt mỏi đối tượng (audience fatigue) trên Meta. Tần suất là số liệu cấp chiến dịch; công cụ '
+                'KHÔNG nhìn thấy dữ liệu từng mẫu quảng cáo/creative, nên phần xử lý dưới đây là checklist để '
+                'người phụ trách tự kiểm tra trong Ads Manager, không phải kết luận về một creative cụ thể.'),
+        'actions': [
+            'Checklist làm mới creative trong Ads Manager: xác định mẫu quảng cáo nào có tần suất cao nhất và CTR tụt rõ nhất, thay bằng biến thể mới (hình ảnh/video, hook, thông điệp) thay vì chỉ tăng ngân sách.',
+            'Checklist mở rộng đối tượng: nới độ tuổi/khu vực/sở thích hoặc gộp các ad set chồng lấp đang tranh cùng một nhóm người.',
+            'Checklist giới hạn lặp lại: cân nhắc loại trừ người đã tương tác/mua hàng khỏi tập prospecting, và tách ngân sách remarketing riêng để không dồn tần suất vào một tập.',
+            'Sau khi làm mới creative hoặc mở rộng đối tượng, theo dõi tần suất và CTR thêm 3–7 ngày trước khi kết luận.',
+        ],
+        'guardrails': [
+            'Không kết luận một creative cụ thể "cháy" chỉ từ số liệu cấp chiến dịch — phải đối chiếu cấp quảng cáo trong Ads Manager.',
+            'Tần suất cao ở remarketing là bình thường hơn prospecting; đối chiếu đúng vai trò chiến dịch trước khi xử lý.',
+        ],
+    }
+
+
 # ---------------------------------------------------------------------------
 # PLAYBOOK: danh mục quy tắc dạng dữ liệu + registry điều kiện theo code.
 # ---------------------------------------------------------------------------
@@ -650,6 +821,12 @@ PLAYBOOK = [
      'title': 'Dư địa so với target nền tảng — cơ hội mở rộng có kiểm soát'},
     {'code': 'manual_bidding_at_scale', 'platform': 'both', 'category': 'structure', 'severity': 'review',
      'title': 'Vẫn đấu thầu thủ công ở lượng chuyển đổi lớn — thử nghiệm Smart Bidding'},
+    {'code': 'budget_constrained_winner', 'platform': 'google', 'category': 'scale', 'severity': 'opportunity',
+     'title': 'Đang đạt mục tiêu nhưng nghẽn ngân sách — cơ hội tăng ngân sách có kiểm soát'},
+    {'code': 'adset_target_missed', 'platform': 'meta', 'category': 'bid_cost', 'severity': 'review',
+     'title': 'Lệch mục tiêu giá thầu cấp ad set (Meta) — rà soát theo từng ad set'},
+    {'code': 'audience_fatigue_risk', 'platform': 'meta', 'category': 'structure', 'severity': 'review',
+     'title': 'Nguy cơ mệt mỏi đối tượng — tần suất hiển thị lặp lại cao'},
     {'code': 'account_fragmentation', 'platform': 'both', 'category': 'structure', 'severity': 'opportunity',
      'title': 'Tài khoản phân mảnh — cơ hội gộp chiến dịch'},
     {'code': 'account_budget_reallocation', 'platform': 'both', 'category': 'scale', 'severity': 'opportunity',
@@ -671,6 +848,9 @@ CONDITIONS = {
     'platform_target_missed': _cond_platform_target_missed,
     'platform_target_headroom': _cond_platform_target_headroom,
     'manual_bidding_at_scale': _cond_manual_bidding_at_scale,
+    'budget_constrained_winner': _cond_budget_constrained_winner,
+    'adset_target_missed': _cond_adset_target_missed,
+    'audience_fatigue_risk': _cond_audience_fatigue_risk,
 }
 
 _BY_CODE = {entry['code']: entry for entry in PLAYBOOK}
@@ -690,8 +870,8 @@ def compute_baselines(snapshots):
     số liệu (None) bị bỏ qua cho chỉ số đó — không tính là 0.
     """
     grouped = {}
-    for snap in snapshots or []:
-        if not isinstance(snap, dict) or snap.get('id') is None:
+    for snap in _dict_list(snapshots):
+        if snap.get('id') is None:
             continue
         grouped.setdefault(str(snap['id']), []).append(snap)
     baselines = {}
@@ -746,7 +926,9 @@ def verify_outcome(baseline_snapshot, current_snapshot, finding_code):
             return 'improved' if cur_conv >= OUTCOME_MIN_CONVERSIONS else 'unchanged'
         return 'insufficient_data'  # quy tắc tracking không thể đã kích hoạt
 
-    if finding_code == 'low_ctr':
+    if finding_code in ('low_ctr', 'audience_fatigue_risk'):
+        # Mệt mỏi đối tượng cũng phán quyết bằng CTR: làm mới creative/mở rộng
+        # đối tượng thành công thì CTR phải hồi lại so với kỳ cảnh báo.
         base_ctr, cur_ctr = _num(baseline_snapshot.get('ctr_percent')), _num(current_snapshot.get('ctr_percent'))
         if base_ctr is None or cur_ctr is None or base_ctr <= 0:
             return 'insufficient_data'
@@ -776,6 +958,35 @@ def verify_outcome(baseline_snapshot, current_snapshot, finding_code):
         if base_imp == 0:
             return 'improved' if cur_imp > 0 else 'unchanged'
         return 'insufficient_data'
+
+    if finding_code == 'budget_constrained_winner':
+        # Khuyến nghị tăng ngân sách: thành công = mua được THÊM chuyển đổi
+        # (lượng tăng), không phải CPA đổi — phán quyết theo biến động lượng
+        # chuyển đổi, giữ nguyên dải nhiễu và ngưỡng lượng tối thiểu.
+        if (base_conv is None or cur_conv is None
+                or base_conv < OUTCOME_MIN_CONVERSIONS or cur_conv < OUTCOME_MIN_CONVERSIONS):
+            return 'insufficient_data'
+        change = cur_conv / base_conv - 1
+        if change > OUTCOME_NOISE_BAND:
+            return 'improved'
+        if change < -OUTCOME_NOISE_BAND:
+            return 'worsened'
+        return 'unchanged'
+
+    if finding_code == 'adset_target_missed':
+        # Cùng bản chất platform_target_missed phía CPA: CPA giảm = tốt.
+        if (base_conv is None or cur_conv is None
+                or base_conv < OUTCOME_MIN_CONVERSIONS or cur_conv < OUTCOME_MIN_CONVERSIONS):
+            return 'insufficient_data'
+        base_cpa, cur_cpa = _num(baseline_snapshot.get('cpa')), _num(current_snapshot.get('cpa'))
+        if base_cpa is None or cur_cpa is None or base_cpa <= 0:
+            return 'insufficient_data'
+        change = cur_cpa / base_cpa - 1
+        if change < -OUTCOME_NOISE_BAND:
+            return 'improved'
+        if change > OUTCOME_NOISE_BAND:
+            return 'worsened'
+        return 'unchanged'
 
     if finding_code in ('platform_target_missed', 'platform_target_headroom',
                         'manual_bidding_at_scale'):
@@ -832,7 +1043,7 @@ def evaluate_account(campaigns, platform, currency='', goal=None):
     """Phát hiện ở cấp tài khoản — thứ không thể thấy từ một chiến dịch đơn lẻ."""
     targets = _goal_targets(goal, currency)
     ctx = {'platform': platform, 'currency': currency, 'baselines': {}}
-    active = [c for c in (campaigns or []) if _is_active(c, platform)]
+    active = [c for c in _dict_list(campaigns) if _is_active(c, platform)]
     findings = []
 
     # Phân mảnh: nhiều chiến dịch đang chạy mà mỗi chiến dịch thiếu lượng
@@ -918,10 +1129,11 @@ def evaluate_campaigns(campaigns, platform, currency, goal=None, baselines=None)
     được ghi vào khóa 'suppressed' của finding được giữ lại.
     """
     targets = _goal_targets(goal, currency)
-    ctx = {'platform': platform, 'currency': currency, 'baselines': baselines or {}}
+    ctx = {'platform': platform, 'currency': currency,
+           'baselines': baselines if isinstance(baselines, dict) else {}}
     findings = []
-    for c in campaigns or []:
-        if not isinstance(c, dict) or c.get('id') is None or not _is_active(c, platform):
+    for c in _dict_list(campaigns):
+        if c.get('id') is None or not _is_active(c, platform):
             continue
         for entry in PLAYBOOK:
             code = entry['code']

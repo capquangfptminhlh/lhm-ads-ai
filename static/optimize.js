@@ -13,9 +13,18 @@
       const data=await api('/api/optimizations/accounts/'+accountId);
       const cur=data.currency;
       const fmt=(v)=>v===null||v===undefined?'Chưa có dữ liệu':Number(v).toLocaleString('vi-VN',{maximumFractionDigits:2});
+      const BID_LABELS={'TARGET_CPA':'tCPA','TARGET_ROAS':'tROAS','MAXIMIZE_CONVERSIONS':'Tối đa chuyển đổi','MAXIMIZE_CONVERSION_VALUE':'Tối đa giá trị chuyển đổi','MANUAL_CPC':'CPC thủ công','MANUAL_CPM':'CPM thủ công','MANUAL_CPV':'CPV thủ công','ENHANCED_CPC':'CPC nâng cao','MAXIMIZE_CLICKS':'Tối đa lượt nhấp','TARGET_IMPRESSION_SHARE':'Tỷ lệ hiển thị mục tiêu','LOWEST_COST_WITHOUT_CAP':'Chi phí thấp nhất','LOWEST_COST':'Chi phí thấp nhất','LOWEST_COST_WITH_BID_CAP':'Giới hạn giá thầu','COST_CAP':'Giới hạn chi phí','LOWEST_COST_WITH_MIN_ROAS':'ROAS tối thiểu'};
+      const bidLine=(c)=>{
+        const parts=[];
+        if(c.bidding_strategy)parts.push('Đấu thầu: '+(BID_LABELS[c.bidding_strategy]||c.bidding_strategy));
+        if(c.bid_target_cpa!==null&&c.bid_target_cpa!==undefined)parts.push('Mục tiêu CPA '+fmt(c.bid_target_cpa)+' '+cur);
+        if(c.bid_target_roas!==null&&c.bid_target_roas!==undefined)parts.push('Mục tiêu ROAS '+fmt(c.bid_target_roas)+'x');
+        if(c.daily_budget!==null&&c.daily_budget!==undefined)parts.push('Ngân sách ngày '+fmt(c.daily_budget)+' '+cur);
+        return parts.length?`<br><small class="bid-line">${escHtml(parts.join(' · '))}</small>`:'';
+      };
       let html=`<p class="muted tiny">${escHtml(data.note)}</p><div class="table-wrap"><table><thead><tr><th>Chiến dịch</th><th>Trạng thái</th><th>Chi phí 7 ngày</th><th>CTR</th><th>Chuyển đổi / sự kiện</th><th>CPA</th><th>ROAS</th><th>Thao tác</th></tr></thead><tbody>`;
       for (const campaign of data.campaigns) {
-        html+=`<tr><td><b>${escHtml(campaign.name)}</b><br><small>${escHtml(campaign.id)}</small></td><td>${escHtml(campaign.status)}</td><td>${fmt(campaign.spend)} ${escHtml(cur)}</td><td>${campaign.ctr_percent===null?'—':fmt(campaign.ctr_percent)+'%'}</td><td>${fmt(campaign.conversions)}<br><small>${escHtml(campaign.conversion_action_type||'')}${campaign.conversion_source==='meta_actions_7d_click'?' · 7d_click':''}</small></td><td>${campaign.cpa===null||campaign.cpa===undefined?'—':fmt(campaign.cpa)+' '+escHtml(cur)}</td><td>${campaign.roas===null||campaign.roas===undefined?'—':fmt(campaign.roas)+'x'}</td><td>${(campaign.status==='ENABLED'||campaign.status==='ACTIVE')?`<button class="small-btn" data-opt-request="${escHtml(campaign.id)}">Đề nghị tạm dừng</button>`:'—'}</td></tr>`;
+        html+=`<tr><td><b>${escHtml(campaign.name)}</b><br><small>${escHtml(campaign.id)}</small>${bidLine(campaign)}</td><td>${escHtml(campaign.status)}</td><td>${fmt(campaign.spend)} ${escHtml(cur)}</td><td>${campaign.ctr_percent===null?'—':fmt(campaign.ctr_percent)+'%'}</td><td>${fmt(campaign.conversions)}<br><small>${escHtml(campaign.conversion_action_type||'')}${campaign.conversion_source==='meta_actions_7d_click'?' · 7d_click':''}</small></td><td>${campaign.cpa===null||campaign.cpa===undefined?'—':fmt(campaign.cpa)+' '+escHtml(cur)}</td><td>${campaign.roas===null||campaign.roas===undefined?'—':fmt(campaign.roas)+'x'}</td><td>${(campaign.status==='ENABLED'||campaign.status==='ACTIVE')?`<button class="small-btn" data-opt-request="${escHtml(campaign.id)}">Đề nghị tạm dừng</button>`:'—'}</td></tr>`;
       }
       html+='</tbody></table></div>';
       if(data.recommendations.length){html+='<h4>Điểm cần kiểm tra</h4><ul>'+data.recommendations.map(r=>`<li><b>${escHtml(r.campaign_id)}</b>: ${escHtml(r.message)}</li>`).join('')+'</ul>';}

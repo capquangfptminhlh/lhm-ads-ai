@@ -66,3 +66,24 @@ Không. License là file ký số hoạt động ngoại tuyến trên máy củ
 ### 14. Tôi liên hệ hỗ trợ ở đâu và trong bao lâu thì được trả lời?
 
 **[CHU SAN PHAM QUYET DINH: kênh hỗ trợ chính thức (Zalo/Messenger/email), giờ hỗ trợ, và thời gian phản hồi cam kết.]**
+
+### 15. Phần mềm có tự sửa quảng cáo của tôi không?
+
+Không. Tính năng tư vấn tối ưu ("Vòng lặp Tối ưu") chỉ **đọc** số liệu chiến dịch qua API, phân tích và đưa ra đề xuất kèm lý do và các bước gợi ý. Phần mềm **không tự thay đổi** giá thầu, ngân sách hay bất kỳ cấu hình nào trong tài khoản quảng cáo của bạn. Mọi thay đổi thật đều do chính bạn xem xét và thực hiện thủ công trong Google Ads / Meta Ads Manager. Nếu bạn không đồng ý với một đề xuất, bạn cứ bỏ qua — không có gì tự diễn ra sau lưng bạn.
+
+### 16. Phần mềm này khác gì các công cụ tối ưu miễn phí hay gợi ý có sẵn của Google/Meta?
+
+Các chiến thuật tối ưu (chỉnh giá thầu theo bước nhỏ, gộp chiến dịch phân mảnh, kiểm tra tracking trước...) là kiến thức chung của ngành — chúng tôi không nhận đó là bí quyết riêng. Khác biệt của LHM nằm ở **cơ chế chạy trên dữ liệu của chính tài khoản bạn**:
+
+- **Hồ sơ nền riêng từng tài khoản:** phần mềm lưu các kỳ số liệu và tính CPA/ROAS trung vị của *từng chiến dịch của bạn*, nên phát hiện được khi một chiến dịch "đang xấu đi so với chính nó" — kể cả khi con số đó vẫn nằm trong ngưỡng "bình thường" chung của ngành.
+- **Kiểm chứng kết quả sau 7 ngày trở lên:** đề xuất không kết thúc ở lúc đưa ra. Sau khi bạn thực hiện thay đổi, phần mềm đo lại ở các kỳ quét sau và đưa ra phán quyết rõ ràng: số liệu *cải thiện*, *xấu đi*, *không đổi* hay *chưa đủ dữ liệu* (biến động trong ±5% được coi là nhiễu, không vội kết luận).
+- **Không tự mâu thuẫn:** trong cùng một lần quét, phần mềm không bao giờ vừa khuyên mở rộng vừa khuyên cắt giảm cùng một chiến dịch; trường hợp xung đột, gợi ý mở rộng bị chặn và cảnh báo nghiêm trọng hơn được ưu tiên.
+- **So với target thật trên nền tảng:** phần mềm đọc được target tCPA/tROAS bạn đã đặt trong Google Ads / Meta và so hiệu quả thực tế với chính các con số đó — kể cả khi bạn chưa đặt mục tiêu nào trong phần mềm.
+
+Trung thực về giới hạn: phần mềm chỉ nhìn số liệu tổng hợp **cấp chiến dịch** trong 7 ngày gần nhất. Nó không thấy cụm từ tìm kiếm, từng mẫu quảng cáo, phân rã theo đối tượng/thiết bị/giờ, cũng không thấy target ở cấp nhóm quảng cáo (ad set) trên Meta — các lớp đó phần mềm chỉ gợi ý dạng checklist để bạn tự kiểm tra trong trình quản lý quảng cáo.
+
+### 17. Dùng phần mềm có cam kết tăng ROAS hay giảm CPA không?
+
+Không. Chúng tôi **không cam kết kết quả quảng cáo** dưới bất kỳ hình thức nào — hiệu quả phụ thuộc vào sản phẩm, thị trường, ngân sách, trang đích và cách bạn vận hành, những yếu tố nằm ngoài phần mềm.
+
+Cái phần mềm làm được và làm rõ ràng là: khi bạn thực hiện một thay đổi theo đề xuất, hệ thống sẽ đo lại và **phán quyết trung thực** thay đổi đó đi kèm với cải thiện, xấu đi hay chưa đủ dữ liệu để kết luận (xem câu 16). Nói cách khác, bạn nhìn thấy đề xuất nào từng gắn với kết quả tốt trên chính tài khoản của mình, thay vì phải tin lời hứa. Mọi đề xuất đều kèm rào chắn an toàn: chỉnh từng bước tối đa 20%, mỗi lần chỉ đổi một biến, tôn trọng giai đoạn học của nền tảng, và quyết định cuối cùng luôn là của bạn.

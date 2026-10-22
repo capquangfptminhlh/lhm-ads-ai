@@ -19,6 +19,13 @@ acceptance in docs/ACCEPTANCE.md with real Google/Meta accounts:
      test license and ads_core.licensing verifies it (with the pinned public
      key temporarily swapped for the throwaway one, then restored); a
      tampered copy must be rejected.
+  8. Optimization stack, STATIC source checks only: the playbook module
+     imports with >= 16 uniquely-coded rules and a condition (or an
+     account-level evaluator) for every code; advisor.py references the
+     playbook evaluation plus the snapshot/outcome tables; the Google/Meta
+     adapters request the bid fields; the skill doc names the rules. These
+     prove the code ships wired — they are NOT live proof against a real
+     ad account, which stays with the real-account acceptance.
 
 Exit code is non-zero when any row is FAIL. Secret values are never printed.
 
@@ -69,8 +76,10 @@ def check_app() -> list[dict]:
     try:
         with TestClient(app, raise_server_exceptions=False) as client:
             health = client.get("/healthz")
+            health_body = health.json() if health.status_code == 200 else {}
             rows.append(_row("GET /healthz", PASS if health.status_code == 200
-                             and health.json() == {"ok": True} else FAIL,
+                             and isinstance(health_body, dict)
+                             and health_body.get("ok") is True else FAIL,
                              f"HTTP {health.status_code}"))
             studio = client.get("/studio")
             rows.append(_row("GET /studio", PASS if studio.status_code == 200 else FAIL,
@@ -250,6 +259,66 @@ def check_license(env: dict) -> list[dict]:
     return rows
 
 
+def check_optimization() -> list[dict]:
+    """Static readiness of the optimization stack.
+
+    Source-level checks ONLY: they prove the playbook, the advisor wiring,
+    the adapter bid fields and the skill doc ship together in this tree.
+    Nothing here calls a provider or proves live behaviour — that stays
+    NOT_RUN territory until the owner runs the real-account acceptance.
+    """
+    rows = []
+    try:
+        from ads_core import optimization_playbook as playbook
+        rows.append(_row("Ngăn xếp tối ưu: import ads_core.optimization_playbook", PASS))
+    except Exception as exc:
+        rows.append(_row("Ngăn xếp tối ưu: import ads_core.optimization_playbook", FAIL,
+                         f"{type(exc).__name__}: {exc}"))
+        return rows
+    codes = [entry.get("code") for entry in playbook.PLAYBOOK]
+    unique = len(set(codes)) == len(codes)
+    # Campaign-level rules dispatch through CONDITIONS; the account-level
+    # rules are evaluated by evaluate_account (which looks them up by code).
+    import inspect
+    account_src = inspect.getsource(playbook.evaluate_account)
+    account_level = [c for c in codes if c not in playbook.CONDITIONS]
+    uncovered = [c for c in account_level if c not in account_src]
+    ok = len(codes) >= 16 and unique and not uncovered
+    detail = (f"{len(codes)} quy tắc: {len(playbook.CONDITIONS)} điều kiện cấp chiến dịch"
+              f" + {len(account_level)} quy tắc cấp tài khoản qua evaluate_account")
+    if not unique:
+        detail += "; TRÙNG mã quy tắc"
+    if uncovered:
+        detail += f"; mã chưa có điều kiện: {', '.join(uncovered)}"
+    rows.append(_row("Ngăn xếp tối ưu: PLAYBOOK ≥ 16 quy tắc, mã duy nhất, mọi mã có điều kiện",
+                     PASS if ok else FAIL, detail))
+    advisor = ROOT / "ads_core" / "advisor.py"
+    advisor_src = advisor.read_text(encoding="utf-8") if advisor.exists() else ""
+    static_note = "kiểm tra tĩnh trên mã nguồn — không phải bằng chứng chạy trực tiếp"
+    eval_ok = ("optimization_playbook.evaluate_campaigns" in advisor_src
+               and "optimization_playbook.evaluate_account" in advisor_src)
+    rows.append(_row("Ngăn xếp tối ưu: advisor gọi playbook evaluate_campaigns/evaluate_account",
+                     PASS if eval_ok else FAIL, static_note))
+    tables_ok = "advisor_snapshots" in advisor_src and "advisor_outcomes" in advisor_src
+    rows.append(_row("Ngăn xếp tối ưu: advisor có bảng advisor_snapshots + advisor_outcomes",
+                     PASS if tables_ok else FAIL, static_note))
+    optimizations = ROOT / "ads_core" / "optimizations.py"
+    opt_src = optimizations.read_text(encoding="utf-8") if optimizations.exists() else ""
+    google_ok = "bidding_strategy_type" in opt_src and "campaign_budget.amount_micros" in opt_src
+    rows.append(_row("Ngăn xếp tối ưu: adapter Google lấy bidding_strategy_type + campaign_budget.amount_micros",
+                     PASS if google_ok else FAIL, static_note))
+    meta_ok = "bid_strategy,daily_budget" in opt_src  # chuỗi fields của /campaigns
+    rows.append(_row("Ngăn xếp tối ưu: adapter Meta lấy bid_strategy trong fields /campaigns",
+                     PASS if meta_ok else FAIL, static_note))
+    skill = ROOT / "docs" / "OPTIMIZATION_SKILL.md"
+    skill_ok = (skill.exists()
+                and "platform_target_missed" in skill.read_text(encoding="utf-8"))
+    rows.append(_row("Ngăn xếp tối ưu: docs/OPTIMIZATION_SKILL.md mô tả platform_target_missed",
+                     PASS if skill_ok else FAIL,
+                     "" if skill_ok else "thiếu file hoặc thiếu mã quy tắc trong tài liệu"))
+    return rows
+
+
 class _applied_env:
     """Temporarily apply the env being preflighted so the app boots with
     exactly the configuration under test; restores everything afterwards."""
@@ -286,6 +355,7 @@ def run_preflight(env: dict | None = None) -> dict:
         ("Nhà cung cấp Ads / AI", check_providers(env)),
         ("Tài nguyên tĩnh", check_static()),
         ("Phiên bản API", check_versions()),
+        ("Ngăn xếp tối ưu", check_optimization()),
         ("Giấy phép", check_license(env)),
     ]
     result = {"sections": [{"title": t, "rows": r} for t, r in sections]}

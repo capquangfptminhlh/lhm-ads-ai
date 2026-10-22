@@ -53,6 +53,24 @@ def configure_windowed_logs(folder: Path):
             stream.reconfigure(encoding='utf-8', errors='replace')
 
 
+def _force_utf8_streams():
+    """Pin console streams to UTF-8 as early as possible.
+
+    configure_windowed_logs() already reconfigures the streams, but it runs
+    only after configure_local_storage(); a failure there carries a
+    Vietnamese message (e.g. a corrupt local-settings.json) whose traceback
+    and fallback error text are printed before that pinning happens, landing
+    mangled (backslash-escaped) on a legacy-codepage Windows console.
+    Frozen --windowed builds have None streams here; those are replaced by
+    configure_windowed_logs() later, so None is skipped silently.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, ValueError):
+            pass
+
+
 def show_startup_error(message: str):
     if sys.platform == 'win32':
         try:
@@ -67,6 +85,7 @@ def show_startup_error(message: str):
 
 
 def main():
+    _force_utf8_streams()
     p = argparse.ArgumentParser(description='LHM Ads AI - Windows desktop')
     p.add_argument('--headless', action='store_true', help='CI only; do not open GUI')
     p.add_argument('--agent-only', action='store_true', help='Optional read-only monitor independent of UI')

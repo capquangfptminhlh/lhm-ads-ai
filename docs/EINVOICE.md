@@ -68,11 +68,49 @@ sửa logic kiểm tra tiền/tổng tiền.
    In `True` là đủ điều kiện dựng payload. Dựng thử một hóa đơn từ đơn đã
    xác nhận để xem payload và chữ ký trước khi nối bước gửi thật.
 
-4. Khi nối bước gửi (lập trình viên thực hiện theo tài liệu nhà cung cấp):
-   dùng `build_create_request(order)` để lấy method/URL/headers/body đã ký,
-   gửi bằng kênh nhà cung cấp yêu cầu, và ghi lại kết quả; webhook (nếu nhà
-   cung cấp hỗ trợ) phải qua `verify_webhook_signature` **trước** khi dùng
-   `parse_webhook`, và chỉ trạng thái "đã phát hành" mới được ghi nhận.
+4. Bước gửi đã được nối sẵn qua sổ bán hàng (xem mục "Xuất hóa đơn bằng
+   lệnh `einvoice-issue`" bên dưới): adapter `issue_invoice` dựng + ký yêu
+   cầu từ `build_create_request(order)` và gửi qua transport do sổ cung
+   cấp; webhook (nếu nhà cung cấp hỗ trợ) phải qua
+   `verify_webhook_signature` **trước** khi dùng `parse_webhook`, và chỉ
+   trạng thái "đã phát hành" mới được ghi nhận. Trước lần xuất thật đầu
+   tiên, đối chiếu lại **định dạng phản hồi** của nhà cung cấp đã ký (tên
+   trường số hóa đơn/trạng thái) với tài liệu API của họ — adapter đọc
+   theo các tên trường thông dụng và từ chối ghi nhận nếu phản hồi không
+   có số hóa đơn.
+
+## Xuất hóa đơn bằng lệnh `einvoice-issue`
+
+Sau khi đơn đã ở trạng thái `paid` trong sổ (xem `payments` để lấy mã
+đơn) và thông tin người mua đã có trên bản ghi đơn (các cột `buyer_name`,
+`buyer_address`, và nếu có: `buyer_tax_code`, `buyer_email`):
+
+```powershell
+python tools/vendor_ledger.py einvoice-issue --order <mã đơn>
+```
+
+Hành vi của lệnh, theo đúng thứ tự cổng kiểm tra — mọi cổng đều **không
+ghi gì vào sổ** khi chưa qua:
+
+1. Đơn không tồn tại, hoặc đơn chưa ở trạng thái `paid` → báo lỗi rõ
+   ràng và dừng. Không xuất hóa đơn cho đơn `pending`/`cancelled`/`failed`.
+2. Đơn đã có số hóa đơn → báo lỗi "đã có hóa đơn", không gọi nhà cung cấp
+   lần thứ hai. Hủy/thay thế hóa đơn phải làm qua nhà cung cấp.
+3. Chưa cấu hình nhà cung cấp (thiếu biến môi trường ở bước 2 phần kích
+   hoạt) → in đúng thông báo "chưa được kích hoạt" của adapter, thoát mã
+   khác 0, **không ghi gì** — dormant nghĩa là dormant.
+4. Thiếu thông tin người mua mà nhà cung cấp bắt buộc (`buyer_name`,
+   `buyer_address`) → báo lỗi tiếng Việt liệt kê từng trường còn thiếu;
+   bổ sung vào bản ghi đơn rồi chạy lại.
+5. Đủ điều kiện: gửi yêu cầu đã ký tới địa chỉ trong `EINVOICE_API_BASE`,
+   và chỉ khi nhà cung cấp trả về số hóa đơn mới ghi `invoice_no`,
+   `invoice_series`, `invoice_issued_at` vào bản ghi đơn. Số tiền trên
+   đơn trong sổ là **tổng khách đã trả (đã gồm VAT)**; lệnh tách phần
+   trước VAT làm dòng hàng và adapter tự kiểm tra khớp tổng — lệch do
+   làm tròn sẽ dừng lại thay vì xuất hóa đơn sai số tiền.
+
+Xem lại hóa đơn đã ghi bằng lệnh `payments` (có thêm các cột
+`invoice_no`, `invoice_series`, `invoice_issued_at`).
 
 ## Ranh giới cố ý giữ nguyên
 
@@ -85,10 +123,18 @@ sửa logic kiểm tra tiền/tổng tiền.
 - Module không tự gửi yêu cầu: việc truyền tải thật chỉ được nối khi đã có
   hợp đồng và làm theo đúng tài liệu của nhà cung cấp đã chọn.
 
-## Còn thiếu (việc nối sổ — chưa làm trong bản này)
+## Còn thiếu
 
-- Lệnh trong `tools/vendor_ledger.py` để xuất hóa đơn cho một đơn đã
-  `confirm-payment`/`paid` và ghi lại số hóa đơn vào sổ.
-- Cột/trạng thái lưu số hóa đơn đã phát hành theo đơn trong sổ bán hàng.
 - (Tùy nhà cung cấp) máy chủ nhận webhook hóa đơn, tương tự
-  `tools/payos_webhook_server.py`.
+  `tools/payos_webhook_server.py` — hiện kết quả xuất hóa đơn được ghi
+  từ phản hồi đồng bộ của lệnh `einvoice-issue`.
+- Đối chiếu định dạng phản hồi thật của nhà cung cấp đã ký hợp đồng
+  (không thể kiểm chứng khi chưa có hợp đồng — xem bước 4 ở trên).
+- Cách nhập thông tin người mua vào bản ghi đơn ngay từ bước tạo đơn:
+  hiện các cột `buyer_*` nằm trên bản ghi `payment_orders`; bên bán điền
+  khi chốt đơn với khách.
+
+Đã xong trong bản này: lệnh `einvoice-issue` trong
+`tools/vendor_ledger.py` (cổng `paid`, chống xuất trùng, dormant không
+ghi gì) và các cột lưu số hóa đơn/ký hiệu/thời điểm phát hành trên bản
+ghi đơn (tự bổ sung vào sổ cũ khi mở sổ).

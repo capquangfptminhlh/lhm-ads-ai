@@ -12,6 +12,10 @@ Người duy nhất quyết định phát hành và số phiên bản là chủ 
 - [ ] Khi tăng phiên bản: sửa **đồng thời cả hai nơi trên cùng một commit**,
       thêm mục mới vào `CHANGELOG.md`, và tạo git tag `v<x.y.z>` sau khi
       merge. Không để hai nơi lệch nhau.
+- [ ] Đặt phiên bản ở **file nguồn phiên bản** `ads_core/version.py` (tạo
+      file này nếu bản đang phát hành chưa có) và xác nhận số trong đó
+      **khớp** với `README.md` và `docs/STUDIO.md`. Cả ba nơi lệch nhau
+      thì chưa được gắn tag.
 - [ ] Đề xuất dài hạn (chưa làm, không tự ý làm trong bản này): thêm hằng
       số phiên bản duy nhất trong code và để README/UI đọc từ đó.
 
@@ -22,6 +26,13 @@ Người duy nhất quyết định phát hành và số phiên bản là chủ 
       phải bằng hoặc cao hơn bản trước; ghi lại con số).
 - [ ] CI trên GitHub cho commit phát hành: job **test** xanh.
 - [ ] Không merge khi còn test đỏ, dù "chỉ đỏ ở máy khác".
+- [ ] **Trước khi gắn tag**: tạo lại báo cáo tiền kiểm nghiệm thu bằng
+      `python tools/acceptance_preflight.py` trên đúng commit sẽ phát
+      hành và lưu kết quả kèm hồ sơ phát hành; mục nào `NOT_RUN` phải
+      xuất hiện nguyên trạng trong ghi chú phát hành (xem mục 8).
+- [ ] **Trước khi gắn tag**: chạy lại bài diễn tập khôi phục
+      `python tools/restore_drill.py` — yêu cầu đạt toàn bộ (14/14 ở lần
+      ghi nhận gần nhất); drill đỏ thì không phát hành.
 
 ## 2. Rà soát giao diện bằng ảnh chụp
 

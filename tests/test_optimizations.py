@@ -87,6 +87,8 @@ class MetaClient:
         self.calls.append((url,kwargs))
         if url.endswith('/campaigns'):
             return Response({'data':[{'id':'12345678901','name':'Meta Campaign','status':'ACTIVE','effective_status':'ACTIVE'}]})
+        if url.endswith('/adsets'):
+            return Response({'data':[]})
         if url.endswith('/insights'):
             return Response({'data':[{'campaign_id':'12345678901','spend':'190000','clicks':'150','impressions':'100000'}]})
         raise AssertionError(url)

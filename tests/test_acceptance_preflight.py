@@ -49,7 +49,7 @@ def test_structure_has_all_sections(tmp_path):
     result = pf.run_preflight(_env(tmp_path))
     titles = [s["title"] for s in result["sections"]]
     assert titles == ["Ứng dụng", "Môi trường lõi", "Nhà cung cấp Ads / AI",
-                      "Tài nguyên tĩnh", "Phiên bản API", "Giấy phép"]
+                      "Tài nguyên tĩnh", "Phiên bản API", "Ngăn xếp tối ưu", "Giấy phép"]
     for section in result["sections"]:
         assert section["rows"], section["title"]
         for row in section["rows"]:
@@ -118,6 +118,41 @@ def test_app_health_and_license_selftest_pass(tmp_path, monkeypatch):
     assert all(r["status"] == pf.PASS for r in app_rows)
     license_rows = _rows(result, "Giấy phép")
     assert all(r["status"] == pf.PASS for r in license_rows), license_rows
+
+
+def test_optimization_stack_checks_pass_on_this_tree(tmp_path):
+    """The optimization-stack section is static source checks; on this tree
+    every one of them must PASS (they prove the code ships wired, not that
+    it ran against a live provider account)."""
+    result = pf.run_preflight(_env(tmp_path))
+    rows = _rows(result, "Ngăn xếp tối ưu")
+    assert len(rows) == 7, rows
+    assert all(r["status"] == pf.PASS for r in rows), rows
+
+
+def test_optimization_playbook_row_reports_rule_count(tmp_path):
+    result = pf.run_preflight(_env(tmp_path))
+    rows = _rows(result, "Ngăn xếp tối ưu")
+    playbook_row = next(r for r in rows if "PLAYBOOK" in r["name"])
+    assert playbook_row["status"] == pf.PASS
+    from ads_core.optimization_playbook import PLAYBOOK as _PB
+    assert f"{len(_PB)} quy tắc" in playbook_row["detail"]
+    # Campaign-level conditions + 2 account-level rules via evaluate_account.
+    from ads_core.optimization_playbook import CONDITIONS as _COND
+    assert f"{len(_COND)} điều kiện cấp chiến dịch" in playbook_row["detail"]
+    assert "2 quy tắc cấp tài khoản" in playbook_row["detail"]
+
+
+def test_optimization_static_rows_are_labelled_static(tmp_path):
+    """Static wiring checks must not read as live proof: the advisor and
+    adapter rows carry the static-check wording."""
+    result = pf.run_preflight(_env(tmp_path))
+    rows = _rows(result, "Ngăn xếp tối ưu")
+    static_rows = [r for r in rows if "advisor" in r["name"] or "adapter" in r["name"]]
+    assert len(static_rows) == 4
+    for row in static_rows:
+        assert row["status"] == pf.PASS
+        assert "kiểm tra tĩnh" in row["detail"]
 
 
 def test_main_json_mode_and_exit_code(tmp_path, monkeypatch, capsys):

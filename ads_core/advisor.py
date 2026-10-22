@@ -64,6 +64,11 @@ def init_advisor_db():
             db.execute('ALTER TABLE advisor_findings ADD COLUMN resolved_at INTEGER')
         if 'detail' not in existing:
             db.execute('ALTER TABLE advisor_findings ADD COLUMN detail TEXT')
+        # After the resolved_at ALTER above: the per-scan lookups filter
+        # findings by (org_id, account_id, resolved_at IS NULL), which the
+        # org index (acknowledged_at second) cannot serve.
+        db.execute('''CREATE INDEX IF NOT EXISTS idx_advisor_findings_account
+                      ON advisor_findings(org_id, account_id, resolved_at)''')
 
 
 def heartbeat(now=None):
@@ -84,6 +89,65 @@ def agent_health(now=None):
     last = row['last_seen_at'] if row else None
     return {'last_seen_at':last, 'running':bool(last and 0 <= now-last <= 120),
             'mode':'monitor_only', 'requires_windows_running':True}
+
+
+# Stored advisor_findings.severity values are 'high' (scan_account stores
+# both playbook level 'critical' and goal level 'high' under 'high'),
+# 'review' and 'opportunity'. The digest presents the top bucket under its
+# playbook name 'critical'; any unexpected stored value is counted under
+# its own name so nothing is silently dropped.
+_DIGEST_LEVEL_ALIASES = {'high': 'critical', 'critical': 'critical',
+                         'review': 'review', 'opportunity': 'opportunity'}
+
+
+def findings_digest(org, account_id, *, new_codes=None, max_new_titles=3):
+    """Compact per-account summary of ACTIVE advisor findings.
+
+    Read-only over the existing advisor_findings table (no new store, no
+    new network destination, no campaign names or account labels — rule
+    codes and counts only). Returns::
+
+        {'account_id': int,
+         'active_counts': {'critical': n, 'review': n, 'opportunity': n},
+         'active_total': n,
+         'new': [{'code': str, 'title': str | None}, ...]}
+
+    'Active' means resolved_at IS NULL (acknowledged findings still count
+    until they resolve). 'new' lists up to ``max_new_titles`` entries: the
+    codes passed in ``new_codes`` when given (the genuinely-new codes of a
+    scan, in scan order), otherwise the most recently first-seen active
+    findings. Titles come from the shipped playbook catalog
+    (optimization_playbook.PLAYBOOK); codes outside the catalog (legacy
+    rule codes) get title None.
+    """
+    init_advisor_db()
+    titles = {entry['code']: entry.get('title')
+              for entry in optimization_playbook.PLAYBOOK}
+    with connection() as db:
+        rows = db.execute('''SELECT severity,COUNT(*) AS n FROM advisor_findings
+            WHERE org_id=? AND account_id=? AND resolved_at IS NULL
+            GROUP BY severity''', (org, account_id)).fetchall()
+        if new_codes is None:
+            codes = [r['rule_code'] for r in db.execute(
+                '''SELECT rule_code FROM advisor_findings
+                   WHERE org_id=? AND account_id=? AND resolved_at IS NULL
+                   ORDER BY first_seen_at DESC, id DESC''',
+                (org, account_id)).fetchall()]
+            # A code can repeat across campaigns; the digest lists it once.
+            codes = list(dict.fromkeys(codes))
+        else:
+            codes = list(dict.fromkeys(str(c) for c in new_codes))
+    counts = {'critical': 0, 'review': 0, 'opportunity': 0}
+    total = 0
+    for row in rows:
+        key = _DIGEST_LEVEL_ALIASES.get(row['severity'], row['severity'])
+        counts[key] = counts.get(key, 0) + row['n']
+        total += row['n']
+    return {'account_id': account_id,
+            'active_counts': counts,
+            'active_total': total,
+            'new': [{'code': code, 'title': titles.get(code)}
+                    for code in codes[:max(0, max_new_titles)]]}
 
 
 async def scan_account(acc, *, now=None, min_interval=DAY):
@@ -243,14 +307,25 @@ async def scan_account(acc, *, now=None, min_interval=DAY):
                        (f['id'],verdict,now))
         db.execute('''UPDATE advisor_scan_runs SET last_success_at=?,error_code=''
                       WHERE org_id=? AND account_id=?''',(now,acc['org_id'],acc['id']))
+    # Compact digest of what is now open on this account (counts by level +
+    # the new codes with their catalog titles). Computed from the rows this
+    # scan just wrote; local only.
+    digest = findings_digest(acc['org_id'], acc['id'], new_codes=new_codes)
     if new_codes:
         # One batched, opt-in Telegram alert per scan for genuinely new (or
-        # re-opened) findings only. Rule codes and the internal account
-        # number only: no campaign IDs, account labels or credentials.
+        # re-opened) findings only. Rule codes, level counts and the
+        # internal account number only: no campaign IDs, account labels or
+        # credentials — finding titles stay local (digest/UI), they are not
+        # pushed to Telegram.
+        counts = digest['active_counts']
         await notify_telegram(
             f"LHM Ads AI: {len(new_codes)} cảnh báo quảng cáo mới trên {acc['platform']} "
-            f"(account #{acc['id']}): {', '.join(new_codes)}. Mở ứng dụng để xem chi tiết.")
+            f"(account #{acc['id']}): {', '.join(new_codes)}. "
+            f"Đang mở trên tài khoản: {counts['critical']} critical, "
+            f"{counts['review']} review, {counts['opportunity']} opportunity "
+            f"(tổng {digest['active_total']}). Mở ứng dụng để xem chi tiết.")
     return {'scanned':True,'reason':'ok','recommendations':len(suggestions),
+            'digest':digest,
             'note':'Phát hiện bằng quy tắc đọc dữ liệu, KHÔNG thay đổi giá thầu hoặc ngân sách.'}
 
 

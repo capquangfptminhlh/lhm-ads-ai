@@ -49,6 +49,8 @@ class PagedMeta:
                                   'impressions':'900','account_currency':'USD',
                                   'actions':[{'action_type':'offsite_conversion.fb_pixel_purchase','value':'7'}],
                                   'action_values':[{'action_type':'offsite_conversion.fb_pixel_purchase','value':'280'}]}]})
+        if url.endswith('/adsets'):
+            return Reply({'data':[]})
         raise AssertionError('Unexpected provider address')
     async def post(self,*args,**kwargs):
         raise AssertionError('No Ads write permitted')
@@ -63,10 +65,10 @@ def test_meta_two_page_campaigns_and_insights_do_not_follow_next_url(monkeypatch
     assert [x['id'] for x in campaigns]==['12345678901','12345678902']
     assert [x['cpa'] for x in campaigns]==[20.0,10.0]
     assert [x['roas'] for x in campaigns]==[5.0,4.0]
-    assert len(provider.calls)==4
+    assert len(provider.calls)==5
     assert all('evil.example' not in url for url,_ in provider.calls)
     assert [p.get('after') for _,p in provider.calls]==[
-        None,'CAMPAIGN-2',None,'INSIGHT-2']
+        None,'CAMPAIGN-2',None,'INSIGHT-2',None]
 
 
 def test_pagination_cursor_missing_repeated_or_overflow():

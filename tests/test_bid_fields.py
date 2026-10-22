@@ -92,6 +92,8 @@ class MetaAPI:
                 'effective_status': 'ACTIVE',
                 'bid_strategy': 'LOWEST_COST_WITH_BID_CAP',
                 'daily_budget': '150000', 'lifetime_budget': '900000'}]})
+        if url.endswith('/adsets'):
+            return FakeResponse({'data': []})
         if url.endswith('/insights'):
             return FakeResponse({'data': []})
         raise AssertionError(url)

@@ -9,6 +9,7 @@ import json
 import os
 import re
 import math
+import statistics
 
 import httpx
 from fastapi import Depends, HTTPException
@@ -76,7 +77,8 @@ async def google_campaigns(acc, client):
              "campaign.maximize_conversion_value.target_roas, "
              "campaign_budget.amount_micros, campaign_budget.period, "
              "metrics.cost_micros, metrics.impressions, metrics.clicks, "
-             "metrics.conversions, metrics.conversions_value "
+             "metrics.conversions, metrics.conversions_value, "
+             "metrics.search_budget_lost_impression_share "
              "FROM campaign WHERE campaign.status != REMOVED "
              "AND segments.date DURING LAST_7_DAYS LIMIT 501")
     try:
@@ -100,6 +102,14 @@ async def google_campaigns(acc, client):
                 value = float(metrics.get('conversionsValue') or 0)
                 clicks = int(metrics.get('clicks') or 0)
                 impressions = int(metrics.get('impressions') or 0)
+                # Budget-lost impression share (Search campaigns): a ratio
+                # 0..1 in the API response. Absent or non-numeric stays None
+                # (unknown), never 0 — 0 would falsely claim "no budget
+                # loss" for campaign types Google does not report it for.
+                try:
+                    budget_lost_is = float(metrics.get('searchBudgetLostImpressionShare'))
+                except (TypeError, ValueError):
+                    budget_lost_is = None
                 budget = entry.get('campaignBudget') or {}
                 target_cpa_micros = ((item.get('targetCpa') or {}).get('targetCpaMicros')
                                      or (item.get('maximizeConversions') or {}).get('targetCpaMicros'))
@@ -119,6 +129,7 @@ async def google_campaigns(acc, client):
                     'daily_budget': (round(int(budget['amountMicros'])/1_000_000, 2)
                                      if budget.get('amountMicros') and budget.get('period') in ('DAILY', None)
                                      else None),
+                    'budget_lost_is': budget_lost_is,
                 })
                 if len(found) > MAX_CAMPAIGNS:
                     raise HTTPException(409, 'Quá 500 chiến dịch; không thể kiểm tra đầy đủ và tạo cảnh báo an toàn.')
@@ -142,6 +153,64 @@ def _meta_action_number(rows, action_type):
         return value if math.isfinite(value) and value>=0 else None
     except (TypeError,ValueError,OverflowError):
         return None
+
+
+def _meta_frequency(raw):
+    """Meta insights frequency (avg impressions per person); absent/invalid -> None, never 0."""
+    if raw is None or raw == '' or isinstance(raw, bool):
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return value if math.isfinite(value) and value > 0 else None
+
+
+def _meta_reach(raw):
+    """Meta insights reach (unique people); absent/invalid -> None, never 0."""
+    if raw is None or raw == '' or isinstance(raw, bool):
+        return None
+    try:
+        value = int(raw)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return value if value > 0 else None
+def _meta_bid_amount(raw):
+    """One ad set's bid_amount converted from Meta minor units to account
+    currency; missing/non-numeric/negative is unknown (None), never 0."""
+    if raw is None or isinstance(raw, bool):
+        return None
+    try:
+        value = float(raw) / 100
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return value if math.isfinite(value) and value >= 0 else None
+
+
+def _apply_adset_bid_targets(found, adset_rows):
+    """Attach each campaign's median ad-set bid_amount as adset_bid_target_cpa.
+
+    Meta keeps the operative cost goal on the ad set, not the campaign, so the
+    median across a campaign's ad sets is the representative value. Only
+    campaigns without a campaign-level bid_target_cpa receive it: a
+    campaign-level target always wins. Ad sets pointing at unknown campaigns
+    are ignored; campaigns whose ad sets carry no usable bid_amount keep
+    adset_bid_target_cpa=None.
+    """
+    bids = {}
+    for row in adset_rows:
+        if not isinstance(row, dict):
+            raise ValueError('Invalid ad set row')
+        campaign_id = str(row.get('campaign_id', ''))
+        if not ID.fullmatch(campaign_id):
+            continue
+        amount = _meta_bid_amount(row.get('bid_amount'))
+        if amount is not None:
+            bids.setdefault(campaign_id, []).append(amount)
+    for c in found:
+        amounts = bids.get(c['id'])
+        if amounts and c.get('bid_target_cpa') is None:
+            c['adset_bid_target_cpa'] = round(statistics.median(amounts), 2)
 
 
 async def _meta_pages(client, url, headers, params):
@@ -222,16 +291,20 @@ async def meta_campaigns(acc, client):
                           'spend': None, 'clicks': None, 'impressions': None,
                           'conversions': None, 'conversion_value': None,
                           'ctr_percent': None, 'cpa': None, 'roas': None,
+                          # Insights frequency/reach (7d); None until a valid
+                          # insights row fills them — absent is never faked as 0.
+                          'frequency': None, 'reach': None,
                           # Campaign-level (CBO/Advantage+) bid configuration.
-                          # Ad-set level bid amounts are a separate surface
-                          # and stay out of scope for campaign findings.
+                          # The ad-set median (adset_bid_target_cpa) is filled
+                          # in after the ad sets are fetched below.
                           'bidding_strategy': str(entry.get('bid_strategy') or '') or None,
                           'bid_target_cpa': None, 'bid_target_roas': None,
+                          'adset_bid_target_cpa': None,
                           'daily_budget': _meta_money(entry.get('daily_budget')),
                           'lifetime_budget': _meta_money(entry.get('lifetime_budget'))})
         # Insights must be complete for reliable alerts; no silent partial success.
         try:
-            fields='campaign_id,spend,clicks,impressions'
+            fields='campaign_id,spend,clicks,impressions,frequency,reach'
             params={'level':'campaign','fields':fields,'date_preset':'last_7d','limit':META_PAGE_SIZE}
             if chosen_action:
                 # One exact conversion event; explicit click attribution window.
@@ -260,6 +333,8 @@ async def meta_campaigns(acc, client):
                 c['clicks']=clicks
                 c['impressions']=impressions
                 c['ctr_percent']=round(100*clicks/impressions,2) if impressions else None
+                c['frequency']=_meta_frequency(row.get('frequency'))
+                c['reach']=_meta_reach(row.get('reach'))
                 if chosen_action and row.get('account_currency')==acc['currency']:
                     count=_meta_action_number(row.get('actions'),chosen_action)
                     if count is None:
@@ -278,6 +353,18 @@ async def meta_campaigns(acc, client):
             raise
         except (httpx.HTTPError, ValueError, TypeError, KeyError):
             raise HTTPException(502, 'Không thể đọc đầy đủ Meta Insights; không tạo cảnh báo dựa trên dữ liệu thiếu.') from None
+        # Ad-set bid targets: Meta keeps the operative cost goal on the ad
+        # set, not the campaign. Fail closed like every other Meta read in
+        # this scan — a partial ad-set list would corrupt the median, so ANY
+        # fetch error aborts the whole call with 502 instead of silently
+        # returning campaigns without their ad-set targets.
+        try:
+            adset_rows = await _meta_pages(client, base + '/adsets', headers,
+                                           {'fields': 'id,campaign_id,bid_strategy,bid_amount',
+                                            'limit': META_PAGE_SIZE})
+            _apply_adset_bid_targets(found, adset_rows)
+        except (HTTPException, httpx.HTTPError, ValueError, TypeError, KeyError):
+            raise HTTPException(502, 'Không đọc đủ nhóm quảng cáo Meta; không tạo cảnh báo dựa trên dữ liệu thiếu.') from None
         return found
     except HTTPException:
         raise
