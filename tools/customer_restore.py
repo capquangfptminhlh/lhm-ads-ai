@@ -33,11 +33,15 @@ def main():
     try:
         if args.backup.stat().st_size>MAX_DATABASE_BYTES+2048:
             parser.error('File backup lớn hơn 64 MB')
-        restore_into_empty_directory(args.backup.read_bytes(),password,args.destination)
+        result=restore_into_empty_directory(args.backup.read_bytes(),password,args.destination)
     except (OSError,ValueError,FileExistsError) as exc:
         parser.error(str(exc))
     print('Đã khôi phục. Đăng nhập lại và yêu cầu cấp bản quyền cho mã máy mới.')
     print('Bản sao lưu không chuyển session, Device ID, license hay tác nhân tự chạy.')
+    if result.get('revocations_transferred'):
+        print('Danh sách thu hồi bản quyền trong bản sao lưu đã được khôi phục kèm theo.')
+    else:
+        print('Bản sao lưu không chứa danh sách thu hồi; trạng thái thu hồi không bị thay đổi.')
 
 
 if __name__=='__main__':main()

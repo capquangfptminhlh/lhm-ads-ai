@@ -76,6 +76,15 @@ def connect(path):
         created_at INTEGER NOT NULL,
         paid_at INTEGER);
     ''')
+    # Idempotent migration for ledgers created before e-invoice support:
+    # buyer details captured on the order, plus the issued invoice record.
+    existing={row[1] for row in db.execute('PRAGMA table_info(payment_orders)')}
+    for column in ('buyer_name','buyer_address','buyer_tax_code','buyer_email',
+                   'invoice_no','invoice_series'):
+        if column not in existing:
+            db.execute(f'ALTER TABLE payment_orders ADD COLUMN {column} TEXT')
+    if 'invoice_issued_at' not in existing:
+        db.execute('ALTER TABLE payment_orders ADD COLUMN invoice_issued_at INTEGER')
     if os.name!='nt':os.chmod(path,0o600)
     return db
 
@@ -284,9 +293,79 @@ def create_payos_link(db,customer_ref,amount,environ=None,transport=None,now=Non
 
 def payments(db):
     rows=db.execute('''SELECT order_code,customer_ref,amount,description,status,
-        payment_link_id,reference,created_at,paid_at FROM payment_orders
+        payment_link_id,reference,created_at,paid_at,
+        buyer_name,buyer_address,buyer_tax_code,buyer_email,
+        invoice_no,invoice_series,invoice_issued_at FROM payment_orders
         ORDER BY created_at DESC,order_code DESC''').fetchall()
     return [dict(row) for row in rows]
+
+def _einvoice_transport(method,url,headers,body):
+    """The real HTTP transport for the e-invoice adapter (seller machine
+    only, same urllib pattern as send_telegram). The adapter module
+    itself performs no network I/O; this is the injected sender."""
+    import urllib.request
+    request=urllib.request.Request(
+        url,data=json.dumps(body,ensure_ascii=False).encode('utf-8'),
+        headers=headers,method=method)
+    with urllib.request.urlopen(request,timeout=20) as response:
+        return json.loads(response.read().decode('utf-8'))
+
+def issue_einvoice(db,order_code,environ=None,issue_fn=None):
+    """Issue the e-invoice for a PAID payment order and record the result.
+
+    Gates, in order, and nothing is written before the provider confirms
+    issuance: unknown order -> order not 'paid' -> order already invoiced
+    -> provider not configured (dormant; EinvoiceNotConfigured propagates
+    with the adapter's not-configured message) -> buyer fields the
+    provider requires are missing. The ledger `amount` is the
+    VAT-inclusive total the customer actually paid, so the invoice line
+    is the derived pre-VAT subtotal and the adapter's own total check
+    verifies the round-trip (failing closed on rounding drift).
+    """
+    row=db.execute('SELECT * FROM payment_orders WHERE order_code=?',
+                   (order_code,)).fetchone()
+    if not row:raise ValueError(f'Không tìm thấy đơn thanh toán với mã {order_code}')
+    if row['status']!='paid':
+        raise ValueError("Chỉ xuất hóa đơn cho đơn đã thanh toán (trạng thái 'paid'); "
+                         f"đơn {order_code} đang ở trạng thái '{row['status']}'")
+    if row['invoice_no']:
+        raise ValueError(f"Đơn {order_code} đã có hóa đơn số {row['invoice_no']} "
+                         f"(ký hiệu {row['invoice_series']}); không xuất lại — "
+                         'hủy hoặc thay thế hóa đơn phải làm qua nhà cung cấp.')
+    config=einvoice_module.load_config(environ)
+    missing=[f'{key} ({label})' for key,label in
+             (('buyer_name','tên người mua'),('buyer_address','địa chỉ người mua'))
+             if not str(row[key] or '').strip()]
+    if missing:
+        raise ValueError('Thiếu thông tin bắt buộc để xuất hóa đơn cho đơn '
+                         f"{order_code}: {', '.join(missing)}. Bổ sung thông tin "
+                         'người mua vào đơn trong sổ rồi chạy lại; chưa ghi thay đổi nào.')
+    rate=einvoice_module.DEFAULT_VAT_RATE
+    subtotal=(row['amount']*100+(100+rate)//2)//(100+rate)
+    order={'order_ref':str(row['order_code']),
+           'buyer_name':row['buyer_name'],'buyer_address':row['buyer_address'],
+           'buyer_tax_code':row['buyer_tax_code'],'buyer_email':row['buyer_email'],
+           'items':[{'name':row['description'],'quantity':1,'unit_price':subtotal}],
+           'vat_rate':rate,'total_amount':row['amount']}
+    if issue_fn is None:
+        issued=einvoice_module.issue_invoice(order,environ=environ,
+                                             transport=_einvoice_transport)
+    else:
+        issued=issue_fn(order,environ=environ)
+    if not isinstance(issued,dict) or not str(issued.get('invoice_no') or '').strip():
+        raise ValueError('Nhà cung cấp không trả về số hóa đơn; chưa ghi gì vào sổ')
+    invoice_no=str(issued['invoice_no']).strip()
+    series=str(issued.get('series') or '').strip() or config['series']
+    issued_at=issued.get('issued_at')
+    if isinstance(issued_at,bool) or not isinstance(issued_at,int) or issued_at<=0:
+        issued_at=int(time.time())
+    with db:
+        db.execute('''UPDATE payment_orders SET invoice_no=?,invoice_series=?,
+            invoice_issued_at=? WHERE order_code=?''',
+            (invoice_no,series,issued_at,order_code))
+    return {'order_code':order_code,'customer_ref':row['customer_ref'],
+            'amount':row['amount'],'invoice_no':invoice_no,
+            'invoice_series':series,'invoice_issued_at':issued_at}
 
 def apply_payos_webhook(db,payload,checksum_key,now=None):
     """Mark an order paid from a signature-verified webhook.
@@ -380,6 +459,8 @@ def main(argv=None):
     pc.add_argument('--amount',required=True,type=int)
     cmd.add_parser('payments',help='List PayOS payment orders and their status')
     cmd.add_parser('einvoice-status',help='Show whether the e-invoice provider is configured (never prints secrets)')
+    ei=cmd.add_parser('einvoice-issue',help='Issue the e-invoice for a PAID payment order and record its number/series (needs provider config)')
+    ei.add_argument('--order',required=True,type=int,help='Payment order code (see: payments)')
     args=parser.parse_args(argv)
     try:
         db=connect(args.db)
@@ -406,10 +487,14 @@ def main(argv=None):
             elif args.command=='einvoice-status':
                 result={'einvoice_configured':einvoice_module.is_configured(),
                         'note':'Chỉ xuất hóa đơn sau khi đã xác nhận tiền trong sổ; xem docs/EINVOICE.md'}
+            elif args.command=='einvoice-issue':
+                result=issue_einvoice(db,args.order)
             else:raise ValueError('Unknown command')
         finally:db.close()
     except (ValueError,OSError,sqlite3.Error,
-            payos_module.PayosNotConfigured,payos_module.PayosError) as exc:
+            payos_module.PayosNotConfigured,payos_module.PayosError,
+            einvoice_module.EinvoiceNotConfigured,
+            einvoice_module.EinvoiceError) as exc:
         parser.error(str(exc))
     print(json.dumps(result,ensure_ascii=False,indent=2))
 

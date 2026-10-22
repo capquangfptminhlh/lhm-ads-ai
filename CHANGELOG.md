@@ -4,17 +4,19 @@
 phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 **Phiên bản đang khai báo trong mã nguồn: 0.3** — "Private Studio 0.3"
-(trang đầu `README.md` và `docs/STUDIO.md`). Hiện chưa có hằng số phiên bản
-trong code, không có git tag; mọi ghi chú dưới đây thuộc mục *Chưa phát
-hành* cho đến khi chủ phần mềm quyết định số phiên bản kế tiếp và cập nhật
-đồng thời cả hai nơi khai báo trên (xem `docs/RELEASE_CHECKLIST.md`).
+(trang đầu `README.md` và `docs/STUDIO.md`). Nguồn phiên bản duy nhất nay
+là `ads_core/version.py` (`__version__ = "0.3.0"`); chưa có git tag. Mọi
+ghi chú dưới đây thuộc mục *Chưa phát hành* cho đến khi chủ phần mềm
+quyết định số phiên bản kế tiếp (xem `docs/RELEASE_CHECKLIST.md`).
 
 ## [Chưa phát hành]
 
-Các thay đổi đã hợp nhất vào `main` ngày 2026-10-21, chuẩn bị cho bản
-thương mại đầu tiên. Trạng thái nghiệm thu trực tiếp (live acceptance):
-**Google Ads — NOT_RUN; Meta Ads — NOT_RUN** (chưa chạy với tài khoản thật;
-xem `docs/ACCEPTANCE.md`).
+Các thay đổi đã hợp nhất vào `main` ngày 2026-10-21 và 2026-10-22, chuẩn
+bị cho bản thương mại đầu tiên. **Toàn bộ các mục dưới đây mới chỉ nằm
+trên `main`: chưa có git tag phát hành, chưa nằm trong bản EXE đã ký gửi
+khách** — không được hiểu là đã phát hành. Trạng thái nghiệm thu trực
+tiếp (live acceptance): **Google Ads — NOT_RUN; Meta Ads — NOT_RUN**
+(chưa chạy với tài khoản thật; xem `docs/ACCEPTANCE.md`).
 
 ### Đã thêm
 
@@ -40,9 +42,66 @@ xem `docs/ACCEPTANCE.md`).
   màn hình đăng nhập xuất hiện mềm theo nhịp; mọi panel trong các trang
   làm việc dùng hiệu ứng vào `fp-card-arrive`; tôn trọng chế độ giảm
   chuyển động của hệ điều hành.
+- **"LHM Vòng lặp Tối ưu" (LHM Optimization Loop)** (PR #14):
+  `ads_core/optimization_playbook.py` — 13 quy tắc tối ưu quảng cáo theo
+  chuẩn 2026 dạng dữ liệu (mỗi quy tắc có điều kiện, lý do, các bước xử lý
+  và rào chắn an toàn), nối vào bộ tư vấn. Lớp độc quyền nằm ở cơ chế chạy
+  trên dữ liệu của chính khách:
+  - *Hồ sơ nền riêng từng tài khoản*: hệ thống lưu các kỳ quét gần nhất
+    của mỗi tài khoản và phát hiện chiến dịch lệch khỏi CPA/ROAS trung vị
+    của chính nó.
+  - *Vòng kiểm chứng kết quả*: phát hiện từ 7 ngày trở lên được đối chiếu
+    với kỳ đo mới nhất và nhận phán quyết (cải thiện / xấu đi / không đổi /
+    chưa đủ dữ liệu; dải nhiễu ±5%). Phán quyết chỉ đo biến động của chỉ
+    số, **không khẳng định quan hệ nhân quả**.
+  - *Chống tự mâu thuẫn*: khuyến nghị mở rộng bị chặn khi cùng chiến dịch
+    đang có cảnh báo cắt/giảm; các mã bị chặn được ghi lại.
+  - Tài liệu: `docs/OPTIMIZATION_SKILL.md` và hai bản nghiên cứu nền tảng
+    2026 trong `docs/research/` (mọi khẳng định đều ghi mức nguồn).
+- **Adapter đọc thêm cấu hình đấu thầu thật từ nền tảng** (PR #15):
+  Google Ads (GAQL): loại chiến lược giá thầu, target tCPA/tROAS thật,
+  ngân sách chiến dịch (chỉ tính là ngân sách ngày khi chu kỳ là `DAILY`).
+  Meta: chiến lược giá thầu và ngân sách ngày/trọn đời ở cấp chiến dịch
+  (quy đổi từ đơn vị tiền nhỏ nhất). Target ở cấp nhóm quảng cáo (ad set)
+  của Meta **chưa** được đọc — không suy ra, không điền thay.
+- **Sprint hoàn thiện 20 luồng (PR #16)**: playbook 16 → 19 quy tắc
+  (`budget_constrained_winner` từ tỉ lệ mất hiển thị vì ngân sách của
+  Google; `adset_target_missed` từ trung vị bid_amount các ad set Meta —
+  xấp xỉ có ghi rõ; `audience_fatigue_risk` từ tần suất hiển thị Meta);
+  adapter Meta đọc thêm ad set + tần suất/reach, Google đọc thêm chỉ số
+  mất hiển thị vì ngân sách. Kèm theo: sửa 5 lỗi thật trong playbook do
+  test độ bền phát hiện (sập khi dữ liệu rác, bịa cảnh báo từ chỉ số âm);
+  vá lỗ hổng backup không mang theo danh sách thu hồi giấy phép (khôi
+  phục có thể âm thầm hủy thu hồi); giới hạn số lần thử cho token thiết
+  lập lần đầu trên desktop; pin UTF-8 cho CLI tạo admin và launcher
+  Windows (lỗi crash sau khi đã ghi thành công trên codepage cũ); lệnh
+  xuất hóa đơn điện tử `einvoice-issue` (vẫn dormant cho tới khi có hợp
+  đồng nhà cung cấp); CLI `tools/update_check.py` cho bộ kiểm tra cập
+  nhật ký số (dormant); digest đếm cảnh báo theo mức trong giám sát nền;
+  nguồn phiên bản duy nhất `ads_core/version.py`; giao diện hiển thị cấu
+  hình đấu thầu cạnh mỗi chiến dịch.
 
 ### Đã thay đổi
 
+- **Playbook tối ưu từ 13 lên 16 quy tắc** (PR #15): nhờ các trường đấu
+  thầu adapter mới đọc về, thêm ba quy tắc phát hiện tự động —
+  `platform_target_missed` (CPA/ROAS thực tế lệch xa target thật đang đặt
+  trên nền tảng; chạy được cả khi tổ chức chưa đặt mục tiêu trong phần
+  mềm), `platform_target_headroom` (dư địa mở rộng so với target nền
+  tảng), và `manual_bidding_at_scale` (vẫn đấu thầu thủ công/bid cap
+  nhưng đã ≥ 30 chuyển đổi/7 ngày — gợi ý thử nghiệm Smart Bidding có đối
+  chứng). Ba quy tắc này tham gia đầy đủ cơ chế chống mâu thuẫn và vòng
+  kiểm chứng kết quả của PR #14.
+- **Bảng giá pilot đã chốt trong bộ tài liệu bán hàng** (PR #13, chốt
+  2026-10-22): điền giá vào `docs/sales/BANG-GIA-MAU.md` — Pilot
+  499.000đ/30 ngày/1 máy; 180 ngày 2.545.000đ (−15%); 12 tháng
+  4.491.000đ (−25%), trả trước toàn bộ; giá niêm yết chính thức sau pilot
+  799.000đ/30 ngày; gói Agency báo giá 1.500.000–2.500.000đ/máy/tháng theo
+  số máy. Kèm ghi chú tham chiếu giá pilot trong mẫu tin nhắn 1 của
+  `docs/sales/MAU-TIN-NHAN.md`. Đây là thay đổi tài liệu bán hàng, không
+  thay đổi tính năng phần mềm; các quyết định còn mở (thông tin chuyển
+  khoản, chính sách hoàn tiền/chuyển máy, kênh và giờ hỗ trợ, dùng thử
+  miễn phí) vẫn để trống chờ chủ phần mềm.
 - **Giới hạn đăng nhập bền vững trong SQLite** (PR #6): 5 lần sai theo
   email, 20 lần theo IP trong 15 phút — thay cho bộ đếm trong bộ nhớ của
   từng tiến trình (khởi động lại là mất).

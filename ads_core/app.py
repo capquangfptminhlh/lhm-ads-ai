@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from .version import __version__
 from .db import connection, init_db, audit
 from .security import (hash_secret, make_secret, verify_password, seal, validate_secrets)
 from .providers import fetch_report, pause_meta_campaign
@@ -24,7 +25,7 @@ async def lifespan(application):
     init_db()
     yield
 
-app = FastAPI(title='LHM Ads AI Starter', docs_url=None, redoc_url=None, lifespan=lifespan)
+app = FastAPI(title='LHM Ads AI Starter', version=__version__, docs_url=None, redoc_url=None, lifespan=lifespan)
 app.mount('/static', StaticFiles(directory=str(Path(__file__).resolve().parent.parent/'static')), name='static')
 
 @app.middleware('http')
@@ -57,7 +58,7 @@ async def home():
 
 @app.get('/healthz')
 async def health():
-    return {'ok':True}
+    return {'ok':True, 'version':__version__}
 
 # Durable login throttling in the shared SQLite database: unlike the previous
 # in-memory counters it survives restarts and is shared by every process using

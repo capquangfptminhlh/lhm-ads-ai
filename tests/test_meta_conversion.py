@@ -25,6 +25,8 @@ class MetaAPI:
         self.requests.append((url,kw))
         if url.endswith('/campaigns'):
             return FakeResponse({'data':[CAMPAIGN]})
+        if url.endswith('/adsets'):
+            return FakeResponse({'data':[]})
         if url.endswith('/insights'):
             return FakeResponse({'data':[self.row]})
         raise AssertionError('No other HTTP allowed')
@@ -42,7 +44,7 @@ def run_meta(monkeypatch,raw,action=PURCHASE):
     monkeypatch.setattr(goals,'goal_for',lambda org,aid:{'enabled':1,'meta_action_type':action})
     client=MetaAPI(raw)
     campaigns=asyncio.run(optimizations.meta_campaigns(ACCOUNT,client))
-    assert all('/insights' in url or '/campaigns' in url for url,_ in client.requests)
+    assert all('/insights' in url or '/campaigns' in url or '/adsets' in url for url,_ in client.requests)
     p=client.requests[1][1]['params']
     assert p['action_attribution_windows']=='["7d_click"]'
     assert p['action_report_time']=='conversion'

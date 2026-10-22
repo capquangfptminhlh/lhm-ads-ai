@@ -16,6 +16,21 @@ tại hôm nay**.
 - Không bao giờ chứa: session đăng nhập đang hoạt động (bị xoá khỏi bản
   chụp có chủ đích), giấy phép bản quyền theo máy, file cấu hình DPAPI
   của Windows, token Ads dạng thô.
+- **Danh sách thu hồi bản quyền (`revocations.json` + file chữ ký `.sig`)
+  thì có**: từ định dạng backup V2, nếu máy nguồn đã nhận một danh sách
+  thu hồi, backup chứa nguyên văn hai file đó (định dạng V1 cũ không có
+  trường này). Khi khôi phục, danh sách được ghi vào thư mục
+  `data/licensing/` của bản cài mới — đúng nơi giấy phép cấp lại sẽ nằm —
+  để một giấy phép đã bị thu hồi không "sống lại" chỉ vì khách đổi máy.
+  Backup **không** chứa danh sách thì quá trình khôi phục **không chạm
+  gì** vào trạng thái thu hồi (không tạo, không ghi đè, không xoá): khôi
+  phục dữ liệu cũ không bao giờ được phép huỷ một lần thu hồi. Nội dung
+  được sao chép nguyên byte, không ký lại hay "sửa" — chữ ký vẫn do
+  `ads_core/license_revocation` kiểm chứng khi ứng dụng nạp danh sách,
+  nên danh sách bị sửa đổi vẫn bị từ chối (fail-closed) sau khôi phục
+  như trước. Lưu ý giới hạn thật: giấy phép vẫn gắn theo máy và phải xin
+  cấp lại; danh sách thu hồi đi theo backup chỉ đảm bảo lần cấp lại đó
+  vẫn bị kiểm tra chống lại các thu hồi đã công bố.
 
 ## 2. Diễn tập đã chứng minh điều gì
 

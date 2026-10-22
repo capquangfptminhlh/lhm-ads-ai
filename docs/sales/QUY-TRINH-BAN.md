@@ -8,6 +8,26 @@ Các lệnh dưới đây chạy từ thư mục gốc repo trên **máy riêng 
 
 ---
 
+## Điểm khác biệt khi tư vấn — LHM Vòng lặp Tối ưu (tính năng đã có trong bản bán)
+
+Phần này dùng khi khách hỏi "khác gì công cụ miễn phí / gợi ý sẵn của nền tảng". Mọi ý dưới đây đều kiểm chứng được trong `docs/OPTIMIZATION_SKILL.md` — chỉ nói đúng ngần này:
+
+- **Tư vấn tối ưu 16 quy tắc, chỉ đọc — không tự sửa quảng cáo.** Playbook phân tích số liệu 7 ngày cấp chiến dịch (chi tiêu, CPA, ROAS...) và đưa đề xuất kèm lý do, bước xử lý và rào chắn. Mọi thay đổi thật do khách tự duyệt và thực hiện trong Google Ads / Meta Ads Manager; phần mềm không tự ghi thay đổi nào vào tài khoản quảng cáo.
+- **Hồ sơ nền riêng từng tài khoản.** Phần mềm lưu các kỳ quét và tính CPA/ROAS trung vị của chính từng chiến dịch, nên báo được "chiến dịch này đang xấu đi so với chính nó" — điều mà ngưỡng chung toàn ngành không bắt được.
+- **Vòng kiểm chứng kết quả.** Đề xuất được đo lại ở các kỳ quét sau (từ 7 ngày) và nhận phán quyết: cải thiện / xấu đi / không đổi / chưa đủ dữ liệu (biến động ±5% coi là nhiễu). Bán điểm này như "khách nhìn thấy đề xuất nào từng đi kèm cải thiện trên chính tài khoản của mình", **không** bán như cam kết kết quả.
+- **Chống tự mâu thuẫn.** Một lần quét không bao giờ vừa khuyên mở rộng vừa khuyên cắt giảm cùng một chiến dịch; gợi ý mở rộng bị chặn khi có cảnh báo cắt giảm, và mã bị chặn được ghi lại.
+- **So với target thật trên nền tảng.** Phần mềm đọc target tCPA/tROAS và cấu hình giá thầu khách đã đặt trên Google/Meta, so hiệu quả thực tế với chính các con số đó — kể cả khi khách chưa đặt mục tiêu trong phần mềm.
+- **Rào chắn là một phần của sản phẩm:** mọi đề xuất chỉnh tối đa 20%/bước, một biến mỗi lần, kiểm tra tracking trước, tôn trọng pha học, người duyệt mọi thay đổi.
+
+**Giá để neo khi tư vấn:** gói **Pilot 499.000 đ / 30 ngày / 1 máy** (đã chốt 2026-10-22; kỳ hạn dài và giá niêm yết sau pilot xem `BANG-GIA-MAU.md` — không tự sửa con số ở bất kỳ đâu).
+
+**Tuyệt đối không nói khi tư vấn tính năng này:**
+
+- Không hứa tăng ROAS, giảm CPA hay bất kỳ kết quả quảng cáo nào; không nêu phần trăm hiệu quả — phần mềm không đo và không đảm bảo được những điều đó.
+- Không chê bai, so sánh hạ thấp công cụ của đối thủ hay của nền tảng; chỉ nêu cơ chế của mình (các chiến thuật tối ưu là kiến thức chung của ngành, điểm khác là cơ chế chạy trên dữ liệu riêng của khách).
+- Không dùng ngôn ngữ "an toàn tuyệt đối", "không bao giờ bị khóa tài khoản", "đảm bảo sạch" — phần mềm không can thiệp được các quyết định của nền tảng.
+- Không nói phần mềm "tự động tối ưu" — nó tư vấn; khách là người duyệt và thực hiện thay đổi.
+
 ## Chuẩn bị một lần (trước khách đầu tiên)
 
 1. Tạo bộ khóa phát hành theo `docs/COMMERCIAL_LICENSE.md` bước 1 (`license_issuer.py keygen`), sao lưu khóa riêng ở hai nơi tách biệt. **Không thay bộ khóa sau khi đã bán**, nếu không license mới sẽ không khớp bản EXE đã phát hành.

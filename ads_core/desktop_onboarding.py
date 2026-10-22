@@ -68,8 +68,24 @@ class FirstAdmin(BaseModel):
 def create_first_admin(body: FirstAdmin, request: Request):
     global TOKEN, TOKEN_EXPIRES_AT
     desktop_only(request)
+    # This endpoint verifies a secret (the one-time setup token) before any
+    # user or session exists, so login-style throttling cannot apply. Guard
+    # token guesses with the durable guarded_attempts counter keyed by
+    # client IP: a local process racing the 30-minute setup window gets 10
+    # misses per 15 minutes, then 429 even for the correct token.
+    from .security import (
+        FIRST_RUN_MAX_ATTEMPTS, attempt_blocked, attempt_failed,
+        attempt_succeeded, first_run_scope,
+    )
+    ip = request.client.host if request.client else 'unknown'
+    scope = first_run_scope(ip)
+    with connection() as db:
+        if attempt_blocked(db, scope, FIRST_RUN_MAX_ATTEMPTS):
+            raise HTTPException(429, 'Đã thử thiết lập quá nhiều lần. Vui lòng đợi 15 phút rồi thử lại.')
     # No password/key is ever written to the log or GitHub.
     if not TOKEN or time.monotonic() > TOKEN_EXPIRES_AT or not hmac.compare_digest(TOKEN, body.token):
+        with connection() as db:
+            attempt_failed(db, scope)
         raise HTTPException(403, 'Phiên thiết lập đã hết hạn. Hãy đóng ứng dụng và mở lại.')
     email = body.email.strip().lower()
     if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
@@ -88,6 +104,7 @@ def create_first_admin(body: FirstAdmin, request: Request):
             'INSERT INTO sessions(hash,user_id,csrf,expires_at) VALUES(?,?,?,?)',
             (hash_secret(raw_session), cur.lastrowid, csrf, int(time.time()) + 86400),
         )
+        attempt_succeeded(db, scope)
     TOKEN = None
     TOKEN_EXPIRES_AT = 0
     response = JSONResponse({'ok': True, 'next': '/studio'})

@@ -30,6 +30,9 @@ Ký hiệu mức độ: `critical` (cần xử lý sớm), `review` (cần xem x
 | `platform_target_missed` | bid_cost | review / critical | Target THẬT trên nền tảng (adapter đọc về): CPA > 1,3× tCPA (review), > 1,6× (critical); hoặc ROAS < tROAS/1,3 (review), < tROAS/1,6 (critical); ≥ 5 chuyển đổi | Hiệu chỉnh target về gần thực tế theo bước ≤ 20%; Google: lưu ý hành vi kéo-về-target từ 17/8/2026 |
 | `platform_target_headroom` | scale | opportunity | CPA < 0,8× tCPA nền tảng hoặc ROAS > 1,25× tROAS nền tảng, ≥ 10 chuyển đổi | Tăng ngân sách hoặc nới/hạ target từng bước ≤ 20%, theo dõi 3–7 ngày |
 | `manual_bidding_at_scale` | structure | review | Google: bid tay (MANUAL_CPC/CPM/CPV) với ≥ 30 chuyển đổi/7 ngày; Meta: bid cap với ≥ 30 chuyển đổi/7 ngày | Thử nghiệm Smart Bidding / cost per result goal có đối chứng (experiment), không chuyển thẳng 100% |
+| `budget_constrained_winner` | scale | opportunity | Google: mất ≥ 20% impression share vì ngân sách, đồng thời đang đạt ít nhất một mốc (mục tiêu nội bộ hoặc target nền tảng), ≥ 10 chuyển đổi | Tăng ngân sách ≤ 20%/bước hoặc dồn ngân sách từ chiến dịch yếu — CHỈ sau khi xác nhận là chiến dịch Search (công cụ không thấy loại chiến dịch) |
+| `adset_target_missed` | bid_cost | review / critical | Meta: CPA > 1,3× (review) / 1,6× (critical) so với TRUNG VỊ bid_amount các ad set của chiến dịch, ≥ 5 chuyển đổi, không có target cấp chiến dịch | Rà soát từng ad set trong Ads Manager; giá trị trung vị chỉ là xấp xỉ (bid_amount là trần giá ở bid cap, là mục tiêu chi phí ở cost cap) |
+| `audience_fatigue_risk` | structure | review | Meta: tần suất 7 ngày ≥ 4,0 kèm CTR < 1%, hoặc ≥ 6,0 bất kể CTR; ≥ 1.000 hiển thị | Checklist làm mới creative / mở rộng đối tượng — công cụ không thấy dữ liệu từng mẫu quảng cáo |
 | `account_fragmentation` | structure | opportunity | Cấp tài khoản: ≥ 4 chiến dịch đang chạy đều dưới 15 chuyển đổi/7 ngày | Gộp các chiến dịch cùng mục tiêu theo từng cụm nhỏ |
 | `account_budget_reallocation` | scale | opportunity | Cấp tài khoản: > 40% tổng chi dồn vào chiến dịch không đạt mục tiêu (CPA > 1,5× mục tiêu hoặc ROAS < mục tiêu) | Tái phân bổ dần ≤ 20%/bước sang chiến dịch đạt mục tiêu |
 
@@ -39,9 +42,11 @@ Quy tắc theo mục tiêu chỉ chạy khi tổ chức đã đặt mục tiêu 
 
 Dữ liệu đầu vào của playbook là số liệu tổng hợp cấp chiến dịch trong 7 ngày: chi tiêu, lượt nhấp, hiển thị, CTR, chuyển đổi, doanh thu, CPA, ROAS — **cộng cấu hình đấu thầu cấp chiến dịch** mà adapter đọc về: loại chiến lược giá thầu, target tCPA/tROAS thật trên nền tảng, và ngân sách (Google: campaign budget theo ngày; Meta: ngân sách ngày/trọn đời cấp chiến dịch). Nhờ vậy các quy tắc `platform_target_*` so được hiệu quả thực tế với chính con số nhà quảng cáo đã khai với nền tảng, kể cả khi tổ chức chưa đặt mục tiêu trong phần mềm.
 
+Từ sprint 20, adapter còn đọc: tỉ lệ mất hiển thị vì ngân sách của Google (`search_budget_lost_impression_share` — chỉ số của mạng Search; hành vi với chiến dịch ngoài Search chưa kiểm chứng trên tài khoản thật), bid_amount các ad set của Meta (chỉ dùng dạng TRUNG VỊ làm xấp xỉ trong `adset_target_missed`), và tần suất/reach của Meta từ insights. Xem bản đồ đầy đủ ở `docs/research/bid-surfaces-note.md`.
+
 Công cụ **vẫn không** có:
 
-- Giá thầu/target ở **cấp nhóm quảng cáo (ad set)** trên Meta (nơi cost per result goal thực tế được đặt) và trạng thái "bị giới hạn bởi ngân sách" của Google;
+- Target chi tiết **từng ad set** trên Meta để kết luận cho một ad set cụ thể (chỉ có trung vị cấp chiến dịch) và trạng thái "bị giới hạn bởi ngân sách" dạng nhãn của Google (chỉ có chỉ số mất hiển thị làm proxy); ngân sách dùng chung (shared budget) và chiến lược danh mục (portfolio) khiến target/ngân sách cấp chiến dịch có thể không phải con số vận hành thật;
 
 - Cụm từ tìm kiếm (search terms) và truy vấn thực tế của người dùng;
 - Dữ liệu cấp quảng cáo: từng mẫu quảng cáo/creative nào đang chạy, tần suất, độ mệt của creative;

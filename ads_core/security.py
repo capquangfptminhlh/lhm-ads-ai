@@ -126,3 +126,13 @@ MFA_MAX_ATTEMPTS = 5
 
 def mfa_scope(user_id, action):
     return f'mfa-{action}:user:{user_id}'
+
+# First-run setup (desktop onboarding) verifies the one-time setup token
+# before any user exists, so the scope is keyed by client IP instead of a
+# user id. Same generosity as license activation: the token is pasted from
+# the launcher URL fragment, so a human may need a couple of tries; ten
+# misses in 15 minutes is still useless against a 288-bit token.
+FIRST_RUN_MAX_ATTEMPTS = 10
+
+def first_run_scope(ip):
+    return f'first-run:ip:{ip}'

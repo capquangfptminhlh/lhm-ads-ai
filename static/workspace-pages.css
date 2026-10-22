@@ -30,6 +30,7 @@
 .ai-consent{display:flex!important;gap:10px;align-items:flex-start;line-height:1.5}
 .ai-consent input{width:auto!important;margin:3px 0 0!important;flex:none}
 #opt-account{min-width:230px}
+.bid-line{color:#8893a8;white-space:normal}
 #page-license label{display:block;margin:12px 0}
 #page-license textarea{width:100%}
 #page-license label>input[type="checkbox"]{width:auto;margin-right:8px}
