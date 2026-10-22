@@ -104,3 +104,12 @@ def test_gate_rejects_missing_public_fingerprint(kit):
     manifest.write_text(json.dumps(data))
     with pytest.raises(gate.ReleaseGateError,match='fingerprint'):
         gate.verify_candidate(exe,checksum,manifest,pubfile)
+
+def test_candidate_inspection_never_claims_sale_approved(kit,capsys):
+    exe,checksum,manifest,pubfile,acceptance=kit
+    from tools import release_gate as gate
+    assert gate.main(['inspect-candidate','--exe',str(exe),'--checksum',
+        str(checksum),'--manifest',str(manifest),'--vendor-public',str(pubfile)])==0
+    output=capsys.readouterr().out
+    assert 'PASS: unsigned Commercial Candidate verified' in output
+    assert 'NOT_APPROVED_FOR_SALE' in output
