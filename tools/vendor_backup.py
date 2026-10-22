@@ -15,6 +15,7 @@ import io
 import json
 import os
 from pathlib import Path
+import sys
 import secrets
 import shutil
 import sqlite3
@@ -25,6 +26,9 @@ import zipfile
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
+# Support running the vendor-only CLI directly from a checked-out repository.
+if __package__ in (None, ''):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools import vendor_ledger as ledger
 
 MAGIC = b'LHMVENDORVAULT1\x00'
@@ -217,7 +221,7 @@ def restore_vault(vault: Path, password: str, target: Path,
             info = json.loads(index_data)
         except (UnicodeError, ValueError) as exc:
             raise VendorVaultError('Chỉ mục sao lưu không hợp lệ') from exc
-        if info.get('format') != 'lhm-vendor-backup-v1':
+        if not isinstance(info, dict) or info.get('format') != 'lhm-vendor-backup-v1':
             raise VendorVaultError('Không đúng định dạng LHM vendor vault')
         if hashlib.sha256(public).hexdigest() != info.get('vendor_public_sha256'):
             raise VendorVaultError('Khóa công khai không thuộc bộ khóa của bên bán')
