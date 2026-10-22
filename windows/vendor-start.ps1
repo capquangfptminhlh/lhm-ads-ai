@@ -19,6 +19,7 @@ $homeDir=Join-Path $env:LOCALAPPDATA 'LHMAdsAI-Vendor'
 $keyDir=Join-Path $homeDir 'keys'
 $private=Join-Path $keyDir 'vendor-private-key.pem'
 $public=Join-Path $keyDir 'vendor-public.b64'
+$script:GeneratedNewKey=$false
 
 function Assert-Exit([string]$step) {
   if ($LASTEXITCODE -ne 0) { throw "$step failed (exit $LASTEXITCODE)" }
@@ -45,6 +46,7 @@ function Ensure-Keys {
     Write-Host "Creating encrypted vendor signing key ONLY on this PC in: $keyDir"
     & python (Join-Path $root 'tools/license_issuer.py') keygen --private $private --public $public
     Assert-Exit 'Vendor key generation'
+    $script:GeneratedNewKey=$true
   } else {
     Write-Host 'Reusing your existing private issuer key; no key rotation.'
   }
@@ -77,11 +79,21 @@ function Setup-Vendor {
   Python-Ready
   Ensure-Keys -CreateIfMissing
   GitHub-Ready
-  $publicText=(Get-Content -LiteralPath $public -Raw -Encoding Ascii).Trim()
-  # PUBLIC ONLY: no vendor private key or passphrase is ever uploaded.
-  & gh secret set LHM_COMMERCIAL_PUBLIC_KEY_B64 --repo $Repo --body $publicText
-  Assert-Exit 'Saving PUBLIC repo secret'
-  Write-Host 'PASS: Only vendor PUBLIC key was installed into GitHub Actions.'
+  $names=@(& gh secret list --repo $Repo --json name | ConvertFrom-Json)
+  Assert-Exit 'Read repository secret names (not values)'
+  $configured=@($names | Where-Object { $_.name -eq 'LHM_COMMERCIAL_PUBLIC_KEY_B64' }).Count -gt 0
+  if ($configured) {
+    if ($script:GeneratedNewKey) {
+      throw 'Repository already has a license issuer public key! Restore the ORIGINAL vendor private key; never overwrite it with a new key.'
+    }
+    Write-Host 'Public key secret already exists. Keeping it unchanged; candidate verification will check whether it matches the local key.'
+  } else {
+    $publicText=(Get-Content -LiteralPath $public -Raw -Encoding Ascii).Trim()
+    # PUBLIC ONLY: no vendor private key or passphrase is ever uploaded.
+    & gh secret set LHM_COMMERCIAL_PUBLIC_KEY_B64 --repo $Repo --body $publicText
+    Assert-Exit 'Saving PUBLIC repo secret'
+    Write-Host 'PASS: Saved only PUBLIC key into GitHub Actions.'
+  }
 }
 function Build-Commercial {
   Python-Ready
