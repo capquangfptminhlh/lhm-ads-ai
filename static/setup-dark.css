@@ -1,0 +1,102 @@
+/* The Windows FIRST RUN is part of the same LHM Ads AI product as
+   /studio. Dark FinPoint skin with orange accents; no remote fonts/assets.
+   setup.css stays below this file so form layout and validation stay stable. */
+:root{
+  color-scheme:dark;
+  --setup-bg:#0b0c0e;
+  --setup-surface:#17181c;
+  --setup-surface-raised:#212329;
+  --setup-border:#34363e;
+  --setup-fg:#f4f4f2;
+  --setup-muted:#b3b5bf;
+  --setup-accent:#ff6843;
+  --setup-focus:#ffa47f;
+  color:var(--setup-fg);
+  background:var(--setup-bg);
+}
+body{background:radial-gradient(ellipse at 75% -10%,#362019 0%,transparent 38%),var(--setup-bg);color:var(--setup-fg)}
+.app-frame{background:#101115;border:1px solid #2f3036;border-radius:22px;max-width:1600px;
+  box-shadow:0 25px 80px #0008}
+.sidebar{background:linear-gradient(165deg,#141518,#101114 75%);border-right:1px solid #303138}
+.brand-mark{color:var(--setup-accent)}
+.sidebar h1 em{color:#ff9774}
+.eyebrow.light{color:#ff9875}
+.sidebar-desc,.sidebar-foot,.step small{color:var(--setup-muted)}
+.step{border-color:#303138;color:#c8cad1}
+.step.current{border-color:#815340;background:#33251f;color:#fff}
+.step>span{background:#31333a;color:#d9dbe3}
+.step.current>span{background:#ff6843}
+.step i{color:#ff9b76}
+.pulse,.dot{background:#61dfa4;box-shadow:0 0 0 4px #61dfa41e}
+.topbar{background:#111215;border-color:#2f3138}
+.crumb,.crumb span{color:#a5a8b3}
+.crumb b{color:#f6f5f4}
+.topnote{color:#ffb28e}
+.topnote span{color:var(--setup-accent)}
+.workspace{max-width:1240px}
+.intro .mini-tag{background:#33241e;border-color:#75503e;color:#ffbc9e}
+.intro h2{color:#fbf9f6;letter-spacing:-1.45px}
+.intro h2 span{color:#ff946e}
+.intro>p{color:#b7b9c3;line-height:1.7;max-width:780px}
+.setup-card,.aside-card{border-color:var(--setup-border);box-shadow:0 12px 42px #0003}
+.setup-card{background:var(--setup-surface);color:var(--setup-fg)}
+.card-icon{background:#483126;color:#ffab87}
+.card-heading>span{color:#ffb18a}
+.card-heading h3{color:#faf9f7}
+.progress{background:#35251f;color:#ffb28e}
+.setup-card label{color:#e5e3e4}
+.field{background:#23252b;border-color:#4b4d57}
+.field:focus-within{border-color:var(--setup-focus);box-shadow:0 0 0 3px #fd684024}
+.field-icon{color:#ffac88}
+.field input{color:#fff;font-size:14px}
+.field input::placeholder{color:#a2a6b3;opacity:1}
+.toggle{color:#ffbd9d}
+.toggle:hover{color:#fff}
+.strength{background:#38393f}
+.field-hint{color:#b2b5be;line-height:1.5}
+#form-error{color:#ffac9c}
+.primary{background:var(--setup-accent);box-shadow:0 8px 24px #ff502c27;
+  min-height:50px;color:#fff}
+.primary:hover{background:#ff7e58}
+.primary:focus-visible,.toggle:focus-visible,.field input:focus-visible{
+  outline:2px solid var(--setup-focus);outline-offset:3px}
+.form-foot{color:#b4b7c0;line-height:1.55}
+.form-foot span{color:#ffab85}
+.aside-card{background:linear-gradient(140deg,#202126 0%,#1a1b1e 80%,#2c201c 100%);
+  display:flex;flex-direction:column}
+.preview-head{color:#ffad88;line-height:1.5}
+.preview-glow{color:#ff8f61}
+.preview-window{background:#15161a;border-color:#3a3b43;box-shadow:0 15px 30px #0006}
+.preview-top{color:#babcc7}
+.mini-logo{color:#ff9975}
+.preview-user{background:linear-gradient(135deg,#ff9468,#e94e30)}
+.preview-title{color:#f9f7f6}
+.preview-kpis>div{background:#24262b;border-color:#3a3c43}
+.preview-kpis span{background:#5d3b2f}
+.preview-kpis div:nth-child(2) span{background:#295241}
+.preview-kpis div:nth-child(3) span{background:#29445b}
+.preview-kpis b{color:#fff}
+.preview-kpis small{color:#b5b8c2}
+.preview-chart{background:#23252a;border-color:#383b42}
+.grid-lines{background:repeating-linear-gradient(to bottom,transparent 0,transparent 19px,#ffffff16 20px)}
+.preview-chart svg path[fill="#f7d9c7"]{fill:#ff7e4e}
+.aside-card h4{color:#f6f5f3}
+.aside-card>p{color:#c2c4ce}
+.benefits span{background:#2d2927;border-color:#664438;color:#ffc3a5}
+.workspace footer{color:#aeb0ba;line-height:1.5}
+::selection{background:#ff76596b;color:white}
+@media(max-width:1100px){
+  .app-frame{border:0;border-radius:0}
+  .sidebar{border-right:1px solid #303138}
+}
+@media(max-width:660px){
+  .sidebar{border:0;border-bottom:1px solid #303138}
+  .topbar{border-bottom-color:#303138}
+  .setup-card{padding:22px 18px}
+  .intro h2{font-size:clamp(30px,8vw,40px)}
+  .field input{font-size:16px}
+}
+@media(prefers-reduced-motion:reduce){
+  .setup-card{animation:none!important}
+  .primary,.field,.toggle{transition:none!important}
+}

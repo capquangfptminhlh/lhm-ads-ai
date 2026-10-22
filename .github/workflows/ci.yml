@@ -38,6 +38,8 @@ jobs:
           done
       - name: Test provider selection with real Chromium and capture screenshots
         run: python tools/ui-smoke.py
+      - name: Test actual first-run setup on desktop/mobile and redirect to Studio
+        run: python tools/setup_ui_smoke.py
       - name: Upload UI screenshots
         if: success()
         uses: actions/upload-artifact@v4
