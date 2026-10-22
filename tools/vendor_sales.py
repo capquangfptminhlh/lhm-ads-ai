@@ -97,6 +97,11 @@ def issue_paid_license(*, customer_ref: str, receipt_ref: str,
         device = row['device']
         exists = db.execute('SELECT COUNT(*) AS n FROM licenses WHERE customer_ref=?',
                             (customer_ref,)).fetchone()['n']
+        previous_receipt = db.execute("""SELECT license_id FROM licenses
+                WHERE receipt_ref=? AND payment_status='confirmed' LIMIT 1""",
+                (receipt_ref,)).fetchone()
+        if previous_receipt:
+            raise ValueError('Mã biên nhận đã được dùng cấp license trước; từ chối thu trùng')
         if exists and renewal_source is None:
             renewal_source = find_renewal_source(db, customer_ref, Path(license_directory))
         if renewal_source is not None and not exists:
@@ -107,6 +112,12 @@ def issue_paid_license(*, customer_ref: str, receipt_ref: str,
             del sig_hash
             if prior['device'] != device or prior['product'] != PRODUCT:
                 raise ValueError('License gia hạn sai thiết bị hoặc sai sản phẩm')
+            if exists:
+                newest = db.execute("""SELECT license_id FROM licenses WHERE customer_ref=?
+                    ORDER BY expires_at DESC,recorded_at DESC,license_id DESC LIMIT 1""",
+                    (customer_ref,)).fetchone()
+                if not newest or prior['license_id'] != newest['license_id']:
+                    raise ValueError('Phải gia hạn trên license MỚI NHẤT đã ghi sổ')
             base = max(now, prior['expires_at'])
         # Consistent with license_issuer.py, with a strict 30-day term.
         if base + 30 * 86400 > now + 370 * 86400:
