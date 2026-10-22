@@ -120,7 +120,8 @@
         const accounts = document.querySelector('.nav-link[data-page="accounts"]');
         if (accounts) accounts.click();
         window.setTimeout(() => {
-          const search = $('global-account-search');
+          const mobile = window.matchMedia('(max-width: 650px)').matches;
+          const search = mobile ? $('account-list-search') : $('global-account-search');
           search?.focus();search?.select();
         }, 60);
       }
