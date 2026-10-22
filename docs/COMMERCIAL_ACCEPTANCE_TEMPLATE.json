@@ -1,0 +1,42 @@
+{
+  "product": "LHM Ads AI",
+  "source_commit": "REPLACE_WITH_40_CHARACTER_SHA_FROM_CANDIDATE_MANIFEST",
+  "product_version": "REPLACE_WITH_CANDIDATE_PRODUCT_VERSION",
+  "owner_approved": false,
+  "approved_by": "",
+  "approved_at_utc": "",
+  "checks": {
+    "windows_clean_install": {
+      "passed": false,
+      "evidence_ref": ""
+    },
+    "windows_restart_and_sleep": {
+      "passed": false,
+      "evidence_ref": ""
+    },
+    "backup_restore_verified": {
+      "passed": false,
+      "evidence_ref": ""
+    },
+    "google_ads_live_read": {
+      "passed": false,
+      "evidence_ref": ""
+    },
+    "meta_ads_live_read": {
+      "passed": false,
+      "evidence_ref": ""
+    },
+    "license_activation_and_renewal": {
+      "passed": false,
+      "evidence_ref": ""
+    },
+    "terms_privacy_and_support": {
+      "passed": false,
+      "evidence_ref": ""
+    },
+    "payment_and_invoicing_ready": {
+      "passed": false,
+      "evidence_ref": ""
+    }
+  }
+}
