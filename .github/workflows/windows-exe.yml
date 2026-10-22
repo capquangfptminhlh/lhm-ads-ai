@@ -14,6 +14,7 @@ on:
       - 'tools/prepare_commercial_build.py'
       - 'tools/release_gate.py'
       - 'tools/package_unsigned_release.py'
+      - 'tools/check_customer_bundle.py'
       - 'windows/vendor-start.ps1'
       - 'windows/package-commercial-release.ps1'
       - 'tools/vendor_ledger.py'
@@ -80,9 +81,12 @@ jobs:
       - name: Build EXE with NO console window
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --name LHM-Ads-AI --icon windows/lhm-ads-ai.ico --paths . --add-data "static;static" --collect-submodules uvicorn --collect-submodules ads_core --collect-all cryptography --collect-all webview --collect-all clr_loader --collect-all pythonnet --hidden-import clr --collect-submodules windows windows/launcher.py
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name LHM-Ads-AI --icon windows/lhm-ads-ai.ico --paths . --add-data "static;static" --collect-submodules uvicorn --collect-submodules ads_core --collect-all cryptography --collect-all webview --collect-all clr_loader --collect-all pythonnet --hidden-import clr --hidden-import windows.desktop_window windows/launcher.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Test-Path dist/LHM-Ads-AI.exe)) { throw 'EXE not generated' }
+      - name: Audit actual packaged customer EXE for vendor-only code
+        shell: pwsh
+        run: python tools/check_customer_bundle.py --exe dist/LHM-Ads-AI.exe
       - name: Launch actual Windows EXE and check onboarding
         shell: pwsh
         run: ./windows/smoke-test.ps1
