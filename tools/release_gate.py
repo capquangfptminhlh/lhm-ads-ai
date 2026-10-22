@@ -103,7 +103,8 @@ def verify_candidate(exe:Path, checksum:Path, manifest:Path, public_file:Path) -
         raise ReleaseGateError('Commercial EXE public key fingerprint does not match vendor key')
     if not exe.is_file() or not 0<exe.stat().st_size<=MAX_EXE or exe.name!='LHM-Ads-AI.exe':
         raise ReleaseGateError('Expected candidate EXE missing or oversized')
-    sha=hashlib.file_digest(exe.open('rb'),'sha256').hexdigest()
+    with exe.open('rb') as fd:
+        sha=hashlib.file_digest(fd,'sha256').hexdigest()
     if sha != info.get('sha256'):
         raise ReleaseGateError('Candidate SHA256 differs from CI manifest')
     lines=Path(checksum).read_text(encoding='ascii').strip().splitlines()
