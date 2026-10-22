@@ -152,6 +152,9 @@ def main(argv=None) -> int:
     sub=parser.add_subparsers(dest='cmd',required=True)
     key=sub.add_parser('fingerprint-from-source',help='Public key hash only, safe in CI')
     key.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1])
+    inspect=sub.add_parser('inspect-candidate',help='Verify exact CI candidate WITHOUT approving distribution')
+    for flag in ('exe','checksum','manifest','vendor-public'):
+        inspect.add_argument('--'+flag,required=True,type=Path)
     check=sub.add_parser('verify-candidate',help='Verify unsigned candidate, owner public key and acceptance')
     check.add_argument('--exe',type=Path,required=True)
     check.add_argument('--checksum',type=Path,required=True)
@@ -162,6 +165,12 @@ def main(argv=None) -> int:
     try:
         if args.cmd=='fingerprint-from-source':
             print(fingerprint_from_source(args.root))
+        elif args.cmd=='inspect-candidate':
+            info=verify_candidate(args.exe,args.checksum,args.manifest,args.vendor_public)
+            print('PASS: unsigned Commercial Candidate verified for '+info['source_commit'])
+            print('Version: '+info['product_version'])
+            print('Vendor public key SHA256: '+info['license_public_key_sha256'])
+            print('NOT_APPROVED_FOR_SALE: owner live acceptance/signoff still required')
         else:
             manifest=verify_candidate(args.exe,args.checksum,args.manifest,args.vendor_public)
             verify_approval(args.acceptance,manifest)

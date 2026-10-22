@@ -59,3 +59,7 @@ Khách dán nội dung JSON vào màn hình Kích hoạt. Ghi sổ bằng `tools
 Không có Authenticode: không có tên nhà phát hành được Windows xác minh, SmartScreen có thể cảnh báo và một số môi trường doanh nghiệp có thể chặn chạy EXE. Ed25519 ký manifest giúp kiểm chứng file từ đúng bên giữ private key **khi** khách tin cậy public key qua kênh độc lập, không thay thế chữ ký code-signing. Không cam kết sẽ vượt SmartScreen, Defender, Antivirus hay chính sách doanh nghiệp.
 
 Không có tài khoản test và quyền Google/Meta thật, bộ phát hành vẫn dừng ở bước nghiệm thu. Không giả tạo bằng chứng test hay chuyển `NOT_RUN` thành `PASS`.
+
+## Tự động thiết lập & build lần đầu
+
+Cách ít thao tác hơn: chạy `windows/vendor-start.ps1` trên **chính máy của bên bán**. Script tạo khóa riêng mã hóa ngay trên máy đó, chỉ gửi public key lên GitHub, chạy workflow `commercial=true`, tải artifact và kiểm tra tính nhất quán. Xem [VENDOR_ONE_CLICK.md](VENDOR_ONE_CLICK.md). Không chạy trên VPS hoặc CI; không chia sẻ private PEM/mật khẩu.
