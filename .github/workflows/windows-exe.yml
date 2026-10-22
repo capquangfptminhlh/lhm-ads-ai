@@ -13,6 +13,8 @@ on:
       - 'requirements.txt'
       - 'tools/prepare_commercial_build.py'
       - 'tools/release_gate.py'
+      - 'tools/package_unsigned_release.py'
+      - 'windows/vendor-start.ps1'
       - 'windows/package-commercial-release.ps1'
       - 'tools/vendor_ledger.py'
       - '.github/workflows/windows-exe.yml'
@@ -64,11 +66,14 @@ jobs:
         run: |
           $tokens = $null
           $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-            (Resolve-Path 'windows/package-commercial-release.ps1').Path,
-            [ref]$tokens, [ref]$errors) | Out-Null
-          if ($errors.Count -gt 0) { throw ($errors | Out-String) }
-          Write-Host 'PASS: PowerShell package script parsed'
+          foreach ($file in @('windows/package-commercial-release.ps1', 'windows/vendor-start.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $file).Path, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) { throw ($errors | Out-String) }
+            Write-Host "PASS: parsed $file"
+          }
       - name: Make branded Windows icon
         shell: pwsh
         run: python windows/make_icon.py
@@ -131,12 +136,20 @@ jobs:
             distribution = 'NOT_APPROVED_FOR_SALE'
           }
           $manifest | ConvertTo-Json | Set-Content -Path 'dist/release-manifest.json' -Encoding utf8
-          Set-Content -Path 'dist/README-VERIFY-BEFORE-SALE.txt' -Value @(
-            'LHM Ads AI - INTERNAL TEST BUILD ONLY.'
-            'This EXE is not Authenticode signed in GitHub CI.'
-            'Do not distribute/sell until vendor signs the EXE and verifies the signature on Windows.'
-            'After signing, recompute SHA256; original checksum is for this unsigned candidate only.'
-          ) -Encoding ascii
+          $instructions = @(
+            'LHM Ads AI - INTERNAL CI CANDIDATE ONLY.'
+            'Windows Authenticode is UNSIGNED. SmartScreen/Unknown Publisher warnings may occur.'
+            'Never disable Windows protections to bypass those warnings.'
+          )
+          if ($edition -eq 'commercial-candidate') {
+            $instructions += 'Owner may choose OFFLINE Ed25519 manifest signature instead of Authenticode.'
+            $instructions += 'First verify candidate hash/key, real Ads acceptance and owner approval.'
+            $instructions += 'Then package as COMMERCIAL-UNSIGNED with tools/package_unsigned_release.py.'
+            $instructions += 'This unsigned candidate is NOT YET approved for customer distribution.'
+          } else {
+            $instructions += 'PILOT only: do not rebrand or distribute as paid Commercial.'
+          }
+          Set-Content -Path 'dist/README-VERIFY-BEFORE-SALE.txt' -Value $instructions -Encoding ascii
       - name: Upload tested EXE and checksum
         if: success()
         uses: actions/upload-artifact@v4
