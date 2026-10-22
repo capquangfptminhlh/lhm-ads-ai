@@ -152,3 +152,61 @@
 @media(prefers-reduced-motion:reduce){
  #page-accounts .account-filter button:hover{transform:none}
 }
+
+
+/* Studio UX refinement: narrow screens, touch targets and motion safety.
+   Presentation-only: no API requests, state mutation or fabricated metrics. */
+#shell .main,#shell .content,#shell .view,#shell .dashboard-grid>*{min-width:0}
+#shell .section-heading{align-items:flex-start}
+#shell .section-heading>div:first-child{min-width:0}
+#shell .section-heading h1{overflow-wrap:anywhere}
+#shell .kpi-card{min-width:0;overflow:hidden}
+#shell .kpi-card strong{font-variant-numeric:tabular-nums;line-height:1.2}
+#shell .kpi-sub,#shell .kpi-name{overflow-wrap:anywhere}
+#shell .btn:disabled,#shell .small-btn:disabled{box-shadow:none;filter:none}
+#shell .btn[aria-busy="true"]{cursor:progress;opacity:.78}
+#shell .btn[aria-busy="true"]::after{
+ content:"";display:inline-block;width:12px;height:12px;margin-left:9px;
+ border:2px solid currentColor;border-right-color:transparent;border-radius:50%;
+ vertical-align:-2px;animation:ui-request-spin .75s linear infinite
+}
+@keyframes ui-request-spin{to{transform:rotate(360deg)}}
+#shell :is(.kpi-card,.panel,.fp-v2-card):focus-within{
+ box-shadow:0 0 0 2px #ffa47633
+}
+#shell .ui-mobile-dock button{
+ transition:background-color .18s ease,color .18s ease,transform .18s ease
+}
+#shell .ui-mobile-dock button:active{transform:scale(.96)}
+#shell .ui-mobile-dock button[aria-current="page"] small{font-weight:800}
+@media(max-width:900px){
+ #shell .top-right{min-width:0;gap:8px}
+ #shell .breadcrumbs{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ #shell .ui-mobile-dock{padding-left:max(9px,env(safe-area-inset-left));padding-right:max(9px,env(safe-area-inset-right))}
+ #shell .ui-mobile-dock button{min-height:56px}
+ #shell .dashboard-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:650px){
+ #shell .section-heading{flex-direction:column;align-items:stretch}
+ #shell .section-heading .inline-actions{width:100%}
+ #shell .section-heading .inline-actions>*{min-height:44px}
+ #shell .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ #shell .kpi-card{padding:14px;min-height:146px;gap:9px}
+ #shell .topbar .top-right .user-email{display:none}
+ #shell .panel-title{gap:8px}
+ #shell .panel-title>*{min-width:0}
+ #shell .ui-mobile-dock button>small{font-size:10px}
+ #shell .table-wrap{-webkit-overflow-scrolling:touch}
+}
+@media(max-width:360px){
+ #shell .kpi-grid{grid-template-columns:minmax(0,1fr)}
+ #shell .kpi-card{min-height:116px}
+ #shell .ui-mobile-dock{gap:0;padding-left:4px;padding-right:4px}
+ #shell .ui-mobile-dock button{padding-inline:0}
+ #shell .ui-mobile-dock button>small{font-size:9px}
+}
+@media(prefers-reduced-motion:reduce){
+ #shell .btn[aria-busy="true"]::after{animation:none;border-right-color:currentColor}
+ #shell .ui-mobile-dock button:active{transform:none}
+ #shell .ui-mobile-dock button{transition:none}
+}
