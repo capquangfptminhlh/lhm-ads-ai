@@ -23,7 +23,11 @@
         !shell.classList.contains('hidden') &&
         window.matchMedia('(max-width: 900px)').matches;
       more.setAttribute('aria-expanded', String(isOpen));
-      more.classList.toggle('is-current', isOpen);
+      // Non-dock pages remain visible as the active destination on mobile.
+      const onAdditionalPage = Boolean(selected) && !tabs.some(tab => tab.dataset.uiTab === selected);
+      more.classList.toggle('is-current', isOpen || onAdditionalPage);
+      if (onAdditionalPage && !isOpen) more.setAttribute('aria-current', 'page');
+      else more.removeAttribute('aria-current');
     };
 
     // Reuse the existing, already tested mobile sidebar/backdrop/Escape logic.
