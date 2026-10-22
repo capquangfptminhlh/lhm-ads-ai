@@ -137,3 +137,18 @@
 @media(prefers-reduced-motion:reduce){
  #page-accounts .ui-accounts-search-label{transition:none!important}
 }
+
+/* Provider filters were still using the old light-card palette on dark pages. */
+#page-accounts .account-filter{border-bottom-color:#3b3d44}
+#page-accounts .account-filter button{background:#25272c;color:#d0d2da;border:1px solid #484a52;
+  min-height:43px;box-shadow:none}
+#page-accounts .account-filter button span{background:#393b43;color:#d7d9e0}
+#page-accounts .account-filter button:hover{background:#363239;border-color:#a96f52;
+  color:#fff;transform:translateY(-1px)}
+#page-accounts .account-filter button.is-active{background:#513228;color:#fff;
+  border-color:#ec855d;box-shadow:inset 0 0 0 1px #ff9b7133}
+#page-accounts .account-filter button.is-active span{background:#8a4b37;color:#fff}
+#page-accounts .account-filter button:focus-visible{outline:2px solid #ff9b79;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){
+ #page-accounts .account-filter button:hover{transform:none}
+}
