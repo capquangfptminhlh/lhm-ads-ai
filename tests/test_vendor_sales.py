@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from pathlib import Path
 
 import pytest
@@ -128,3 +130,38 @@ def test_gui_import_does_not_touch_db_or_create_secret(tmp_path,monkeypatch):
     from windows import vendor_manager
     vendor_manager._created_session()
     assert not list(tmp_path.iterdir())
+
+
+def test_concurrent_renewals_of_one_customer_accumulate_full_paid_months(vendor):
+    original=issue(vendor)
+    start=Barrier(2)
+    def renew(receipt):
+        start.wait(timeout=20)
+        return issue(vendor,receipt_ref=receipt,now=vendor['now']+86400)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        a=pool.submit(renew,'TT-KH001-002')
+        b=pool.submit(renew,'TT-KH001-003')
+        renewals=[a.result(timeout=25),b.result(timeout=25)]
+    assert sorted(x['expires_at'] for x in renewals)==[
+        original['expires_at']+30*86400, original['expires_at']+60*86400]
+    with sqlite3.connect(vendor['db_path']) as db:
+        assert db.execute('SELECT COUNT(*) FROM licenses').fetchone()[0]==3
+
+
+def test_concurrent_duplicate_bank_receipt_only_creates_one_license(vendor):
+    start=Barrier(2)
+    def paid(customer):
+        start.wait(timeout=20)
+        return issue(vendor,customer_ref=customer)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures=[pool.submit(paid,'KH001'),pool.submit(paid,'KH002')]
+        successes=[]
+        errors=[]
+        for future in futures:
+            try: successes.append(future.result(timeout=25))
+            except ValueError as exc: errors.append(str(exc))
+    assert len(successes)==1
+    assert len(errors)==1 and 'đã được dùng' in errors[0]
+    with sqlite3.connect(vendor['db_path']) as db:
+        assert db.execute('SELECT COUNT(*) FROM licenses').fetchone()[0]==1
+    assert len(list(vendor['license_directory'].glob('**/*.json')))==1

@@ -90,6 +90,10 @@ def issue_paid_license(*, customer_ref: str, receipt_ref: str,
     key = _unlock(private_file, public_file, passphrase)
     db = vendor_ledger.connect(db_path)
     try:
+        # Serialize issuers BEFORE inspecting the latest license and receipt.
+        # Without a write lock, two seller EXEs can both extend the same old
+        # expiry or spend one receipt twice. SQLite waits up to busy_timeout.
+        db.execute('BEGIN IMMEDIATE')
         row = db.execute('SELECT device FROM customers WHERE customer_ref=?',
                          (customer_ref,)).fetchone()
         if not row:

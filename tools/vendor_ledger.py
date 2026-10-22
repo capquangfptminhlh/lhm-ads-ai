@@ -85,6 +85,21 @@ def connect(path):
             db.execute(f'ALTER TABLE payment_orders ADD COLUMN {column} TEXT')
     if 'invoice_issued_at' not in existing:
         db.execute('ALTER TABLE payment_orders ADD COLUMN invoice_issued_at INTEGER')
+    # Enforce one paid license per bank receipt across ALL customers/processes.
+    # Check old ledgers first: historical duplicates must be investigated by
+    # the seller, never silently removed or reassigned during migration.
+    duplicate=db.execute('''SELECT receipt_ref, COUNT(*) AS n FROM licenses
+        WHERE payment_status='confirmed' AND receipt_ref IS NOT NULL
+        GROUP BY receipt_ref HAVING COUNT(*) > 1 LIMIT 1''').fetchone()
+    if duplicate:
+        db.close()
+        raise ValueError('Sổ bán hàng có mã biên nhận đã dùng nhiều lần: '
+                         + duplicate['receipt_ref']
+                         + '. Kiểm tra sao kê và đối soát thủ công trước khi sử dụng tiếp.')
+    db.execute('''CREATE UNIQUE INDEX IF NOT EXISTS idx_paid_receipt_unique
+        ON licenses(receipt_ref)
+        WHERE payment_status='confirmed' AND receipt_ref IS NOT NULL''')
+    db.commit()
     if os.name!='nt':os.chmod(path,0o600)
     return db
 
@@ -157,20 +172,23 @@ def record(db,customer_ref,license_file,public_file,payment_status='pending',rec
                  payload['issued_at'],payload['expires_at'],signature_hash,payment_status,
                  receipt_ref,int(time.time()) if now is None else now))
     except sqlite3.IntegrityError as exc:
-        raise ValueError('License already recorded; duplicate entries rejected') from exc
+        raise ValueError('License hoặc mã biên nhận đã được ghi nhận; từ chối cấp trùng') from exc
     return {'customer_ref':customer_ref,'license_id':payload['license_id'],
             'expires_at':payload['expires_at'],'payment_status':payment_status}
 
 def confirm_payment(db,license_id,receipt_ref):
     if not REF.fullmatch(receipt_ref):
         raise ValueError('Manual payment receipt reference is required')
-    with db:
-        row=db.execute('SELECT payment_status FROM licenses WHERE license_id=?',(license_id,)).fetchone()
-        if not row:raise ValueError('Unknown license ID')
-        if row['payment_status']!='pending':
-            raise ValueError('Only pending payments can be confirmed')
-        db.execute('UPDATE licenses SET payment_status=?,receipt_ref=? WHERE license_id=?',
-                   ('confirmed',receipt_ref,license_id))
+    try:
+        with db:
+            row=db.execute('SELECT payment_status FROM licenses WHERE license_id=?',(license_id,)).fetchone()
+            if not row:raise ValueError('Unknown license ID')
+            if row['payment_status']!='pending':
+                raise ValueError('Only pending payments can be confirmed')
+            db.execute('UPDATE licenses SET payment_status=?,receipt_ref=? WHERE license_id=?',
+                       ('confirmed',receipt_ref,license_id))
+    except sqlite3.IntegrityError as exc:
+        raise ValueError('Mã biên nhận đã được xác nhận cho license khác; từ chối thu trùng') from exc
     return {'license_id':license_id,'payment_status':'confirmed','receipt_ref':receipt_ref}
 
 def subscriptions(db,within_days=None,now=None):
