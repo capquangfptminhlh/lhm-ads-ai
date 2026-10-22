@@ -31,12 +31,16 @@ function Python-Ready {
   Assert-Exit 'Python cryptography dependency'
 }
 function Ensure-Keys {
+  param([switch]$CreateIfMissing)
   $hasPrivate=Test-Path -LiteralPath $private -PathType Leaf
   $hasPublic=Test-Path -LiteralPath $public -PathType Leaf
   if ($hasPrivate -xor $hasPublic) {
     throw "Incomplete vendor key pair in $keyDir. NEVER silently regenerate keys."
   }
   if (-not $hasPrivate) {
+    if (-not $CreateIfMissing) {
+      throw 'Local vendor key does not exist. Run -Action setup ON THE ORIGINAL seller PC; never silently rotate keys.'
+    }
     New-Item -ItemType Directory -Path $keyDir -Force | Out-Null
     Write-Host "Creating encrypted vendor signing key ONLY on this PC in: $keyDir"
     & python (Join-Path $root 'tools/license_issuer.py') keygen --private $private --public $public
@@ -71,7 +75,7 @@ function GitHub-Ready {
 }
 function Setup-Vendor {
   Python-Ready
-  Ensure-Keys
+  Ensure-Keys -CreateIfMissing
   GitHub-Ready
   $publicText=(Get-Content -LiteralPath $public -Raw -Encoding Ascii).Trim()
   # PUBLIC ONLY: no vendor private key or passphrase is ever uploaded.
@@ -120,7 +124,11 @@ if ($Action -eq 'setup' -or $Action -eq 'setup-and-build') { Setup-Vendor }
 if ($Action -eq 'build' -or $Action -eq 'setup-and-build') { Build-Commercial }
 if ($Action -eq 'status') {
   Python-Ready
-  Ensure-Keys
+  if ((Test-Path -LiteralPath $private) -and (Test-Path -LiteralPath $public)) {
+    Ensure-Keys
+  } else {
+    Write-Host 'Vendor key pair not fully present. No new key will be created by status.'
+  }
   Write-Host "Vendor keys: $keyDir"
   Write-Host "GitHub repository: $Repo"
   Write-Host 'No private key or password has been uploaded.'
