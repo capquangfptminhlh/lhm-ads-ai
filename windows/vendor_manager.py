@@ -49,10 +49,13 @@ class VendorWindow(tk.Tk):
         self.receipt=tk.StringVar()
         self.passphrase=tk.StringVar()
         self.payment_verified=tk.BooleanVar(value=False)
+        self.customer_search=tk.StringVar()
+        self._records=[]
         self.stats=tk.StringVar(value='Chưa tải dữ liệu')
         self.notice=tk.StringVar(value='Chỉ tạo license sau khi đã xác minh tiền vào ngân hàng.')
         self._make_styles()
         self._make_page()
+        self.customer_search.trace_add('write',lambda *_: self._render_customers())
         self.refresh()
         if window_smoke:
             self.after(1100,self.destroy)
@@ -119,6 +122,15 @@ class VendorWindow(tk.Tk):
         self._button(top,'Sao lưu mã hóa',self.backup).pack(side='right')
         self._button(top,'Khôi phục',self.restore_backup).pack(side='right',padx=(0,7))
         self._button(top,'Xuất CSV',self.export_csv).pack(side='right',padx=(0,7))
+        search_row=tk.Frame(left,bg=SURFACE)
+        search_row.pack(fill='x',padx=(18,18),pady=(0,12))
+        tk.Label(search_row,text='⌕',font=('Segoe UI',15),fg=MUTED,
+                 bg=SURFACE).pack(side='left',padx=(0,8))
+        search_box=self._entry(search_row,self.customer_search)
+        search_box.pack(side='left',fill='x',expand=True,ipady=7)
+        search_box.configure(font=('Segoe UI',10))
+        tk.Label(search_row,text='Tìm mã khách hoặc mã máy',font=('Segoe UI',9),
+                 fg=MUTED,bg=SURFACE).pack(side='left',padx=(10,0))
         columns=('customer','device','state','remaining','payment')
         self.tree=ttk.Treeview(left,columns=columns,show='headings',
                                style='Sales.Treeview',selectmode='browse')
@@ -134,6 +146,10 @@ class VendorWindow(tk.Tk):
         scroll.pack(side='right',fill='y',pady=(0,12))
         self.tree.pack(fill='both',expand=True,padx=(14,0),pady=(0,12))
         self.tree.bind('<<TreeviewSelect>>',self.on_select)
+        self.tree.tag_configure('expired',background='#FEE9E8',foreground='#9D2929')
+        self.tree.tag_configure('expiring',background='#FFF3E4',foreground='#985A18')
+        self.tree.tag_configure('active',foreground='#175C44')
+        self.tree.tag_configure('not_activated',foreground='#637088')
 
         right=tk.Frame(body,bg=SURFACE,width=390,highlightbackground=BORDER,
                        highlightthickness=1)
@@ -170,27 +186,42 @@ class VendorWindow(tk.Tk):
     def _db(self):
         return ledger.connect(ledger.default_database())
 
+    def _render_customers(self):
+        """Filter locally without fetching or exposing Ads credentials."""
+        if not hasattr(self,'tree'):
+            return
+        query=self.customer_search.get().strip().casefold()
+        records=[row for row in self._records
+                 if query in row['customer_ref'].casefold()
+                 or query in row['device'].casefold()]
+        self.tree.delete(*self.tree.get_children())
+        # Put urgent renewals first; still preserve all records and full IDs.
+        priority={'expired':0,'expiring':1,'not_activated':2,'active':3}
+        records.sort(key=lambda row:(priority.get(row['state'],4),row['customer_ref']))
+        for record in records:
+            remaining=record['days_remaining']
+            remain_label='Chưa cấp' if remaining is None else f'{remaining} ngày'
+            state={'not_activated':'Chưa cấp',
+                   'expired':'Hết hạn','expiring':'Sắp hết','active':'Đang dùng'}[record['state']]
+            self.tree.insert('',tk.END,iid=record['customer_ref'],
+                             values=(record['customer_ref'],
+                                     record['device'][:10]+'…'+record['device'][-4:],
+                                     state,remain_label,
+                                     record['payment_status'] or '—'),
+                             tags=(record['state'],))
+        active=sum(x['state']=='active' for x in self._records)
+        due=sum(x['state'] in ('expiring','expired') for x in self._records)
+        shown=f'       •       {len(records)} khớp tìm kiếm' if query else ''
+        self.stats.set(f'{len(self._records)} khách hàng       •       {active} đang dùng       •       {due} cần gia hạn'+shown)
+
     def refresh(self):
         try:
             db=self._db()
             try:
-                records=ledger.subscriptions(db)
+                self._records=ledger.subscriptions(db)
             finally:
                 db.close()
-            self.tree.delete(*self.tree.get_children())
-            for record in records:
-                remaining=record['days_remaining']
-                remain_label='Chưa cấp' if remaining is None else f'{remaining} ngày'
-                state={'not_activated':'Chưa cấp',
-                       'expired':'Hết hạn','expiring':'Sắp hết','active':'Đang dùng'}[record['state']]
-                self.tree.insert('',tk.END,iid=record['customer_ref'],
-                                 values=(record['customer_ref'],
-                                         record['device'][:10]+'…'+record['device'][-4:],
-                                         state,remain_label,
-                                         record['payment_status'] or '—'))
-            active=sum(x['state']=='active' for x in records)
-            due=sum(x['state'] in ('expiring','expired') for x in records)
-            self.stats.set(f'{len(records)} khách hàng       •       {active} đang dùng       •       {due} cần gia hạn')
+            self._render_customers()
             self.notice.set('Sổ khách hàng chỉ nằm trên máy bên bán. Không chứa token Google/Meta.')
         except Exception as exc:
             self.notice.set('Không thể đọc sổ: '+str(exc))
