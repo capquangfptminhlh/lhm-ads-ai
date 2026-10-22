@@ -77,11 +77,14 @@ function GitHub-Ready {
 }
 function Setup-Vendor {
   Python-Ready
-  Ensure-Keys -CreateIfMissing
   GitHub-Ready
   $names=@(& gh secret list --repo $Repo --json name | ConvertFrom-Json)
   Assert-Exit 'Read repository secret names (not values)'
   $configured=@($names | Where-Object { $_.name -eq 'LHM_COMMERCIAL_PUBLIC_KEY_B64' }).Count -gt 0
+  if ($configured -and (-not (Test-Path -LiteralPath $private) -or -not (Test-Path -LiteralPath $public))) {
+    throw 'GitHub already has an issuer public key but THIS PC lacks the corresponding private key. Restore original vendor keys; DO NOT generate a replacement.'
+  }
+  Ensure-Keys -CreateIfMissing
   if ($configured) {
     if ($script:GeneratedNewKey) {
       throw 'Repository already has a license issuer public key! Restore the ORIGINAL vendor private key; never overwrite it with a new key.'
