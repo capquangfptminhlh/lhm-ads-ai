@@ -8,7 +8,7 @@
 - Một khách có thể có nhiều license gia hạn. Sổ chỉ hiển thị license có hạn cuối xa nhất; các giao dịch cũ giữ nguyên để kiểm tra.
 - License JSON luôn được **xác minh chữ ký bằng public key của bên bán** trước khi ghi nhận. File giả, sai máy, sai sản phẩm bị từ chối.
 - Trạng thái thanh toán `pending` là mặc định. `confirmed` yêu cầu mã tham chiếu do nhân viên **tự xác minh giao dịch ở bên ngoài**. `trial` dành cho license dùng thử; không tự coi là đã trả tiền.
-- Dữ liệu lưu riêng tại `%LOCALAPPDATA%\LHMAdsAI-Vendor\customers.sqlite3` (Windows), không dùng chung database của khách, không đồng bộ lên GitHub. Sao lưu file khi ứng dụng đã đóng, vào ổ lưu mã hóa; bảo vệ tài khoản Windows.
+- Dữ liệu lưu riêng tại `%LOCALAPPDATA%\LHMAdsAI-Vendor\customers.sqlite3` (Windows), không dùng chung database của khách, không đồng bộ lên GitHub. Vendor GUI đã có sao lưu mã hóa (.lhmvault) gồm sổ và JSON license, khôi phục vào thư mục mới; xem [VENDOR_RECOVERY.md](VENDOR_RECOVERY.md).
 
 ## Cách dùng thực tế
 
@@ -90,3 +90,5 @@ python tools/vendor_ledger.py backup --out C:\\LHMKeys\\customers-backup-2026-10
 ```
 
 Không ghi đè các bản sao lưu cũ. Đường dẫn thư mục đích phải tồn tại. Không dùng tùy chọn `--db` trỏ vào thư mục chia sẻ không an toàn, và không đặt dữ liệu bên bán trong repo.
+
+**Khuyến nghị:** Sử dụng nút **Sao lưu mã hóa** trong phần mềm Vendor thay vì chia sẻ bản `.sqlite3` thuần. Lệnh `vendor_ledger.py backup` vẫn tạo SQLite **không mã hóa** để bảo trì cục bộ và chỉ phù hợp ổ được mã hóa. Private key ký Ed25519 cần sao lưu riêng, không nằm trong `.lhmvault`.
