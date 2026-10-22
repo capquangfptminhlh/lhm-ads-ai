@@ -12,13 +12,14 @@ from pathlib import Path
 import sys
 import time
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox, simpledialog
 
 if not getattr(sys,'frozen',False):
     sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 
 from tools import vendor_ledger as ledger
 from tools import vendor_sales as sales
+from tools import vendor_backup as vault
 
 BG='#F2F5FA'
 SURFACE='#FFFFFF'
@@ -115,7 +116,8 @@ class VendorWindow(tk.Tk):
         top.pack(fill='x',padx=18,pady=(18,13))
         tk.Label(top,text='Khách hàng & hạn bản quyền',
                  font=('Segoe UI Semibold',14),bg=SURFACE,fg=DARK).pack(side='left')
-        self._button(top,'Sao lưu sổ',self.backup).pack(side='right')
+        self._button(top,'Sao lưu mã hóa',self.backup).pack(side='right')
+        self._button(top,'Khôi phục',self.restore_backup).pack(side='right',padx=(0,7))
         self._button(top,'Xuất CSV',self.export_csv).pack(side='right',padx=(0,7))
         columns=('customer','device','state','remaining','payment')
         self.tree=ttk.Treeview(left,columns=columns,show='headings',
@@ -265,21 +267,69 @@ class VendorWindow(tk.Tk):
             messagebox.showerror('Không thể xuất CSV',str(exc),parent=self)
 
     def backup(self):
-        name='lhm-vendor-backup-'+time.strftime('%Y%m%d-%H%M%S')+'.sqlite3'
-        path=filedialog.asksaveasfilename(parent=self,title='Sao lưu sổ LHM',
-             defaultextension='.sqlite3',initialfile=name,
-             filetypes=[('SQLite','*.sqlite3')])
+        """Never export plaintext customer ledger by the seller GUI."""
+        name='lhm-vendor-'+time.strftime('%Y%m%d-%H%M%S')+'.lhmvault'
+        path=filedialog.asksaveasfilename(parent=self,title='Sao lưu MÃ HÓA sổ và toàn bộ license',
+             defaultextension='.lhmvault',initialfile=name,
+             filetypes=[('LHM encrypted seller backup','*.lhmvault')])
         if not path:return
+        password=simpledialog.askstring('Mật khẩu sao lưu',
+             'Nhập mật khẩu MỚI ít nhất 16 ký tự; cất riêng với file backup.',
+             parent=self,show='•')
+        if password is None:return
+        confirm=simpledialog.askstring('Xác nhận mật khẩu sao lưu',
+             'Nhập lại mật khẩu mã hóa .lhmvault:',parent=self,show='•')
+        if confirm is None:return
+        if password != confirm:
+            messagebox.showerror('Sao lưu bị từ chối',
+                'Hai mật khẩu không trùng; chưa tạo bản sao lưu.',parent=self)
+            return
         try:
-            db=self._db()
-            try: ledger.backup_database(db,path)
-            finally: db.close()
-            messagebox.showinfo('Sao lưu thành công',
-              'Sao lưu sổ khách ở:\n'+path+
-              '\n\nCần cất file này trong ổ lưu trữ mã hóa, không gửi GitHub.',
-              parent=self)
+            info=vault.export_vault(
+                db_path=ledger.default_database(),
+                license_dir=sales.vendor_license_dir(),
+                public_file=sales.vendor_keys_dir()/'vendor-public.b64',
+                destination=Path(path),password=password)
+            messagebox.showinfo('Sao lưu mã hóa thành công',
+                'Đã lưu sổ + '+str(info['licenses'])+' license tại:\n'+path+
+                '\n\nKHÔNG bao gồm private key. Phải sao lưu riêng private key đã mã hóa '
+                'và mật khẩu. Cất backup ở ổ riêng, không gửi GitHub.',parent=self)
+            self.notice.set('Sổ và license đã được bảo vệ bằng backup mã hóa.')
         except Exception as exc:
             messagebox.showerror('Không thể sao lưu',str(exc),parent=self)
+
+    def restore_backup(self):
+        """Recover into a NEW directory only; do not mutate live seller data."""
+        source=filedialog.askopenfilename(parent=self,title='Chọn backup mã hóa',
+             filetypes=[('LHM encrypted seller backup','*.lhmvault')])
+        if not source:return
+        parent=filedialog.askdirectory(parent=self,
+             title='Chọn thư mục CHA chứa dữ liệu KHÔI PHỤC (ngoài nơi đang dùng)')
+        if not parent:return
+        directory=Path(parent).expanduser().resolve()
+        live=sales.vendor_keys_dir().parent.resolve()
+        if directory==live or directory.is_relative_to(live):
+            messagebox.showerror('Từ chối ghi đè',
+                'Không khôi phục vào hoặc bên trong thư mục bên bán đang dùng. '
+                'Chọn ổ/thư mục khác để kiểm chứng dữ liệu.',parent=self)
+            return
+        target=directory/('LHMAdsAI-Vendor-RESTORED-'+time.strftime('%Y%m%d-%H%M%S'))
+        password=simpledialog.askstring('Mật khẩu khôi phục',
+             'Nhập mật khẩu của file .lhmvault (không phải mật khẩu login):',
+             parent=self,show='•')
+        if password is None:return
+        try:
+            info=vault.restore_vault(
+                vault=Path(source),password=password,target=target,
+                trusted_public_file=sales.vendor_keys_dir()/'vendor-public.b64')
+            messagebox.showinfo('Khôi phục đã kiểm chứng',
+                'Đã khôi phục '+str(info['licenses'])+' license và sổ tại:\n'+
+                str(target)+'\n\nDỮ LIỆU ĐANG DÙNG CHƯA THAY ĐỔI.\n'
+                'Muốn chuyển máy, cần khôi phục riêng private key GỐC và làm '
+                'theo hướng dẫn hỗ trợ; không tạo khóa mới.',parent=self)
+            self.notice.set('Khôi phục vào thư mục mới, chưa thay đổi sổ hiện tại.')
+        except Exception as exc:
+            messagebox.showerror('Không thể khôi phục',str(exc),parent=self)
 
 
 def main(argv=None):

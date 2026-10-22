@@ -4,19 +4,23 @@ on:
     branches: [main]
     paths:
       - 'tools/vendor_sales.py'
+      - 'tools/vendor_backup.py'
       - 'tools/vendor_ledger.py'
       - 'tools/license_issuer.py'
       - 'windows/vendor_manager.py'
       - 'tests/test_vendor_sales.py'
+      - 'tests/test_vendor_backup.py'
       - '.github/workflows/windows-vendor.yml'
   pull_request:
     branches: [main]
     paths:
       - 'tools/vendor_sales.py'
+      - 'tools/vendor_backup.py'
       - 'tools/vendor_ledger.py'
       - 'tools/license_issuer.py'
       - 'windows/vendor_manager.py'
       - 'tests/test_vendor_sales.py'
+      - 'tests/test_vendor_backup.py'
       - '.github/workflows/windows-vendor.yml'
   workflow_dispatch:
 permissions:
@@ -40,7 +44,7 @@ jobs:
           python -m pip install "cryptography>=43,<48" pytest pyinstaller pillow
       - name: Verify paid-only signing and renewal rules
         shell: pwsh
-        run: python -m pytest tests/test_vendor_sales.py -q
+        run: python -m pytest tests/test_vendor_sales.py tests/test_vendor_backup.py -q
       - name: Build SEPARATE vendor EXE (never place in customer artifact)
         shell: pwsh
         run: |
