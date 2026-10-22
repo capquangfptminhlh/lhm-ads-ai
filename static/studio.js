@@ -25,6 +25,7 @@ function resetDashboard(reason=''){
   $('platform-stats').replaceChildren();
   $('dashboard-data-status').textContent=reason||'Đang tải…';
   $('source-warning').classList.add('hidden');
+  $('dashboard-onboarding')?.classList.add('hidden');
   $('dashboard-currency-wrap').classList.add('hidden');
   document.dispatchEvent(new Event('lhm:dashboard-reset'));
 }
@@ -71,6 +72,12 @@ async function loadDashboard(){
     const t=s.totals;
     cache=accounts;
     latestDashboardSummary=s;
+    // First-run guidance is based on registered, connected provider accounts.
+    // A demo account never masquerades as a real Google/Meta connection.
+    const liveAccounts=accounts.filter(a=>
+      ['google','meta'].includes(a.platform)&&a.connected&&
+      !String(a.label||'').startsWith('[REVOKED]'));
+    $('dashboard-onboarding')?.classList.toggle('hidden',liveAccounts.length>0);
     $('k-spend').textContent=t.spend!==null?fmt(t.spend)+' '+t.currency:
       Object.keys(t.by_currency||{}).length>1?'Đa tiền tệ':'—';
     $('k-currency').textContent=t.currency?'Đơn vị '+t.currency:
