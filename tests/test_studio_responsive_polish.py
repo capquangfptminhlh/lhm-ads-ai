@@ -24,3 +24,11 @@ def test_no_visual_change_introduces_fake_report_data_or_api():
     new_section = CSS.split("/* Studio UX refinement:")[1]
     for forbidden in ("https://", "fetch(", "Math.random(", "localStorage"):
         assert forbidden not in new_section
+
+
+def test_secondary_page_active_state_is_visible_on_mobile():
+    script = (Path(__file__).resolve().parents[1] / "static" / "ui-polish.js").read_text(encoding="utf-8")
+    assert "const onAdditionalPage = Boolean(selected)" in script
+    assert "isOpen || onAdditionalPage" in script
+    assert "more.setAttribute('aria-current', 'page')" in script
+    assert "more.removeAttribute('aria-current')" in script
