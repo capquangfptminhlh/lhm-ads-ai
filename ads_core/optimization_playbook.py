@@ -56,6 +56,14 @@ DRIFT_ROAS_CRITICAL_RATIO = 0.65
 ACCOUNT_FRAGMENT_MIN_CAMPAIGNS = 4     # từ ngần này chiến dịch phân mảnh trở lên mới báo
 ACCOUNT_FRAGMENT_MAX_CONVERSIONS = SMART_BIDDING_MIN_CONVERSIONS_7D
 ACCOUNT_INEFFICIENT_SPEND_SHARE = 0.40  # >40% chi tiêu vào chiến dịch kém = cần tái phân bổ
+# Nhóm quy tắc đọc target THẬT trên nền tảng (bid_target_cpa/bid_target_roas
+# do adapter lấy về) — khác với mục tiêu nội bộ của tổ chức ở các quy tắc trên.
+PLATFORM_TARGET_REVIEW_RATIO = 1.3     # CPA > 1,3x target nền tảng -> review
+PLATFORM_TARGET_CRITICAL_RATIO = 1.6   # CPA > 1,6x target nền tảng -> critical
+PLATFORM_HEADROOM_CPA_RATIO = 0.8      # CPA < 0,8x target nền tảng -> dư địa
+PLATFORM_HEADROOM_ROAS_RATIO = 1.25    # ROAS > 1,25x target nền tảng -> dư địa
+MANUAL_BIDDING_MIN_CONVERSIONS = 30    # >=30 chuyển đổi/7 ngày trên bid tay = đủ dữ liệu thử Smart Bidding
+GOOGLE_MANUAL_STRATEGIES = ('MANUAL_CPC', 'MANUAL_CPM', 'MANUAL_CPV')
 ACCOUNT_INEFFICIENT_CPA_RATIO = CPA_CRITICAL_RATIO
 OUTCOME_NOISE_BAND = 0.05              # biến động trong ±5% coi là nhiễu
 OUTCOME_MIN_CONVERSIONS = 5            # kiểm chứng CPA/ROAS cần >=5 chuyển đổi ở cả hai kỳ
@@ -66,7 +74,8 @@ APPROVAL_NOTE = ('Mọi thay đổi phải do người phụ trách duyệt tron
                  'hệ thống chỉ tư vấn, không tự sửa quảng cáo và không hứa kết quả.')
 
 # Mã quy tắc thuộc nhóm "mở rộng" (scale-up). Conflict guard dùng danh sách này.
-SCALE_CODES = ('cpa_well_below_target_scale', 'roas_above_target_scale')
+SCALE_CODES = ('cpa_well_below_target_scale', 'roas_above_target_scale',
+               'platform_target_headroom')
 
 # Nhóm finding "cắt/giảm" chặn mở rộng khi ở mức review: hiệu quả vượt mục
 # tiêu, lệch khỏi nền, hoặc chi tiền mà không ghi nhận chuyển đổi. Các cảnh
@@ -74,7 +83,8 @@ SCALE_CODES = ('cpa_well_below_target_scale', 'roas_above_target_scale')
 # chặn mở rộng — chúng không mâu thuẫn với việc mua thêm chuyển đổi. Mọi
 # finding mức critical ở bất kỳ mã nào cũng chặn.
 CUT_CODES = ('cpa_above_target', 'roas_below_target', 'cpa_drift_vs_baseline',
-             'roas_drift_vs_baseline', 'spend_no_conversions', 'high_ctr_no_conversions')
+             'roas_drift_vs_baseline', 'spend_no_conversions', 'high_ctr_no_conversions',
+             'platform_target_missed')
 
 
 # ---------------------------------------------------------------------------
@@ -460,6 +470,154 @@ def _cond_roas_drift_vs_baseline(c, t, ctx):
     }
 
 
+def _cond_platform_target_missed(c, t, ctx):
+    """CPA/ROAS thực tế lệch xa TARGET THẬT đặt trên nền tảng (adapter đọc về).
+
+    Khác cpa_above_target/roas_below_target (so với mục tiêu nội bộ của tổ
+    chức): quy tắc này chạy ngay cả khi tổ chức chưa đặt mục tiêu trong phần
+    mềm, vì nó so với con số nhà quảng cáo đã khai với Google/Meta.
+    """
+    conversions = _num(c.get('conversions'))
+    if conversions is None or conversions < CPA_MIN_CONVERSIONS:
+        return None
+    target_cpa = _num(c.get('bid_target_cpa'))
+    cpa = _num(c.get('cpa'))
+    if target_cpa and cpa and cpa > target_cpa * PLATFORM_TARGET_REVIEW_RATIO:
+        level = 'critical' if cpa > target_cpa * PLATFORM_TARGET_CRITICAL_RATIO else 'review'
+        over = _pct_delta(cpa, target_cpa)
+        actions = [
+            'Đối chiếu target trên nền tảng với CPA thực tế 30 ngày: nếu target thấp hơn nhiều so với thực tế bền vững, nới target từng bước tối đa 20% về gần thực tế thay vì để hệ thống "đuổi" một con số không tưởng.',
+            'Kiểm chứng tracking và độ trễ chuyển đổi trước khi kết luận (loại trừ cảnh báo tracking nếu đang mở).',
+            'Dồn ngân sách về các chiến dịch đang bám sát target trong cùng tài khoản trong lúc hiệu chỉnh.',
+        ]
+        if ctx['platform'] == 'google':
+            actions.append('Lưu ý thay đổi Google từ 17/8/2026: chiến dịch tCPA/tROAS bị giới hạn ngân sách được đặt giá hướng về đúng target — kiểm tra cả trạng thái giới hạn ngân sách trước khi chỉnh target.')
+        return {
+            'level': level,
+            'message': (f"CPA thực tế {_money(cpa, ctx['currency'])} cao hơn target tCPA {_money(target_cpa, ctx['currency'])} "
+                        f"đang đặt trên nền tảng khoảng {over}% (dựa trên {int(conversions)} chuyển đổi trong 7 ngày)."),
+            'why': ('Target trên nền tảng là con số hệ thống đấu thầu dùng trực tiếp. Khi CPA thực tế cao hơn target '
+                    'kéo dài, hoặc target đang phi thực tế, hoặc lưu lượng đang đắt hơn mức hệ thống được phép mua — '
+                    'cả hai đều cần hiệu chỉnh theo bước nhỏ, không cắt mạnh.'),
+            'actions': actions,
+            'guardrails': [
+                f'Không chỉnh target quá {MAX_STEP_PERCENT}% trong một lần; chờ ít nhất 7 ngày sau mỗi bước.',
+                'Không kết luận từ một kỳ duy nhất nếu chiến dịch vừa đổi cấu trúc/ngân sách (pha học).',
+            ],
+        }
+    target_roas = _num(c.get('bid_target_roas'))
+    roas = _num(c.get('roas'))
+    if target_roas and roas is not None and roas < target_roas / PLATFORM_TARGET_REVIEW_RATIO:
+        level = 'critical' if roas < target_roas / PLATFORM_TARGET_CRITICAL_RATIO else 'review'
+        under = abs(_pct_delta(roas, target_roas))
+        return {
+            'level': level,
+            'message': (f"ROAS thực tế {_ratio(roas)} thấp hơn target tROAS {_ratio(target_roas)} "
+                        f"đang đặt trên nền tảng khoảng {under}% (dựa trên {int(conversions)} chuyển đổi trong 7 ngày)."),
+            'why': ('Đấu thầu theo giá trị chỉ đúng khi doanh thu ghi nhận đầy đủ. ROAS dưới target kéo dài thường do '
+                    'một trong ba: giá trị chuyển đổi ghi thiếu/sai, target cao hơn thực tế thị trường, hoặc lưu lượng '
+                    'kém chất lượng — phải loại trừ ghi nhận doanh thu trước.'),
+            'actions': [
+                'Kiểm chứng ghi nhận doanh thu: giá trị đơn hàng thật, trừ hoàn/hủy, không trùng lặp sự kiện.',
+                'Nếu ghi nhận đúng mà ROAS vẫn dưới target qua nhiều kỳ: hạ target tROAS từng bước tối đa 20% về gần thực tế, hoặc dồn ngân sách sang chiến dịch đạt target.',
+                'Rà soát phân bổ theo sản phẩm/nhóm quảng cáo trong trình quản lý quảng cáo (lớp dữ liệu công cụ này không nhìn thấy).',
+            ],
+            'guardrails': [
+                f'Không chỉnh target quá {MAX_STEP_PERCENT}% trong một lần; chờ ít nhất 7 ngày sau mỗi bước.',
+                'Không hạ target chỉ vì một kỳ xấu khi lượng chuyển đổi còn ít.',
+            ],
+        }
+    return None
+
+
+def _cond_platform_target_headroom(c, t, ctx):
+    conversions = _num(c.get('conversions'))
+    if conversions is None or conversions < SCALE_MIN_CONVERSIONS:
+        return None
+    target_cpa = _num(c.get('bid_target_cpa'))
+    cpa = _num(c.get('cpa'))
+    if target_cpa and cpa and cpa < target_cpa * PLATFORM_HEADROOM_CPA_RATIO:
+        under = abs(_pct_delta(cpa, target_cpa))
+        return {
+            'level': 'opportunity',
+            'message': (f"CPA thực tế {_money(cpa, ctx['currency'])} thấp hơn target tCPA {_money(target_cpa, ctx['currency'])} "
+                        f"khoảng {under}% với {int(conversions)} chuyển đổi trong 7 ngày: có dư địa mua thêm chuyển đổi."),
+            'why': ('Hiệu quả đang tốt hơn target nền tảng với lượng chuyển đổi đủ tin cậy. Nới dần target hoặc '
+                    'ngân sách theo bước nhỏ giúp mua thêm chuyển đổi trong khi CPA còn dư địa an toàn.'),
+            'actions': [
+                f"Tăng ngân sách ngày HOẶC nới target từng bước tối đa {MAX_STEP_PERCENT}% — chỉ một biến mỗi lần.",
+                'Theo dõi CPA 3–7 ngày sau mỗi bước; dừng khi CPA tiệm cận target.',
+            ],
+            'guardrails': [
+                'Cơ hội không phải cam kết: mở rộng lưu lượng thường làm CPA tăng dần.',
+                'Bị chặn tự động nếu chiến dịch đang có cảnh báo cắt/giảm (conflict guard).',
+            ],
+        }
+    target_roas = _num(c.get('bid_target_roas'))
+    roas = _num(c.get('roas'))
+    if target_roas and roas is not None and roas > target_roas * PLATFORM_HEADROOM_ROAS_RATIO:
+        over = _pct_delta(roas, target_roas)
+        return {
+            'level': 'opportunity',
+            'message': (f"ROAS thực tế {_ratio(roas)} cao hơn target tROAS {_ratio(target_roas)} "
+                        f"khoảng {over}% với {int(conversions)} chuyển đổi trong 7 ngày: có dư địa mở rộng."),
+            'why': ('ROAS vượt target ổn định cho thấy target/ngân sách đang kìm lưu lượng có lãi. Hạ dần target '
+                    'tROAS hoặc tăng ngân sách theo bước nhỏ để mua thêm doanh thu có kiểm soát.'),
+            'actions': [
+                f"Hạ target tROAS HOẶC tăng ngân sách từng bước tối đa {MAX_STEP_PERCENT}% — chỉ một biến mỗi lần.",
+                'Theo dõi ROAS 3–7 ngày sau mỗi bước; dừng khi ROAS tiệm cận target.',
+            ],
+            'guardrails': [
+                'Cơ hội không phải cam kết: ROAS thường giảm khi mở rộng lưu lượng.',
+                'Bị chặn tự động nếu chiến dịch đang có cảnh báo cắt/giảm (conflict guard).',
+            ],
+        }
+    return None
+
+
+def _cond_manual_bidding_at_scale(c, t, ctx):
+    strategy = str(c.get('bidding_strategy') or '')
+    conversions = _num(c.get('conversions'))
+    if conversions is None or conversions < MANUAL_BIDDING_MIN_CONVERSIONS:
+        return None
+    if ctx['platform'] == 'google' and strategy in GOOGLE_MANUAL_STRATEGIES:
+        return {
+            'level': 'review',
+            'message': (f"Chiến dịch vẫn đấu thầu thủ công ({strategy}) nhưng đã có {int(conversions)} chuyển đổi "
+                        f"trong 7 ngày — đủ dữ liệu để thử nghiệm đấu thầu thông minh có kiểm soát."),
+            'why': ('Ở lượng chuyển đổi này, Smart Bidding (tCPA/Maximize Conversions) thường học tốt hơn chỉnh '
+                    'tay, nhưng chuyển đổi chiến lược là thay đổi lớn: phải thử nghiệm có đối chứng thay vì '
+                    'chuyển thẳng toàn bộ.'),
+            'actions': [
+                'Tạo bản thử nghiệm (experiment) chia lưu lượng: giữ chiến dịch bid tay làm đối chứng, bản thử dùng Maximize Conversions, sau khi ổn định mới gắn tCPA quanh CPA thực tế.',
+                'Chạy thử ít nhất 2–3 tuần hoặc đủ ~30 chuyển đổi cho bản thử trước khi kết luận.',
+                'Nếu bản thử thắng: chuyển dần và gỡ bản đối chứng; nếu thua: quay lại bid tay, không coi là thất bại.',
+            ],
+            'guardrails': [
+                'Không chuyển thẳng 100% lưu lượng sang Smart Bidding trong một lần.',
+                'Không gắn tCPA chặt hơn CPA thực tế hiện tại khi mới chuyển (hệ thống sẽ nghẽn phân phối).',
+            ],
+        }
+    if ctx['platform'] == 'meta' and strategy == 'LOWEST_COST_WITH_BID_CAP':
+        return {
+            'level': 'review',
+            'message': (f"Chiến dịch đang dùng bid cap nhưng đã có {int(conversions)} chuyển đổi trong 7 ngày — "
+                        f"nên thử nghiệm cost per result goal để giảm nghẽn phân phối."),
+            'why': ('Bid cap kiểm soát chặt giá từng phiên đấu giá nhưng dễ làm nghẽn phân phối và CPA dao động '
+                    'khi thị trường đổi. Cost per result goal giữ CPA quanh mục tiêu ở cấp độ trung bình, '
+                    'thường ổn định hơn khi lượng chuyển đổi đã đủ lớn.'),
+            'actions': [
+                'Nhân bản một chiến dịch thử với cost per result goal đặt quanh CPA bền vững hiện tại; giữ chiến dịch bid cap làm đối chứng.',
+                'So sánh sau ít nhất 7 ngày và đủ lượng chuyển đổi ở cả hai bản trước khi quyết định.',
+            ],
+            'guardrails': [
+                'Cost per result goal đặt ở cấp ad set trên Meta — kiểm tra cấu trúc chiến dịch thử trước khi so sánh.',
+                'Không tắt bid cap đồng loạt; chỉ chuyển khi bản thử chứng minh được hiệu quả.',
+            ],
+        }
+    return None
+
+
 # ---------------------------------------------------------------------------
 # PLAYBOOK: danh mục quy tắc dạng dữ liệu + registry điều kiện theo code.
 # ---------------------------------------------------------------------------
@@ -486,6 +644,12 @@ PLAYBOOK = [
      'title': 'CPA lệch khỏi nền của chính chiến dịch'},
     {'code': 'roas_drift_vs_baseline', 'platform': 'both', 'category': 'roas', 'severity': 'review',
      'title': 'ROAS lệch khỏi nền của chính chiến dịch'},
+    {'code': 'platform_target_missed', 'platform': 'both', 'category': 'bid_cost', 'severity': 'review',
+     'title': 'Lệch target giá thầu thật trên nền tảng — hiệu chỉnh theo bước'},
+    {'code': 'platform_target_headroom', 'platform': 'both', 'category': 'scale', 'severity': 'opportunity',
+     'title': 'Dư địa so với target nền tảng — cơ hội mở rộng có kiểm soát'},
+    {'code': 'manual_bidding_at_scale', 'platform': 'both', 'category': 'structure', 'severity': 'review',
+     'title': 'Vẫn đấu thầu thủ công ở lượng chuyển đổi lớn — thử nghiệm Smart Bidding'},
     {'code': 'account_fragmentation', 'platform': 'both', 'category': 'structure', 'severity': 'opportunity',
      'title': 'Tài khoản phân mảnh — cơ hội gộp chiến dịch'},
     {'code': 'account_budget_reallocation', 'platform': 'both', 'category': 'scale', 'severity': 'opportunity',
@@ -504,6 +668,9 @@ CONDITIONS = {
     'dead_campaign': _cond_dead_campaign,
     'cpa_drift_vs_baseline': _cond_cpa_drift_vs_baseline,
     'roas_drift_vs_baseline': _cond_roas_drift_vs_baseline,
+    'platform_target_missed': _cond_platform_target_missed,
+    'platform_target_headroom': _cond_platform_target_headroom,
+    'manual_bidding_at_scale': _cond_manual_bidding_at_scale,
 }
 
 _BY_CODE = {entry['code']: entry for entry in PLAYBOOK}
@@ -609,6 +776,30 @@ def verify_outcome(baseline_snapshot, current_snapshot, finding_code):
         if base_imp == 0:
             return 'improved' if cur_imp > 0 else 'unchanged'
         return 'insufficient_data'
+
+    if finding_code in ('platform_target_missed', 'platform_target_headroom',
+                        'manual_bidding_at_scale'):
+        # Phán quyết theo chỉ số ứng với target nền tảng có trong snapshot:
+        # có bid_target_cpa -> nhìn CPA (giảm = tốt); có bid_target_roas ->
+        # nhìn ROAS (tăng = tốt); manual bidding -> nhìn CPA.
+        if (base_conv is None or cur_conv is None
+                or base_conv < OUTCOME_MIN_CONVERSIONS or cur_conv < OUTCOME_MIN_CONVERSIONS):
+            return 'insufficient_data'
+        if _num(baseline_snapshot.get('bid_target_roas')) and finding_code != 'manual_bidding_at_scale':
+            key, lower_better = 'roas', False
+        else:
+            key, lower_better = 'cpa', True
+        base_val, cur_val = _num(baseline_snapshot.get(key)), _num(current_snapshot.get(key))
+        if base_val is None or cur_val is None or base_val <= 0:
+            return 'insufficient_data'
+        change = cur_val / base_val - 1
+        improved = change < -OUTCOME_NOISE_BAND if lower_better else change > OUTCOME_NOISE_BAND
+        worsened = change > OUTCOME_NOISE_BAND if lower_better else change < -OUTCOME_NOISE_BAND
+        if improved:
+            return 'improved'
+        if worsened:
+            return 'worsened'
+        return 'unchanged'
 
     if finding_code in _CPA_CODES or finding_code in _ROAS_CODES:
         if (base_conv is None or cur_conv is None
