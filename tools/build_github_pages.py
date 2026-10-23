@@ -1,4 +1,4 @@
-"""Build a static-only, fail-closed LHM Ads AI PWA for GitHub Pages.
+"""Build static, fail-closed LHM Ads AI PWA assets for Cloudflare Workers.
 
 NO Python backend, OAuth token or secret is copied. The hosted Studio login stays
 disabled until a real, server-side Cloudflare API explicitly reports readiness.
@@ -27,7 +27,7 @@ def build(output: Path) -> Path:
         shutil.copy2(STATIC / name, output / name)
     studio = (STATIC / "studio.html").read_text(encoding="utf-8")
     assert '<form id="login-form">' in studio and '</body>' in studio
-    # Unlike the FastAPI-hosted Studio, GitHub Pages cannot authenticate anyone.
+    # Unlike the FastAPI-hosted Studio, this static bundle cannot authenticate anyone.
     # Hide the form before first paint and gate it behind a working backend.
     style = (
         '<style id="lhm-static-api-guard">'
@@ -39,14 +39,14 @@ def build(output: Path) -> Path:
         ' style="padding:12px 14px;border:1px solid #ca884f;'
         'border-radius:12px;margin:14px 0;color:#ffe6c7;'
         'font-size:13px;line-height:1.5">'
-        'Bản PWA đang được triển khai qua GitHub Pages. '
+        'Bản PWA đang được triển khai qua Cloudflare. '
         'Đăng nhập và kết nối Ads sẽ chỉ mở khi Cloudflare API đã được kiểm thử.'
         '</div>'
     )
     studio = studio.replace('</head>', style + '</head>', 1)
     studio = studio.replace('<form id="login-form">', banner + '<form id="login-form">', 1)
     studio = studio.replace(
-        '</body>', '<script src="/static/github-pages-gate.js" defer></script></body>', 1
+        '</body>', '<script src="/static/cloudflare-hosting-gate.js" defer></script></body>', 1
     )
     page = output / "studio"
     page.mkdir()
@@ -68,7 +68,7 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--output", default="_site", type=Path)
     args = p.parse_args()
-    print("Built GitHub Pages static PWA at:", build(args.output))
+    print("Built Cloudflare static PWA at:", build(args.output))
 
 
 if __name__ == "__main__":
