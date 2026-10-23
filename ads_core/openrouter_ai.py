@@ -274,6 +274,127 @@ async def openrouter_answer(ident, message, period):
         raise HTTPException(502, 'Không thể nhận phân tích từ OpenRouter. Kiểm tra mạng, model và tài khoản.') from None
 
 
+@app.post('/api/ai/diagnostics')
+async def openrouter_diagnostics(ident=Depends(browser_admin)):
+    """Explicit admin-triggered, non-billable connection test.
+
+    Verify the stored OpenRouter key and availability of an exact ZDR model.
+    Never submit a prompt, use chat completions, modify the license, consume
+    local daily AI quota, or return any credential/provider error payload.
+    """
+    org = ident['org_id']
+    cfg = read_config(org)
+    desktop = __import__('os').environ.get('LHM_DESKTOP_MODE') == '1'
+    license_state = {'active': True, 'reason': 'not_required'}
+    if desktop:
+        from .licensing import read_license
+        try:
+            current = read_license()
+            license_state = {'active': bool(current.get('active')),
+                             'reason': 'active' if current.get('active')
+                                       else str(current.get('reason', 'not_active'))}
+        except (OSError, ValueError, KeyError, TypeError):
+            license_state = {'active': False, 'reason': 'check_failed'}
+    result = {
+        'mode': 'non_billable_diagnostics',
+        'enabled': cfg['enabled'],
+        'configured': cfg['configured'],
+        'model': cfg['model'],
+        'daily_limit': cfg['daily_limit'],
+        'used_today': cfg['used_today'],
+        'license': license_state,
+        'key_status': 'not_configured',
+        'model_status': 'not_checked',
+        'ready_for_ai': False,
+        'chat_tested': False,
+    }
+    if not cfg['configured']:
+        return result
+    with connection() as db:
+        row = db.execute('SELECT token_ciphertext FROM openrouter_settings WHERE org_id=?',
+                         (org,)).fetchone()
+    if not row or not row['token_ciphertext']:
+        return result
+    try:
+        key = unseal(row['token_ciphertext'], f'openrouter:{org}')
+    except (ValueError, TypeError, KeyError):
+        result['key_status'] = 'local_decryption_failed'
+        return result
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(12, connect=5),
+                                     trust_env=False, follow_redirects=False) as client:
+            key_response = await client.get('https://openrouter.ai/api/v1/key',
+                                            headers={'Authorization': 'Bearer ' + key})
+            if key_response.status_code == 401:
+                result['key_status'] = 'invalid'
+                return result
+            if key_response.status_code == 403:
+                result['key_status'] = 'rejected'
+                return result
+            if key_response.status_code == 429:
+                result['key_status'] = 'rate_limited'
+                return result
+            if key_response.status_code != 200:
+                result['key_status'] = 'provider_unavailable'
+                return result
+            info = key_response.json()
+            if not isinstance(info, dict) or not isinstance(info.get('data'), dict):
+                result['key_status'] = 'invalid_response'
+                return result
+            result['key_status'] = 'valid'
+            remaining = info['data'].get('limit_remaining')
+            if isinstance(remaining, (float, int)) and not isinstance(remaining, bool):
+                result['key_limit_exhausted'] = remaining <= 0
+            else:
+                result['key_limit_exhausted'] = False
+            # OpenRouter models API supports q and zdr=true. Compare exact
+            # model IDs; substring/search matches must never count as ready.
+            model_response = await client.get('https://openrouter.ai/api/v1/models',
+                                              headers={'Authorization': 'Bearer ' + key},
+                                              params={'q': cfg['model']})
+            if model_response.status_code != 200:
+                result['model_status'] = 'provider_unavailable'
+                return result
+            models = model_response.json()
+            if not isinstance(models, dict) or not isinstance(models.get('data'), list):
+                result['model_status'] = 'invalid_response'
+                return result
+            if not any(isinstance(m, dict) and m.get('id') == cfg['model']
+                       for m in models['data']):
+                result['model_status'] = 'not_found'
+                return result
+            zdr_response = await client.get('https://openrouter.ai/api/v1/models',
+                                            headers={'Authorization': 'Bearer ' + key},
+                                            params={'q': cfg['model'], 'zdr': 'true'})
+            if zdr_response.status_code != 200:
+                result['model_status'] = 'provider_unavailable'
+                return result
+            zdr = zdr_response.json()
+            if not isinstance(zdr, dict) or not isinstance(zdr.get('data'), list):
+                result['model_status'] = 'invalid_response'
+                return result
+            result['model_status'] = (
+                'zdr_available'
+                if any(isinstance(m, dict) and m.get('id') == cfg['model']
+                       for m in zdr['data'])
+                else 'zdr_unavailable'
+            )
+    except (httpx.HTTPError, ValueError, TypeError, KeyError):
+        if result['key_status'] != 'valid':
+            result['key_status'] = 'network_error'
+        elif result['model_status'] == 'not_checked':
+            result['model_status'] = 'network_error'
+        return result
+    result['ready_for_ai'] = bool(
+        result['enabled'] and result['key_status'] == 'valid'
+        and result['model_status'] == 'zdr_available'
+        and not result.get('key_limit_exhausted', False)
+        and license_state['active']
+        and result['used_today'] < result['daily_limit']
+    )
+    return result
+
+
 class PreviewRequest(BaseModel):
     message: str = Field(min_length=2, max_length=1200)
     period: str = Field(default='last_7d', pattern=r'^(last_7d|yesterday)$')
