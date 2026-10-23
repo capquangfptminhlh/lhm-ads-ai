@@ -9,6 +9,7 @@ import json
 import os
 import re
 import secrets
+import threading
 import time
 from typing import Literal
 from urllib.parse import urlencode
@@ -158,6 +159,49 @@ def redirect_status(value):
                             headers={'Cache-Control':'no-store','Referrer-Policy':'no-referrer'})
 
 
+# One-time, purpose-limited nonces for returning to the local desktop
+# window; never tied to Google/Meta credentials or browser login sessions.
+# A cross-origin website cannot mint/use them via the strict origin check.
+_desktop_return_tokens: dict[str, float] = {}
+_desktop_return_lock = threading.Lock()
+
+
+def issue_desktop_return_token() -> str:
+    token = secrets.token_urlsafe(24)
+    now = time.monotonic()
+    with _desktop_return_lock:
+        # Limit stale tokens even if the user repeatedly refreshes the page.
+        for old, expires in list(_desktop_return_tokens.items()):
+            if expires <= now:
+                del _desktop_return_tokens[old]
+        if len(_desktop_return_tokens) >= 100:
+            _desktop_return_tokens.pop(next(iter(_desktop_return_tokens)))
+        _desktop_return_tokens[token] = now + 120
+    return token
+
+
+@app.post('/api/oauth/finished/activate', include_in_schema=False)
+def activate_desktop_from_oauth(request: Request):
+    if (os.getenv('LHM_DESKTOP_MODE') != '1' or request.client is None or
+            request.client.host not in ('127.0.0.1', '::1')):
+        raise HTTPException(404, 'Not found')
+    # No cookie is shared from native WebView2 to the system browser.
+    # Enforce a same-origin POST with a custom header and single-use nonce
+    # so unrelated webpages and cross-origin form posts cannot focus the app.
+    if (request.headers.get('origin') != app_origin() or
+            request.headers.get('content-type', '').split(';')[0].strip() != 'application/json' or
+            request.headers.get('sec-fetch-site', 'same-origin') not in ('same-origin', 'none')):
+        raise HTTPException(403, 'Yêu cầu quay lại ứng dụng không hợp lệ')
+    token = request.headers.get('x-lhm-return-token', '')
+    now = time.monotonic()
+    with _desktop_return_lock:
+        expires = _desktop_return_tokens.pop(token, 0)
+    if not token or expires <= now:
+        raise HTTPException(403, 'Phiên quay lại ứng dụng đã hết hạn')
+    from windows.desktop_window import focus_native_window
+    return {'activated': focus_native_window()}
+
+
 @app.get('/oauth/finished', include_in_schema=False)
 def oauth_finished(request: Request, status: str='ready'):
     # Only a loopback browser callback. This browser has NO native app session:
@@ -196,6 +240,7 @@ def oauth_finished(request: Request, status: str='ready'):
     }
     success = status == 'ready'
     title, subtitle, next_step = outcomes.get(status, outcomes['error'])
+    return_token = issue_desktop_return_token()
     screen_type = 'success' if success else 'warning'
     html = (
         '<!doctype html><html lang="vi"><head><meta charset="utf-8">'
@@ -215,10 +260,12 @@ def oauth_finished(request: Request, status: str='ready'):
         '<section class="next-step" aria-label="Bước tiếp theo">'
         '<span class="step-label">BƯỚC TIẾP THEO</span>'
         '<p>'+escape(next_step)+'</p></section>'
-        '<button id="oauth-finished-close" type="button">Đóng tab &amp; quay lại phần mềm</button>'
+        '<button id="oauth-finished-close" type="button" data-return-token="'+escape(return_token, quote=True)+'">'
+        'Quay lại LHM Ads AI</button>'
         '<p class="close-hint" id="oauth-close-hint" role="status" aria-live="polite">'
-        'Nếu trình duyệt không cho phép đóng tab bằng nút này, nhấn '
-        '<kbd>Ctrl</kbd> + <kbd>W</kbd>, rồi chọn cửa sổ LHM Ads AI.</p>'
+        'Nút này đưa cửa sổ LHM Ads AI ra trước; tab trình duyệt có thể vẫn mở. '
+        'Nếu chưa thấy phần mềm, nhấn <kbd>Alt</kbd> + <kbd>Tab</kbd>. '
+        'Muốn đóng tab, nhấn <kbd>Ctrl</kbd> + <kbd>W</kbd>.</p>'
         '<p class="privacy-note">Tab trình duyệt không hiển thị hoặc lưu token quảng cáo.</p>'
         '</main></body></html>'
     )
