@@ -54,7 +54,7 @@ def configuration():
     return url, key
 
 
-def check() -> dict:
+def check(*, include_envelope: bool = False) -> dict:
     config = configuration()
     if not config:
         return {'status': 'not_configured', 'current_version': __version__,
@@ -78,6 +78,8 @@ def check() -> dict:
             payload['signature'], public_key_b64=key)
         if result['status'] == 'update_available':
             _https_url(result['download_url'], executable=True)
+            if include_envelope:
+                result['_signed_envelope'] = payload
         return result
     except (httpx.HTTPError, ValueError, TypeError, UnicodeError,
             UpdateError, json.JSONDecodeError) as exc:
@@ -95,32 +97,34 @@ def staged_update(data_folder: Path):
     updates = _staging_directory(data_folder)
     try:
         info = json.loads((updates / 'ready.json').read_text(encoding='utf-8'))
-        if not isinstance(info, dict) or set(info) != {'version', 'sha256'}:
+        config = configuration()
+        if not config or not isinstance(info, dict) or set(info) != {'manifest', 'signature'}:
             return None
-        updater.compare_versions(info['version'], __version__)
-        if updater.compare_versions(info['version'], __version__) <= 0:
+        manifest = updater.parse_and_verify_manifest(
+            json.dumps(info['manifest']).encode('utf-8'), info['signature'], config[1])
+        if updater.compare_versions(manifest['version'], __version__) <= 0:
             return None
-        if not re.fullmatch('[0-9a-f]{64}', info['sha256']):
-            return None
-        binary = updates / info['version'] / 'LHM-Ads-AI.exe'
+        _https_url(manifest['download_url'], executable=True)
+        binary = updates / manifest['version'] / 'LHM-Ads-AI.exe'
         if not binary.is_file() or binary.stat().st_size > MAX_EXE_BYTES:
             return None
         digest = hashlib.sha256()
         with binary.open('rb') as fd:
             for chunk in iter(lambda: fd.read(1024 * 1024), b''):
                 digest.update(chunk)
-        if not hmac.compare_digest(digest.hexdigest(), info['sha256']):
+        if not hmac.compare_digest(digest.hexdigest(), manifest['sha256']):
             return None
-        return (binary, info['sha256'], info['version'])
-    except (OSError, ValueError, KeyError, TypeError, updater.UpdateManifestError):
+        return (binary, manifest['sha256'], manifest['version'])
+    except (OSError, ValueError, KeyError, TypeError, UpdateError, updater.UpdateManifestError):
         return None
 
 
 def download(data_folder: Path) -> dict:
     with _LOCK:
-        verified = check()
+        verified = check(include_envelope=True)
         if verified['status'] != 'update_available':
             return verified
+        envelope = verified['_signed_envelope']
         url = _https_url(verified['download_url'], executable=True)
         version = verified['version']
         digest_expected = verified['sha256']
@@ -154,8 +158,9 @@ def download(data_folder: Path) -> dict:
             os.replace(partial, exe)
             marker = folder.parent / 'ready.json'
             temp = folder.parent / 'ready.json.tmp'
-            temp.write_text(json.dumps({'version': version, 'sha256': digest_expected}),
-                            encoding='utf-8')
+            # Keep the publisher's signed manifest with the staged EXE.
+            # Re-verify it on install; never trust a mutable local hash alone.
+            temp.write_text(json.dumps(envelope), encoding='utf-8')
             os.replace(temp, marker)
             return {'status': 'downloaded', 'version': version,
                     'message': 'Đã tải và xác minh bản cập nhật. Chọn Cài và khởi động lại.'}
