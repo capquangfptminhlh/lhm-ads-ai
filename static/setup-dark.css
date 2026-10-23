@@ -145,7 +145,7 @@ html,body{max-width:100%;overflow-x:clip;scrollbar-width:thin;scrollbar-color:#4
 
 /* Keep the required setup controls visible on common 768–900px-tall
    laptop displays; allow ordinary page scrolling on smaller viewports. */
-@media(max-height:900px) and (min-width:661px){
+@media(max-height:1000px) and (min-width:661px){
   .workspace{padding-top:16px;padding-bottom:12px}
   .intro .mini-tag{padding:6px 11px}
   .intro h2{font-size:clamp(27px,2.7vw,38px);margin:9px 0 6px}
