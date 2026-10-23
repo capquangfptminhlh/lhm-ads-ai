@@ -40,7 +40,9 @@ class StaticPagesTests(unittest.TestCase):
         assert 'custom_domain = true' in cfg
         assert 'directory = "./_site"' in cfg
         assert 'run_worker_first = ["/api/*"]' in cfg
-        assert "auth_ready:false" in worker\n        assert "device_only_ready:false" in worker\n        assert "ads_credential_custody:'device_only'" in worker
+        assert "auth_ready:false" in worker
+        assert "device_only_ready:false" in worker
+        assert "ads_credential_custody:'device_only'" in worker
         assert "return json({" in worker
         assert "503" in worker
         assert 'env.ASSETS.fetch(request)' in worker
