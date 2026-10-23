@@ -36,3 +36,10 @@
  #provider-connect-guide .connection-guide-body{padding:14px}
 }
 @media(prefers-reduced-motion:reduce){#provider-connect-guide *,#provider-connect-guide *::before,#provider-connect-guide *::after{transition:none!important;animation:none!important}}
+
+/* Connected API/MCP choice; MCP mode documents a separate official AI client. */
+#provider-connect-guide .connection-mode-switch{display:flex;gap:8px;margin:0 0 15px;flex-wrap:wrap}
+#provider-connect-guide .connection-mode-switch button{flex:1 1 170px;min-height:44px;padding:10px 14px;border-radius:10px;border:1px solid #484a52;background:#26282e;color:#d6d8df;font-size:12px;font-weight:750;cursor:pointer}
+#provider-connect-guide .connection-mode-switch button.is-selected{color:#ffe3d1;background:#53352b;border-color:#e99267}
+#provider-connect-guide .connection-mode-switch button:focus-visible{outline:2px solid #ffb189;outline-offset:3px}
+#provider-connect-guide .connection-guide-link{display:inline-flex;margin-top:12px;color:#ffc09a;text-underline-offset:3px;font-size:12px;font-weight:700}
