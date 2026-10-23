@@ -211,7 +211,7 @@ async function chat(text){if(!text.trim())return;
     notify('AI OpenRouter đang cần kích hoạt/gia hạn. Vào Bản quyền, hoặc Cài đặt để dùng phân tích nội bộ.',true);
     return;
   }
-  chatBubble(text,true);$('chat-input').value='';$('chat-send').disabled=true;const bubble=chatBubble('Đang phân tích dữ liệu...');try{const r=await api('/api/assistant/chat',{method:'POST',body:JSON.stringify({message:text,period:$('period').value})});bubble.lastChild.textContent=r.reply+'\n\n'+(r.disclaimer||''); if(r.mode==='openrouter')$('ai-provider-label').textContent='OPENROUTER: '+r.model}catch(e){
+  chatBubble(text,true);$('chat-input').value='';$('chat-send').disabled=true;const bubble=chatBubble('Đang phân tích dữ liệu...');try{const range=window.LHMReportDates?.ensureReady('period');if(!range)throw Error('Chọn ngày và bấm Áp dụng trên Dashboard trước khi phân tích.');const selected=Object.fromEntries(new URLSearchParams(range));const r=await api('/api/assistant/chat',{method:'POST',body:JSON.stringify({message:text,...selected})});bubble.lastChild.textContent=r.reply+'\n\n'+(r.disclaimer||''); if(r.mode==='openrouter')$('ai-provider-label').textContent='OPENROUTER: '+r.model}catch(e){
     bubble.lastChild.textContent=e.message;
     if(String(e.message||'').includes('Gói sử dụng đã hết hạn')||
        String(e.message||'').includes('chưa kích hoạt')){
@@ -261,7 +261,7 @@ $('ai-revoke').onclick=async()=>{if(!isAdmin()||!confirm('Xóa API key OpenRoute
 
 $('ai-preview-btn').onclick=async()=>{
   const p=$('ai-preview-output'); const question=$('chat-input').value.trim()||'Phân tích chi phí quảng cáo';
-  try{const data=await api('/api/ai/preview',{method:'POST',body:JSON.stringify({message:question,period:$('period').value})});
+  try{const range=window.LHMReportDates?.ensureReady('period');if(!range)throw Error('Chọn ngày và bấm Áp dụng trên Dashboard trước khi xem trước.');const selected=Object.fromEntries(new URLSearchParams(range));const data=await api('/api/ai/preview',{method:'POST',body:JSON.stringify({message:question,...selected})});
     p.textContent=JSON.stringify(data,null,2);p.classList.remove('hidden');
   }catch(err){notify(err.message,true)}
 };
