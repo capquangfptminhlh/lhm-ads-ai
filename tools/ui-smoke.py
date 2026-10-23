@@ -127,6 +127,44 @@ def main():
                 page.wait_for_timeout(850)  # Let transitions finish before capture
                 page.screenshot(path=str(ARTIFACTS/'02-meta-provider.png'),full_page=True)
 
+                # Guided provider connection: from Account CTA to Settings, then
+                # import Google Desktop OAuth JSON locally (dummy credentials).
+                page.locator('[data-provider-settings=meta]').click()
+                expect(page.locator('#page-settings')).to_be_visible()
+                expect(page.locator('#provider-connect-guide')).to_be_visible()
+                assert page.locator('[data-connect-provider=meta]').get_attribute('aria-pressed')=='true'
+                expect(page.locator('#connection-guide-body')).to_contain_text('Redirect URI')
+                page.screenshot(path=str(ARTIFACTS/'19-meta-guided-connection.png'),full_page=True)
+                page.locator('[data-connect-provider=google]').click()
+                expect(page.locator('#connection-guide-body')).to_contain_text('Google Cloud Console')
+                page.locator('[data-connect-step="1"]').click()
+                expect(page.locator('#connection-import-json')).to_be_visible()
+                page.locator('#connection-json-file').set_input_files({
+                    'name': 'fake-desktop-oauth.json',
+                    'mimeType': 'application/json',
+                    'buffer': b'{"installed":{"client_id":"12345678-testing.apps.googleusercontent.com","client_secret":"dummy-not-real"}}'
+                })
+                expect(page.locator('#desktop-google-id')).to_have_value('12345678-testing.apps.googleusercontent.com')
+                expect(page.locator('#desktop-google-secret')).to_have_value('dummy-not-real')
+                expect(page.locator('#connection-inline-message')).to_contain_text('Đã điền Client ID')
+                # No automatic server submission until explicit Save.
+                page.locator('[data-connect-step="2"]').click()
+                page.locator('#connection-save').click()
+                expect(page.locator('#connection-guide-status')).to_contain_text('Đã lưu ứng dụng',timeout=10000)
+                page.locator('[data-connect-step="3"]').click()
+                page.locator('#connection-open-oauth').click()
+                expect(page.locator('#page-accounts')).to_be_visible()
+                assert page.locator('[data-provider-choice=google]').get_attribute('aria-pressed')=='true'
+                # Test compact responsive setup without leaking the dummy secret in screenshots.
+                page.locator('[data-provider-settings=google]').click()
+                page.locator('[data-connect-step="0"]').click()
+                page.set_viewport_size({'width':390,'height':844})
+                expect(page.locator('#provider-connect-guide')).to_be_visible()
+                assert page.evaluate('document.documentElement.scrollWidth<=window.innerWidth+1')
+                page.screenshot(path=str(ARTIFACTS/'20-connection-guide-mobile.png'),full_page=True)
+                page.set_viewport_size({'width':1440,'height':940})
+                page.locator('#navigation button[data-page=accounts]').click()
+
                 # Test the real local API through the GUI. Demo is separated.
                 page.locator('#add-account').click()
                 page.locator('#account-dialog').wait_for(state='visible')
