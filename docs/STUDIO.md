@@ -1,6 +1,6 @@
 # Studio 0.3 — Internal-only upgrade
 
-> Version source of truth: `ads_core/version.py` (`__version__ = "0.3.0"`; "0.3" above is its short display form).
+> Version source of truth: `ads_core/version.py` (`__version__ = "0.3.1"`; "0.3" above is its short display form).
 
 All external MCP/remote tool connections have been removed, including routes /mcp and /api/mcp/call, key issuance APIs /api/keys, the stdio executable, and UI. No outside assistant receives report data: the assistant uses local rule-based analysis even when an old OPENAI_API_KEY remains in your environment.
 
