@@ -305,6 +305,15 @@ def main():
                 page.locator('#navigation button[data-page=accounts]').click()
                 page.locator('#accounts-table tr[data-platform=demo]').wait_for(state='visible')
                 page.screenshot(path=str(ARTIFACTS/'03-demo-filter.png'),full_page=True)
+                # Essential workspace stays calm; advanced navigation opens
+                # on demand and all existing features remain accessible.
+                # Earlier OAuth guidance might already have opened Settings.
+                if page.locator('#nav-advanced').get_attribute('open') is not None:
+                    page.locator('#nav-advanced > summary').click()
+                expect(page.locator('#nav-advanced')).not_to_have_attribute('open', '')
+                page.locator('#nav-advanced > summary').click()
+                expect(page.locator('#nav-advanced')).to_have_attribute('open','')
+                page.screenshot(path=str(ARTIFACTS/'25-compact-sidebar-expanded.png'))
                 # Regression smoke: independent FinPoint workspace pages.
                 for name, marker in [
                     ('campaigns', '#opt-inspect'),
@@ -333,8 +342,13 @@ def main():
                 page.locator('#navigation button[data-page=license]').click()
                 page.locator('#license-device').wait_for(state='visible')
                 page.locator('#desktop-local-ops').wait_for(state='visible',timeout=12000)
-                assert 'CHƯA XÁC MINH' in page.locator('#readiness-checks').inner_text()
+                expect(page.locator('#license-overview-grid, .license-overview-grid')).to_be_visible()
                 assert 'chưa' in page.locator('#readiness-summary').inner_text().lower()
+                # Technical checks and backup are hidden by default, not removed.
+                expect(page.locator('#license-readiness-detail')).not_to_have_attribute('open','')
+                page.locator('#license-readiness-detail > summary').click()
+                assert 'CHƯA XÁC MINH' in page.locator('#readiness-checks').inner_text()
+                page.locator('#license-backup-detail > summary').click()
                 page.locator('#secure-backup-password').fill('test-encrypted-backup-password-123456')
                 page.locator('#secure-backup-confirm').fill('test-encrypted-backup-password-123456')
                 with page.expect_download(timeout=30000) as result:
@@ -343,8 +357,12 @@ def main():
                 assert backup_download.suggested_filename.endswith('.lhmbak')
                 assert page.locator('#secure-backup-password').input_value()==''
                 page.wait_for_timeout(650)
+                page.locator('#license-readiness-detail > summary').click()
+                page.locator('#license-backup-detail > summary').click()
                 page.screenshot(path=str(ARTIFACTS/'07-finpoint-license.png'),full_page=True)
                 page.set_viewport_size({'width':390,'height':844})
+                page.screenshot(path=str(ARTIFACTS/'26-compact-license-mobile.png'),full_page=True)
+                assert page.evaluate('document.documentElement.scrollWidth<=window.innerWidth+1')
                 # Header search is hidden on small screens. Ctrl+K must land on
                 # the visible in-page search, never a display:none field.
                 page.keyboard.press('Control+k')
