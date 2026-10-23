@@ -27,6 +27,9 @@ function resetDashboard(reason=''){
   $('source-warning').classList.add('hidden');
   $('dashboard-onboarding')?.classList.add('hidden');
   $('dashboard-currency-wrap').classList.add('hidden');
+  $('chart-daily-body').replaceChildren();
+  $('chart-table-toggle').disabled=true;
+  setChartView('chart');
   document.dispatchEvent(new Event('lhm:dashboard-reset'));
 }
 function renderDashboardChart(s){
@@ -54,6 +57,29 @@ function renderDashboardChart(s){
   chart.innerHTML=entries.length&&window.LHMFinpointChart?
     window.LHMFinpointChart(entries,selected):
     '<div class="empty">Không có dữ liệu chi tiêu hợp lệ để vẽ biểu đồ.</div>';
+  renderDailyTable(entries,selected);
+}
+// The table is an accessible alternate presentation of the same API-backed
+// daily spending entries as the chart; it never constructs demo report data.
+function renderDailyTable(entries,currency){
+  const body=$('chart-daily-body');
+  const rows=entries.map(([date,spend])=>{
+    const tr=document.createElement('tr');
+    const day=document.createElement('th');day.scope='row';day.textContent=date;
+    const amount=document.createElement('td');amount.textContent=fmt(spend)+' '+currency;
+    tr.append(day,amount);return tr;
+  });
+  body.replaceChildren(...rows);
+  $('chart-table-toggle').disabled=rows.length===0;
+  if(!rows.length)setChartView('chart');
+}
+function setChartView(view){
+  const tableMode=view==='table'&&!$('chart-table-toggle').disabled;
+  $('chart').classList.toggle('hidden',tableMode);
+  $('chart-data-view').classList.toggle('hidden',!tableMode);
+  $('chart-chart-toggle').setAttribute('aria-pressed',String(!tableMode));
+  $('chart-table-toggle').setAttribute('aria-pressed',String(tableMode));
+  $('chart-scroll-cue').classList.toggle('hidden',tableMode);
 }
 async function loadDashboard(){
   const revision=++dashboardRevision;
@@ -63,6 +89,7 @@ async function loadDashboard(){
   chart.classList.add('loading');
   chart.textContent='Đang đọc báo cáo qua API...';
   $('refresh-dashboard').disabled=true;
+  $('refresh-dashboard').setAttribute('aria-busy','true');
   try{
     const [s,accounts]=await Promise.all([
       api('/api/summary?period='+encodeURIComponent($('period').value)),
@@ -134,6 +161,7 @@ async function loadDashboard(){
     if(revision===dashboardRevision){
       chart.classList.remove('loading');
       $('refresh-dashboard').disabled=false;
+      $('refresh-dashboard').setAttribute('aria-busy','false');
     }
   }
 }
@@ -172,7 +200,7 @@ async function chat(text){if(!text.trim())return;chatBubble(text,true);$('chat-i
 function accountDialog(open){$('account-dialog').classList.toggle('hidden',!open);if(open){$('account-form').reset();$('acc-platform').dispatchEvent(new Event('change'))}}
 document.querySelectorAll('[data-page]').forEach(e=>e.addEventListener('click',()=>go(e.dataset.page)));document.querySelectorAll('[data-go]').forEach(e=>e.addEventListener('click',()=>go(e.dataset.go)));$('menu').onclick=()=>$('sidebar').classList.toggle('open');for(const id of ['global-account-search','account-list-search']){
   $(id)?.addEventListener('input',event=>syncAccountSearch(event.target.value,event.target));
-}$('refresh-dashboard').onclick=loadDashboard;$('period').onchange=()=>{if(current==='dashboard')loadDashboard()};$('dashboard-currency').onchange=()=>{if(latestDashboardSummary)renderDashboardChart(latestDashboardSummary)};$('export').onclick=()=>{location.href='/api/export/reports?period='+encodeURIComponent($('period').value)};
+}$('refresh-dashboard').onclick=loadDashboard;$('period').onchange=()=>{if(current==='dashboard')loadDashboard()};$('dashboard-currency').onchange=()=>{if(latestDashboardSummary)renderDashboardChart(latestDashboardSummary)};$('chart-chart-toggle').onclick=()=>setChartView('chart');$('chart-table-toggle').onclick=()=>setChartView('table');$('export').onclick=()=>{location.href='/api/export/reports?period='+encodeURIComponent($('period').value)};
 $('login-form').onsubmit=async e=>{e.preventDefault();$('login-error').textContent='';try{await api('/api/login',{method:'POST',body:JSON.stringify({email:$('login-email').value,password:$('login-pass').value,totp:$('login-totp').value||undefined})});session=await api('/api/studio/me');$('login-pass').value='';$('login-totp').value='';showApp()}catch(ex){if(String(ex.message).includes('mfa_required')){$('login-totp-wrap').classList.remove('hidden');$('login-error').textContent='Tài khoản đã bật MFA — nhập mã 6 số từ ứng dụng xác thực rồi đăng nhập lại.';$('login-totp').focus()}else{$('login-error').textContent=ex.message}}};
 $('logout').onclick=async()=>{try{await api('/api/logout',{method:'POST'})}catch{}session=null;showLogin()};$('add-account').onclick=()=>accountDialog(true);$('close-dialog').onclick=()=>accountDialog(false);$('cancel-account').onclick=()=>accountDialog(false);$('account-dialog').onclick=e=>{if(e.target===$('account-dialog'))accountDialog(false)};
 $('acc-platform').onchange=()=>{let p=$('acc-platform').value;let textarea=$('acc-token');textarea.disabled=p==='demo';textarea.required=p!=='demo';$('token-instruction').textContent=p==='demo'?'Demo hoàn toàn tách biệt số liệu thực.':p==='google'?'Google cần OAuth JSON gồm client_id, client_secret, refresh_token.':'Sử dụng token API chính thức. Meta yêu cầu ID số hoặc act_ID.'};
