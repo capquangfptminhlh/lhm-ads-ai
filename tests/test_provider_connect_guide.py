@@ -72,7 +72,7 @@ def test_api_and_mcp_are_explicitly_separate_guidance_modes():
     assert "mode==='mcp'?mcpGuides[provider]:templates[provider][step]" in js
     assert "root.querySelector('.connection-step-nav').classList.toggle('hidden',mode==='mcp')" in js
     assert '#provider-connect-guide .connection-mode-switch' in css
-    assert 'Google Ads MCP' in guide and 'Meta Ads' in guide
+    assert 'MCP Google Ads' in guide and 'MCP Meta Ads' in guide
     assert 'chưa được tích hợp' in guide
 
 
