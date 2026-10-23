@@ -107,7 +107,7 @@
       <p>Google cung cấp <strong>google-ads-mcp</strong> (chỉ đọc số liệu, không sửa giá thầu/chiến dịch). Bản LHM Ads AI Windows vẫn kết nối Google bằng OAuth/API riêng.</p>
       <ol><li>Vào Google Cloud, bật Google Ads API và cấp quyền <strong>Explorer hoặc cao hơn</strong> cho dự án để truy cập tài khoản thật; developer token đã ngừng yêu cầu từ 09/09/2026.</li>
       <li>Cấu hình OAuth hoặc Application Default Credentials (ADC) trên máy theo hướng dẫn Google. Không nhập token vào khung chat.</li>
-      <li>Trong AI client hỗ trợ MCP, thêm máy chủ Google Ads chính thức bằng <code>pipx</code>, `GOOGLE_PROJECT_ID` và ADC; đăng nhập chính chủ.</li>
+      <li>Trong AI client hỗ trợ MCP, thêm máy chủ Google Ads chính thức bằng <code>pipx</code>, <code>GOOGLE_PROJECT_ID</code> và ADC; đăng nhập chính chủ.</li>
       <li>Thử lệnh “Liệt kê tài khoản Google Ads được phép truy cập” hoặc “Báo cáo chi phí 7 ngày qua”.</li></ol>
       <div class="connection-tip">Lưu ý: Đây là <strong>hướng dẫn cấu hình AI client bên ngoài</strong>, không phải nút MCP hoạt động sẵn trong LHM Ads AI.</div>
       <div class="connection-action-row"><a class="btn secondary" href="https://developers.google.com/google-ads/api/docs/developer-toolkit/mcp-server" target="_blank" rel="noopener noreferrer">Tài liệu Google Ads MCP chính thức ↗</a></div>`,
