@@ -26,6 +26,17 @@ def entry():
 def studio():
     return FileResponse(STATIC / 'studio.html')
 
+# Installable PWA routes are deliberately public static resources; API and
+# authenticated Studio pages are never cached by the service worker.
+@app.get('/manifest.webmanifest', include_in_schema=False)
+def pwa_manifest():
+    return FileResponse(STATIC / 'manifest.webmanifest', media_type='application/manifest+json')
+
+@app.get('/sw.js', include_in_schema=False)
+def pwa_service_worker():
+    return FileResponse(STATIC / 'sw.js', media_type='text/javascript',
+                        headers={'Service-Worker-Allowed': '/'})
+
 class ChatInput(BaseModel):
     message: str = Field(min_length=2, max_length=1200)
     period: str = Field(default='last_7d', pattern=r'^(today|yesterday|last_(7|14|30|90)d|this_(week|month|quarter|year)|last_(week|month|quarter|year)|custom)$')

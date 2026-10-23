@@ -16,6 +16,9 @@ jobs:
       - run: pip install -r requirements.txt pytest
       - run: python -m pytest -q
       - run: node --check static/studio.js
+      - run: node --check static/sw.js
+      - run: node --check static/pwa-install.js
+      - run: node --check static/pwa-offline.js
       - run: node --check static/provider-studio.js
       - run: node --check static/finpoint-accounts-ai.js
       - run: node --check static/finpoint-motion.js
