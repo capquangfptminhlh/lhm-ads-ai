@@ -15,7 +15,7 @@ const json = (payload, status=200) => new Response(
   }
 );
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const path = new URL(request.url).pathname;
     if (path === '/api/_hosting/status' && request.method === 'GET') {
       return json({
@@ -32,6 +32,6 @@ export default {
         detail: 'Cloudflare backend is not activated. Do not submit credentials here.'
       }, 503);
     }
-    return json({detail:'Not found'},404);
+    // Worker Static Assets host the PWA under the SAME custom domain.\n    if (env && env.ASSETS) return env.ASSETS.fetch(request);\n    return json({detail:'Static asset binding unavailable'},503);
   }
 };
