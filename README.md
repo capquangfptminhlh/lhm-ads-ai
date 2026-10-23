@@ -1,12 +1,12 @@
 # Desktop local-only mode (EXE, không VPS)
 
-Khi dùng bản EXE Windows, ứng dụng chỉ chạy trên máy cá nhân và không cần VPS. Hướng dẫn: [docs/LOCAL_DESKTOP.md](docs/LOCAL_DESKTOP.md). Google OAuth Desktop hỗ trợ localhost; Meta localhost phụ thuộc chế độ App và có thể không chạy với Meta Live. Không có MCP.
+Khi dùng bản EXE Windows, ứng dụng chỉ chạy trên máy cá nhân và không cần VPS. Hướng dẫn: [docs/LOCAL_DESKTOP.md](docs/LOCAL_DESKTOP.md). Google OAuth Desktop hỗ trợ localhost; Meta localhost phụ thuộc chế độ App và có thể không chạy với Meta Live. Có tùy chọn MCP stdio chỉ đọc với khóa riêng, không có HTTP MCP công khai; xem docs/MCP_PUSH_RELEASE.md.
 
 # LHM Ads AI — Private Studio 0.3
 
 > Version source of truth: `ads_core/version.py` (`__version__ = "0.3.1"`; "0.3" above is its short display form). Do not hardcode the version elsewhere.
 
-Vietnamese advertising dashboard for an owner-managed VPS. **No MCP server, no remote tool bridge, no third-party tool-access keys.** By default, analysis is calculated locally from fetched provider reports and nothing is sent to a third-party AI service. Optional exception: an admin may explicitly enable OpenRouter AI analysis with their own key (see docs/OPENROUTER.md); only filtered aggregate statistics are sent, never Ads credentials or campaign identifiers. Supported upstream Meta and Google Ads APIs are separate from external remote-control integration.
+Vietnamese advertising dashboard for an owner-managed VPS. **Read-only local MCP stdio is opt-in via short-lived, revocable keys; no public remote MCP endpoint and no mutation tools.** By default, analysis is calculated locally from fetched provider reports and nothing is sent to a third-party AI service. Optional exception: an admin may explicitly enable OpenRouter AI analysis with their own key (see docs/OPENROUTER.md); only filtered aggregate statistics are sent, never Ads credentials or campaign identifiers. Supported upstream Meta and Google Ads APIs are separate from external remote-control integration.
 
 ## Included
 
@@ -15,7 +15,7 @@ Vietnamese advertising dashboard for an owner-managed VPS. **No MCP server, no r
 - Read-only analytics dashboard, CSV export, labeled demonstration data, local Vietnamese report summarizer.
 - Meta campaign pause as a requested action that only an authenticated browser admin can approve.
 - Team management, account revocation, password change and audit log.
-- No classic UI, no external automation endpoints, no third-party tool-access keys.
+- No classic UI or public external automation endpoints; local MCP read-only credentials are opt-in, expiring and revocable.
 
 ## Upgrade notice — mandatory
 
@@ -45,7 +45,7 @@ Google Ads `token` input requires JSON with keys `client_id`, `client_secret`, `
 
 ## Security and limitations
 
-This is still a pilot, not security-certified SaaS. Local analysis is deterministic/rule-based, **not a cloud LLM chat**. No OpenAI API key is used; the only remote assistant is the optional, off-by-default OpenRouter integration described above, which an admin must explicitly enable. Advertising data still transits the official provider APIs for reporting and is visible to authorized users of the web dashboard; the Telegram notification integration remains optional and, when explicitly configured, sends pause confirmations and monitoring/advisor alerts (it never receives Ads credentials or report data). No MCP does not mean all other security risks are solved. In-app MFA is now available as opt-in per-user TOTP (Settings → MFA) and login failures are throttled durably in the database per email and source IP. Before production: independent security review, secret handling, least privilege, backup and recovery tests, and permission checks.
+This is still a pilot, not security-certified SaaS. Local analysis is deterministic/rule-based, **not a cloud LLM chat**. No OpenAI API key is used; the only remote assistant is the optional, off-by-default OpenRouter integration described above, which an admin must explicitly enable. Advertising data still transits the official provider APIs for reporting and is visible to authorized users of the web dashboard; the Telegram notification integration remains optional and, when explicitly configured, sends pause confirmations and monitoring/advisor alerts (it never receives Ads credentials or report data). Read-only MCP also requires independent security review; no public MCP transport is enabled. In-app MFA is now available as opt-in per-user TOTP (Settings → MFA) and login failures are throttled durably in the database per email and source IP. Before production: independent security review, secret handling, least privilege, backup and recovery tests, and permission checks.
 
 Test: `pip install -r requirements.txt pytest && python -m pytest -q`; frontend syntax: `node --check static/studio.js`.
 
@@ -53,7 +53,7 @@ See [security and upgrade notes](docs/STUDIO.md).
 
 ## 1-click OAuth: Google Ads / Meta Ads
 
-A login-and-select-account OAuth flow is now implemented using server-side Google Ads and Meta credentials. The Google developer token and both providers' app client ID/secret must be configured on the server. Nothing has been pre-authorized with customer accounts. Authenticated admin only, state+session bound, expiring encrypted tokens, PKCE for Google. No MCP endpoint. See [docs/OAUTH_CONNECT.md](docs/OAUTH_CONNECT.md) for setup and callback URL registration. Production requires HTTPS and approved API permissions. For Windows local testing the EXE uses its configured loopback origin; Meta may require an HTTPS callback depending on app settings.
+A login-and-select-account OAuth flow is now implemented using server-side Google Ads and Meta credentials. The Google developer token and both providers' app client ID/secret must be configured on the server. Nothing has been pre-authorized with customer accounts. Authenticated admin only, state+session bound, expiring encrypted tokens, PKCE for Google. No public HTTP MCP endpoint; local read-only stdio exists. See [docs/OAUTH_CONNECT.md](docs/OAUTH_CONNECT.md) for setup and callback URL registration. Production requires HTTPS and approved API permissions. For Windows local testing the EXE uses its configured loopback origin; Meta may require an HTTPS callback depending on app settings.
 
 
 ## Internet tự động trên Windows (không cần VPS)
@@ -101,3 +101,7 @@ Giao diện đã bổ sung hiệu ứng chuyển trang nhẹ, thẻ thống kê,
 ## Offline monthly rental & Windows background collector (pilot)
 
 See [docs/COMMERCIAL_LICENSE.md](docs/COMMERCIAL_LICENSE.md). Local machine-bound signed licenses are issued and renewed manually, the issuer's private signing key must never be in GitHub or EXE. The opt-in background collector only reads 7-day provider summary and records errors; it does NOT optimize bids, budgets or strategies. Billing integration and fully autonomous Ads API writing remain unimplemented.
+
+## MCP and PWA budget Web Push (24/10/2026)
+
+Read-only stdio MCP integration with revocable admin-issued credentials; and opt-in daily-spend thresholds with encrypted device Push subscriptions are implemented in the source code. Both need live OAuth/API approval, HTTPS, a continuously running monitor worker and real phone/browser acceptance testing before production claims. **No TikTok reporting MCP adapter, no unattended provider write tools and no guaranteed 24/7 alerts from a phone-only PWA.** See [deployment guide](docs/MCP_PUSH_RELEASE.md).
