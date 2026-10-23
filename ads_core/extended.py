@@ -216,3 +216,6 @@ from . import mfa  # noqa: E402,F401
 
 # Explicit admin-provisioned, read-only MCP stdio access; no public MCP route.
 from . import mcp_bridge  # noqa: E402,F401
+
+# Opt-in daily budget thresholds and encrypted Web Push subscription endpoints.
+from . import budget_push  # noqa: E402,F401
