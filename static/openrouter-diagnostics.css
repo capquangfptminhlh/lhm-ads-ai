@@ -1,0 +1,15 @@
+/* Real OpenRouter diagnostics: Studio dark surfaces and accessible status. */
+.or-diagnostics{background:#1c1f25;color:#f6f6f7;border:1px solid #464a54;border-radius:15px;padding:17px;margin:16px 0;min-width:0}
+.or-diagnostics h3{margin:0 0 6px;color:#f6f6f7;font-size:16px}
+.or-diagnostics header p{margin:0;color:#c8cbd4;font-size:12px;line-height:1.6}
+.or-diagnostics-actions{display:flex;flex-wrap:wrap;gap:8px;margin:15px 0}
+.or-diagnostics-actions .btn{min-height:44px}
+.or-diagnostics [data-or-status]{color:#f4cead;font-weight:650;line-height:1.65;font-size:13px;overflow-wrap:anywhere}
+.or-diagnostics-details{display:grid;gap:8px;margin:12px 0}
+.or-diagnostics-row{background:#282a31;border:1px solid #4b4c54;border-left:3px solid #b7a899;border-radius:10px;padding:11px 13px;display:grid;gap:4px;min-width:0}
+.or-diagnostics-row.ok{border-left-color:#67dca6}
+.or-diagnostics-row.warn{border-left-color:#e4a16d}
+.or-diagnostics-row strong{font-size:12px;color:#f8f9fb}
+.or-diagnostics-row span{font-size:12px;line-height:1.6;color:#d4d5dc;overflow-wrap:anywhere}
+.or-diagnostics-caption{font-size:11px;line-height:1.7;color:#aeb4c0}
+@media(max-width:620px){.or-diagnostics{padding:13px}.or-diagnostics-actions .btn{flex:1 1 100%}}
