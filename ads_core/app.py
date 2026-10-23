@@ -18,6 +18,7 @@ from .version import __version__
 from .db import connection, init_db, audit
 from .security import (hash_secret, make_secret, verify_password, seal, validate_secrets)
 from .providers import fetch_report, pause_meta_campaign
+from .report_dates import resolve_date_range
 
 @asynccontextmanager
 async def lifespan(application):
@@ -250,18 +251,22 @@ def get_account(account_id,org_id):
         return dict(row)
 
 @app.get('/api/report')
-async def report(account_id:int, period:Literal['last_7d','yesterday']='last_7d',
+async def report(account_id:int, period:str='last_7d',
+                 date_from:str|None=None, date_to:str|None=None,
                  ident=Depends(require('admin','operator','reader'))):
-    result=await fetch_report(get_account(account_id,ident['org_id']),period)
+    first,last=resolve_date_range(period,date_from,date_to)
+    result=await fetch_report(get_account(account_id,ident['org_id']),'custom',first,last)
     return result
 
 @app.get('/api/summary')
-async def summary(period:Literal['last_7d','yesterday']='last_7d', ident=Depends(require('admin','operator','reader'))):
+async def summary(period:str='last_7d',date_from:str|None=None,date_to:str|None=None,
+                  ident=Depends(require('admin','operator','reader'))):
     """Tenant-scoped reports. Demo is never added to real Ads totals.
 
     All active accounts are included; concurrent provider calls are bounded to
     protect local memory and avoid unbounded bursts against provider APIs.
     """
+    first,last=resolve_date_range(period,date_from,date_to)
     with connection() as db:
         accs=[dict(x) for x in db.execute(
             'SELECT * FROM accounts WHERE org_id=? AND label NOT LIKE ? ORDER BY id',
@@ -272,7 +277,7 @@ async def summary(period:Literal['last_7d','yesterday']='last_7d', ident=Depends
         async with semaphore:
             try:
                 return {'account_id':a['id'],'label':a['label'],'platform':a['platform'],
-                        'result':await fetch_report(a,period)}
+                        'result':await fetch_report(a,'custom',first,last)}
             except HTTPException as exc:
                 return {'account_id':a['id'],'label':a['label'],'platform':a['platform'],
                         'error':str(exc.detail)}
@@ -329,7 +334,7 @@ async def summary(period:Literal['last_7d','yesterday']='last_7d', ident=Depends
         'cpa':round(spend/conversions,2) if spend is not None and conversions and conversions>0 else None,
         'roas':round(conversion_value/spend,2) if conversion_value is not None and spend and spend>0 else None,
         'sources':sorted({x['source'] for x in included})}
-    return {'period':period,'totals':totals,'accounts':items,
+    return {'period':period,'date_from':first,'date_to':last,'totals':totals,'accounts':items,
             'note':'Tách Demo khỏi tổng số liệu thật; giới hạn đồng thời 5 nguồn API và không tự gán chỉ số chuyển đổi.'}
 
 class ActionRequest(BaseModel):
