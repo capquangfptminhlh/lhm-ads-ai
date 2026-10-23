@@ -7,6 +7,22 @@ services:
       - "127.0.0.1:8080:8080" # HTTPS reverse proxy required for production
     volumes:
       - ads_data:/app/data
+      - ./secrets:/run/secrets/lhm:ro # optional VAPID private key; never commit secrets
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+  ads-monitor:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      - ads-ai
+    command: ["python", "-m", "ads_core.monitor_worker"]
+    volumes:
+      - ads_data:/app/data
+      - ./secrets:/run/secrets/lhm:ro
     security_opt:
       - no-new-privileges:true
     read_only: true
