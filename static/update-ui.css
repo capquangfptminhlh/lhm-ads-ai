@@ -1,0 +1,13 @@
+/* LHM Ads AI update UX. Only signed manifests and locally verified EXE. */
+#page-settings .ui-update-panel{border-color:#4f423c!important;background:linear-gradient(130deg,#221e1c,#17191e 75%)!important}
+#page-settings .ui-update-panel .panel-title{align-items:center;flex-wrap:wrap}
+#page-settings .ui-update-panel h3{margin-bottom:7px}
+#page-settings #ui-update-status{font-size:12px;font-weight:750;line-height:1.6;color:#ffc09f}
+#page-settings #ui-update-detail{margin:11px 0 17px;line-height:1.65;color:#c3c6d0!important}
+#page-settings .ui-update-actions{display:flex;flex-wrap:wrap;gap:10px}
+#page-settings .ui-update-actions .btn{min-height:44px}
+#page-settings .ui-update-actions .btn:disabled{opacity:.6;cursor:progress}
+@media(max-width:650px){
+ #page-settings .ui-update-actions{display:grid;grid-template-columns:minmax(0,1fr)}
+ #page-settings .ui-update-panel{padding:17px}
+}
