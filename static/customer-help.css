@@ -1,0 +1,50 @@
+/* Customer self-service guide: bundled with LHM Ads AI, no external UI service. */
+#customer-help-dialog.customer-help-dialog{position:fixed;inset:0;box-sizing:border-box;margin:auto;
+ width:min(920px,calc(100vw - 28px));max-width:920px;max-height:min(90dvh,920px);
+ padding:0;border:1px solid #6b493b;border-radius:20px;background:#1b1d22;color:#f4f4f5;
+ overflow:hidden;box-shadow:0 25px 100px #000a}
+#customer-help-dialog::backdrop{background:#050507c9;backdrop-filter:blur(5px)}
+#customer-help-dialog .customer-help-shell{display:flex;flex-direction:column;max-height:min(90dvh,920px);min-width:0}
+#customer-help-dialog .customer-help-header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:24px 26px 15px}
+#customer-help-dialog .customer-help-eyebrow{margin:0;color:#ffa77a;font-size:10px;letter-spacing:1.2px;font-weight:800}
+#customer-help-dialog h2{color:#fff;font-size:23px;letter-spacing:-.4px;margin:8px 0}
+#customer-help-dialog .customer-help-header p:last-child{font-size:12px;line-height:1.6;color:#afb3be;margin:0}
+#customer-help-dialog .customer-help-close{min-width:44px;min-height:44px;flex-shrink:0;background:#2d2e34;color:#fff;
+ border:1px solid #45454f;border-radius:11px;cursor:pointer}
+#customer-help-dialog .customer-help-tabs{display:flex;gap:7px;padding:9px 25px 15px;overflow-x:auto;scrollbar-width:thin}
+#customer-help-dialog .customer-help-tabs button{white-space:nowrap;min-height:42px;padding:9px 16px;border:1px solid #46464d;
+ background:#28292f;color:#c0c3cd;border-radius:11px;font-size:12px;font-weight:700;cursor:pointer}
+#customer-help-dialog .customer-help-tabs button.is-selected{background:#513027;color:#ffe1cd;border-color:#e38859}
+#customer-help-content{min-height:120px;overflow:auto;overscroll-behavior:contain;padding:14px 30px 24px;border-top:1px solid #373941;
+ scrollbar-width:thin;scrollbar-color:#69616a #1b1d22;-webkit-overflow-scrolling:touch}
+#customer-help-content h3{margin:7px 0 14px;font-size:19px;color:#f9e9de}
+#customer-help-content ol{padding-left:22px}
+#customer-help-content li{margin:12px 0;font-size:13px;line-height:1.75;color:#d2d5dc;overflow-wrap:anywhere}
+#customer-help-content p{font-size:13px;line-height:1.7;color:#c6c9d2;overflow-wrap:anywhere}
+#customer-help-content strong{color:#f5ebdf}
+#customer-help-content a{color:#ffbb96;text-decoration:underline;text-underline-offset:3px}
+#customer-help-content code{display:inline;word-break:break-all;background:#353138;color:#fbc4ab;padding:2px 5px;border-radius:5px}
+#customer-help-content .help-notice{padding:12px 15px;background:#282b31;border-left:3px solid #f39362;border-radius:9px}
+#customer-help-content .help-troubleshooting{display:grid;gap:9px}
+#customer-help-content .help-troubleshooting details{border:1px solid #45454d;border-radius:12px;padding:12px 14px;background:#23252a}
+#customer-help-content .help-troubleshooting summary{cursor:pointer;font-size:13px;font-weight:750;color:#f3d6c7}
+#customer-help-content .help-troubleshooting p{margin:11px 0 0}
+#customer-help-dialog .customer-help-footer{display:flex;align-items:center;justify-content:space-between;gap:14px;
+ padding:15px 24px;border-top:1px solid #393a41;background:#202126;flex-wrap:wrap}
+#customer-help-dialog .customer-help-footer span{font-size:11px;line-height:1.6;color:#aaaeba;max-width:330px}
+#customer-help-dialog .customer-help-footer div{display:flex;flex-wrap:wrap;align-items:center;gap:13px}
+#customer-help-dialog .customer-help-print{font-size:12px;font-weight:750;color:#ffba97;text-decoration:underline}
+#customer-help-dialog :is(button,a,summary):focus-visible{outline:2px solid #ffae87;outline-offset:3px}
+@media(max-width:650px){
+ #customer-help-dialog.customer-help-dialog{width:100vw;height:100dvh;max-width:none;max-height:none;border:0;border-radius:0}
+ #customer-help-dialog .customer-help-shell{max-height:100dvh;height:100%}
+ #customer-help-dialog .customer-help-header{padding:16px}
+ #customer-help-dialog h2{font-size:19px}
+ #customer-help-dialog .customer-help-tabs{padding:8px 13px 13px}
+ #customer-help-dialog .customer-help-tabs button{min-height:44px}
+ #customer-help-content{padding:15px 18px;flex:1}
+ #customer-help-dialog .customer-help-footer{padding:14px 16px calc(14px + env(safe-area-inset-bottom))}
+ #customer-help-dialog .customer-help-footer span{flex-basis:100%}
+ #customer-help-dialog .customer-help-footer div{width:100%;justify-content:space-between}
+}
+@media(prefers-reduced-motion:reduce){#customer-help-dialog *,#customer-help-dialog *::before,#customer-help-dialog *::after{scroll-behavior:auto;animation:none!important;transition:none!important}}
