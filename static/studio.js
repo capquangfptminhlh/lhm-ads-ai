@@ -314,6 +314,11 @@ async function loadDesktopProviders(){
       $('desktop-'+p+'-status').textContent=(data[p].configured?'Đã cấu hình trên máy. ':'Chưa cấu hình. ')+
        (data[p].secret_saved?'Khóa đã lưu mã hóa. ':'')+'Địa chỉ callback: '+data[p].callback_url;
     }
+    // Public status only: never dispatch OAuth Client Secret or Ads tokens.
+    window.dispatchEvent(new CustomEvent('lhm:desktop-providers-status',{detail:{
+      google:{configured:data.google.configured,callback_url:data.google.callback_url},
+      meta:{configured:data.meta.configured,callback_url:data.meta.callback_url}
+    }}));
   }catch(e){panel.classList.add('hidden')}
 }
 for(const p of ['google','meta']){
