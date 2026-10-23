@@ -1,37 +1,30 @@
-name: Deploy static PWA preview to GitHub Pages
+name: Validate Cloudflare PWA static bundle
 on:
+  pull_request:
   push:
     branches: [main]
-    paths:
-      - 'static/**'
-      - 'tools/build_github_pages.py'
-      - '.github/workflows/github-pages-pwa.yml'
   workflow_dispatch:
 permissions:
   contents: read
-  pages: write
-  id-token: write
 concurrency:
-  group: github-pages-pwa
+  group: cloudflare-pwa-static-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Build safe static PWA
+      - name: Build fail-closed PWA assets
         run: python tools/build_github_pages.py --output _site
-      - name: Check static asset and PWA rules
+      - name: Verify bundle contains no backend secrets
         run: python -m unittest discover -s tests -p 'test_github_pages_build_unittest.py' -v
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          path: _site
-      - id: deploy
-        uses: actions/deploy-pages@v4
+          name: Cloudflare-PWA-Static-Bundle
+          path: _site/
+          retention-days: 7
+# Production deployment is through Cloudflare Workers Builds connected to GitHub.
+# GitHub Pages is intentionally NOT used to sell/serve a commercial SaaS.
