@@ -70,9 +70,14 @@ def run_window(app, *, port: int, setup_token: str | None, data_folder: Path,
             'LHM Ads AI · Advertising Studio',
             url=url,
             js_api=DesktopBridge(),
-            width=1440, height=910,
-            min_size=(1020, 680), resizable=True,
-            background_color='#f3e8df',
+            # Open maximized on the current monitor, keeping the native
+            # title bar and taskbar. Users can still restore/resize normally.
+            maximized=True,
+            width=1280, height=800,
+            # Do not force a minimum larger than the available work area
+            # on small/high-DPI Windows displays.
+            min_size=(760, 540), resizable=True,
+            background_color='#0b0c0e',
             confirm_close=False,
         )
         if smoke_window:
