@@ -57,3 +57,32 @@ def test_accounts_routes_to_wizard_instead_of_secret_form():
     script=read('static/provider-studio.js')
     assert "new CustomEvent('lhm:open-connect-guide'" in script
     assert "detail:{provider:btn.dataset.providerSettings}" in script
+
+
+
+def test_api_and_mcp_are_explicitly_separate_guidance_modes():
+    html=read('static/studio.html')
+    js=read('static/connection-guide.js')
+    css=read('static/connection-guide.css')
+    guide=read('docs/ADS_CONNECT_API_MCP_GUIDE.md')
+    assert 'data-connection-mode="api"' in html
+    assert 'data-connection-mode="mcp"' in html
+    assert 'MCP là kết nối riêng' in html
+    assert 'let mode = \'api\'' in js
+    assert "mode==='mcp'?mcpGuides[provider]:templates[provider][step]" in js
+    assert "root.querySelector('.connection-step-nav').classList.toggle('hidden',mode==='mcp')" in js
+    assert '#provider-connect-guide .connection-mode-switch' in css
+    assert 'Google Ads MCP' in guide and 'Meta Ads' in guide
+    assert 'chưa được tích hợp' in guide
+
+
+def test_current_google_ads_cloud_access_rules_not_outdated():
+    js=read('static/connection-guide.js')
+    guide=read('docs/ADS_CONNECT_API_MCP_GUIDE.md')
+    assert '09/09/2026' in js
+    assert 'Explorer' in js and 'Google Cloud' in js
+    assert '09/09/2026' in guide
+    assert 'developer token Google Ads API đã sunset' in guide
+    assert 'ads_read' in guide and 'ads_management' in guide
+    assert 'https://developers.google.com/google-ads/api/docs/developer-toolkit/mcp-server' in js
+    assert 'https://developers.facebook.com/ads-mcp-server' in js
