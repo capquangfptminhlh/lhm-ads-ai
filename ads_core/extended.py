@@ -28,7 +28,9 @@ def studio():
 
 class ChatInput(BaseModel):
     message: str = Field(min_length=2, max_length=1200)
-    period: str = Field(default='last_7d', pattern=r'^(today|yesterday|last_(7|14|30|90)d|this_(week|month|quarter|year)|last_(week|month|quarter|year)|custom)
+    period: str = Field(default='last_7d', pattern=r'^(today|yesterday|last_(7|14|30|90)d|this_(week|month|quarter|year)|last_(week|month|quarter|year)|custom)$')
+    date_from: str | None = None
+    date_to: str | None = None
 
 
 def num(value):
