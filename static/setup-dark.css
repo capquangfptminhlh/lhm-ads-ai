@@ -141,3 +141,32 @@ html,body{max-width:100%;overflow-x:clip;scrollbar-width:thin;scrollbar-color:#4
   .preview-window{margin:10px 0 14px}
   .benefits{padding-top:12px}
 }
+
+
+/* Keep the required setup controls visible on common 768–900px-tall
+   laptop displays; allow ordinary page scrolling on smaller viewports. */
+@media(max-height:900px) and (min-width:661px){
+  .workspace{padding-top:16px;padding-bottom:12px}
+  .intro .mini-tag{padding:6px 11px}
+  .intro h2{font-size:clamp(27px,2.7vw,38px);margin:9px 0 6px}
+  .intro>p{font-size:12px;line-height:1.5;margin-bottom:13px}
+  .setup-card{padding:17px 22px 14px}
+  .card-head{margin-bottom:13px}
+  .card-heading h3{font-size:18px}
+  .setup-card label{margin:9px 0 5px}
+  .field{height:44px}
+  .field-hint{margin:5px 0 2px}
+  #form-error{margin:6px 0 3px;min-height:16px}
+  .primary{min-height:46px;height:46px}
+  .form-foot{margin-top:9px}
+  .workspace footer{margin-top:14px}
+}
+@media(max-height:700px) and (min-width:661px){
+  .workspace{padding-top:10px}
+  .intro>p{margin-bottom:8px}
+  .intro h2{font-size:27px;margin:7px 0 4px}
+  .card-head{margin-bottom:8px}
+  .aside-card .preview-window{margin:8px 0 9px}
+  .sidebar-main{margin-top:20px}
+  .steps{margin-top:17px;gap:7px}
+}
