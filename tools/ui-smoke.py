@@ -112,7 +112,7 @@ def main():
                 expect(page.locator('#customer-help-dialog')).to_be_visible()
                 expect(page.locator('#customer-help-content')).to_contain_text('Google Ads API')
                 page.locator('[data-help-tab=meta]').click()
-                expect(page.locator('#customer-help-content')).to_contain_text('Meta/Facebook Ads')
+                expect(page.locator('#customer-help-content')).to_contain_text('Facebook / Meta Ads')
                 page.locator('[data-help-tab=mcp]').click()
                 expect(page.locator('#customer-help-content')).to_contain_text('chưa tích hợp MCP server trực tiếp')
                 page.locator('[data-help-tab=errors]').click()
