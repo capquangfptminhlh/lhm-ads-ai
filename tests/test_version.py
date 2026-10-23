@@ -1,6 +1,6 @@
 """The product version has exactly one source of truth: ads_core/version.py.
 
-These tests pin the current release (0.3, canonical "0.3.0") and verify that
+These tests pin the current bootstrap release (0.3, canonical "0.3.1") and verify that
 every machine-readable consumer — the FastAPI app metadata and the /healthz
 status endpoint — reports the same value instead of a hardcoded copy.
 """
@@ -27,9 +27,9 @@ def test_version_module_exposes_semver():
 
 
 def test_version_is_current_release():
-    # The current release is 0.3; its canonical semver form is 0.3.0.
+    # The current pilot update bootstrap is 0.3.1.
     # Bump ads_core/version.py (and only that file) when this changes.
-    assert __version__ == '0.3.0'
+    assert __version__ == '0.3.1'
     assert version_module.__version__ == __version__
 
 
