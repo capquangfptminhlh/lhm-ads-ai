@@ -5,11 +5,11 @@ phiên bản theo [Semantic Versioning](https://semver.org/lang/vi/).
 
 **Phiên bản đang khai báo trong mã nguồn: 0.3** — "Private Studio 0.3"
 (trang đầu `README.md` và `docs/STUDIO.md`). Nguồn phiên bản duy nhất nay
-là `ads_core/version.py` (`__version__ = "0.3.0"`); chưa có git tag. Mọi
+là `ads_core/version.py` (`__version__ = "0.3.1"`); chưa có git tag. Mọi
 ghi chú dưới đây thuộc mục *Chưa phát hành* cho đến khi chủ phần mềm
 quyết định số phiên bản kế tiếp (xem `docs/RELEASE_CHECKLIST.md`).
 
-## [Chưa phát hành]
+## [Chưa phát hành]\n\n- Bản Pilot 0.3.1: thêm cơ chế cập nhật online có xác minh chữ ký Ed25519, SHA-256 và thay EXE sau khi đóng; tự động kiểm tra, tải/cài khi người dùng đồng ý. Tắt khi bên phát hành chưa cấu hình khóa công khai và URL HTTPS. Không thay đổi API Google/Meta hoặc cơ sở dữ liệu.
 
 Các thay đổi đã hợp nhất vào `main` ngày 2026-10-21 và 2026-10-22, chuẩn
 bị cho bản thương mại đầu tiên. **Toàn bộ các mục dưới đây mới chỉ nằm

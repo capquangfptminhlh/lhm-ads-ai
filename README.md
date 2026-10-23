@@ -4,7 +4,7 @@ Khi dùng bản EXE Windows, ứng dụng chỉ chạy trên máy cá nhân và 
 
 # LHM Ads AI — Private Studio 0.3
 
-> Version source of truth: `ads_core/version.py` (`__version__ = "0.3.0"`; "0.3" above is its short display form). Do not hardcode the version elsewhere.
+> Version source of truth: `ads_core/version.py` (`__version__ = "0.3.1"`; "0.3" above is its short display form). Do not hardcode the version elsewhere.
 
 Vietnamese advertising dashboard for an owner-managed VPS. **No MCP server, no remote tool bridge, no third-party tool-access keys.** By default, analysis is calculated locally from fetched provider reports and nothing is sent to a third-party AI service. Optional exception: an admin may explicitly enable OpenRouter AI analysis with their own key (see docs/OPENROUTER.md); only filtered aggregate statistics are sent, never Ads credentials or campaign identifiers. Supported upstream Meta and Google Ads APIs are separate from external remote-control integration.
 
