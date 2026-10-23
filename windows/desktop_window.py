@@ -8,6 +8,7 @@ opened in the system browser because Google's policy forbids embedded login.
 from __future__ import annotations
 
 import re
+import sys
 import threading
 import time
 import urllib.request
@@ -16,7 +17,43 @@ from pathlib import Path
 
 
 class DesktopBridge:
-    """Tiny allowlisted bridge, with no Ads tokens, file access or remote code."""
+    """Native-only bridge: allowlisted OAuth and cryptographically verified updates."""
+
+    def __init__(self, data_folder: Path | None = None, executable: Path | None = None):
+        self.data_folder = data_folder
+        self.executable = executable
+        self.install_requested = False
+        self.window = None
+
+    def _can_update(self) -> bool:
+        return (self.data_folder is not None and self.executable is not None
+                and getattr(sys, 'frozen', False) and sys.platform == 'win32')
+
+    def check_update(self) -> dict:
+        if not self._can_update():
+            return {'status': 'not_configured',
+                    'message': 'Cập nhật online chỉ hỗ trợ bản EXE Windows.'}
+        from windows.online_update import check
+        return check()
+
+    def download_update(self) -> dict:
+        if not self._can_update():
+            return {'status': 'not_configured',
+                    'message': 'Cập nhật online chỉ hỗ trợ bản EXE Windows.'}
+        from windows.online_update import download
+        return download(self.data_folder)
+
+    def install_update(self) -> dict:
+        if not self._can_update() or self.install_requested:
+            return {'status': 'invalid', 'message': 'Không thể bắt đầu cập nhật.'}
+        from windows.online_update import staged_update
+        if staged_update(self.data_folder) is None or self.window is None:
+            return {'status': 'invalid', 'message': 'Chưa có bản cập nhật được xác minh.'}
+        # The outer run_window() finally block will wait for the local API to
+        # exit and then spawn the replacement worker. No running EXE is replaced.
+        self.install_requested = True
+        threading.Thread(target=self.window.destroy, daemon=True).start()
+        return {'status': 'restarting', 'message': 'Đang đóng để cài đặt bản mới.'}
 
     def open_oauth_url(self, url: str) -> bool:
         from urllib.parse import urlsplit
@@ -60,6 +97,10 @@ def run_window(app, *, port: int, setup_token: str | None, data_folder: Path,
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, name='lhm-local-api', daemon=True)
     thread.start()
+    bridge = DesktopBridge(
+        data_folder=data_folder,
+        executable=Path(sys.executable) if getattr(sys, 'frozen', False) else None,
+    )
     try:
         wait_for_service(port, thread)
         import webview
@@ -69,7 +110,7 @@ def run_window(app, *, port: int, setup_token: str | None, data_folder: Path,
         window = webview.create_window(
             'LHM Ads AI · Advertising Studio',
             url=url,
-            js_api=DesktopBridge(),
+            js_api=bridge,
             # Open maximized on the current monitor, keeping the native
             # title bar and taskbar. Users can still restore/resize normally.
             maximized=True,
@@ -80,6 +121,7 @@ def run_window(app, *, port: int, setup_token: str | None, data_folder: Path,
             background_color='#0b0c0e',
             confirm_close=False,
         )
+        bridge.window = window
         if smoke_window:
             def close_after_start():
                 time.sleep(8)
@@ -102,3 +144,12 @@ def run_window(app, *, port: int, setup_token: str | None, data_folder: Path,
     finally:
         server.should_exit = True
         thread.join(timeout=8)
+        if bridge.install_requested and not smoke_window:
+            from windows.update_install import spawn_install_after_exit
+            try:
+                spawn_install_after_exit(data_folder, Path(sys.executable))
+            except Exception:
+                # Do not mark a broken install as successful; the old EXE
+                # remains untouched if the detached updater cannot start.
+                import traceback
+                traceback.print_exc()
