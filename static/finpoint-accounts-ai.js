@@ -65,6 +65,16 @@
     '<button type="button" data-fp-prompt="Gợi ý cách nghiên cứu từ khóa phủ định an toàn, tránh chặn từ khóa có chuyển đổi.">⌕ Từ khóa</button>'+
     '<button type="button" data-fp-prompt="Giải thích rủi ro khi chuyển chiến lược giá thầu tự động của Google Ads.">↗ Chiến lược giá thầu</button></div></article>';
    panel.querySelector('.chat-panel')?.before(hub);
+   const warning=document.createElement('section');
+   warning.id='ai-license-warning';warning.className='ai-license-warning hidden';
+   warning.setAttribute('role','status');warning.setAttribute('aria-live','polite');
+   warning.innerHTML='<strong>AI trực tuyến chưa khả dụng vì giấy phép</strong>'+
+     '<p id="ai-license-explanation">Đang kiểm tra trạng thái giấy phép…</p>'+
+     '<div class="ai-license-actions"><button type="button" class="btn primary" id="ai-license-open">↗ Xem bản quyền / Kích hoạt</button>'+
+     '<button type="button" class="btn secondary" id="ai-license-settings">⚙ Cấu hình phân tích nội bộ</button></div>';
+   panel.querySelector('.chat-panel')?.before(warning);
+   $('ai-license-open').addEventListener('click',()=>{if(typeof go==='function')go('license')});
+   $('ai-license-settings').addEventListener('click',()=>{if(typeof go==='function')go('settings')});
    $('fp-ai-refresh').addEventListener('click',refreshAI);
    $('fp-ai-config').addEventListener('click',()=>page('settings')?.click());
    hub.addEventListener('click',e=>{const b=e.target.closest('[data-fp-prompt]');if(!b)return;
@@ -73,13 +83,34 @@
  }
  async function refreshAI(){
    if(!$('fp-ai-mode')||$('page-assistant').classList.contains('hidden'))return;
-   try{const r=await api('/api/ai/settings');
-     $('fp-ai-mode').textContent=r.enabled?'OpenRouter được bật':'Phân tích nội bộ';
+   try{
+     const [r,license]=await Promise.all([api('/api/ai/settings'),api('/api/license')]);
+     const blocked=Boolean(r.enabled&&!license.active);
+     window.lhmAILicenseBlocked=blocked;
+     $('ai-license-warning').classList.toggle('hidden',!blocked);
+     if(blocked){
+       const detail=license.reason==='clock_rollback'?'Đồng hồ Windows bị chỉnh lùi. Đồng bộ lại giờ để xác minh giấy phép.':
+         license.reason==='revoked'?'Giấy phép đã bị thu hồi. Liên hệ đơn vị phát hành để kiểm tra.':
+         license.reason==='clock_state_invalid'?'Không thể xác minh trạng thái thời gian hệ thống. Liên hệ hỗ trợ.':
+         'Gói sử dụng chưa kích hoạt hoặc hết hạn. OpenRouter có tính phí đang bật nên AI Center không thể gửi yêu cầu.';
+       $('ai-license-explanation').textContent=detail+' Dữ liệu Ads đã lưu không bị xóa. Vào Bản quyền để kích hoạt/gia hạn, hoặc Cài đặt để tắt OpenRouter và sử dụng phân tích nội bộ.';
+     }
+     $('fp-ai-mode').textContent=blocked?'Cần kích hoạt bản quyền':r.enabled?'OpenRouter được bật':'Phân tích nội bộ';
      $('fp-ai-model').textContent=r.enabled?(r.model||'Chưa chọn'):'Không gọi dịch vụ ngoài';
      $('fp-ai-usage').textContent=r.enabled?String(r.used_today||0)+' / '+String(r.daily_limit||30):'Không áp dụng';
-     $('fp-ai-disclosure').textContent=r.enabled?'Khi bấm Gửi, câu hỏi và số liệu tổng hợp sẽ gửi cho OpenRouter, có thể phát sinh phí API. Không tự thực thi lệnh quảng cáo.':'OpenRouter đang tắt. Phân tích thực hiện trên máy; token không được đưa vào câu hỏi gửi đi.';
-   }catch(e){$('fp-ai-mode').textContent='Chưa xác minh';$('fp-ai-disclosure').textContent=String(e.message||e)}
+     $('fp-ai-disclosure').textContent=blocked?
+       'OpenRouter đang bị chặn theo giấy phép. Chưa gửi câu hỏi hoặc dữ liệu ra nhà cung cấp.':
+       r.enabled?'Khi bấm Gửi, câu hỏi và số liệu tổng hợp sẽ gửi cho OpenRouter, có thể phát sinh phí API. Không tự thực thi lệnh quảng cáo.':
+       'OpenRouter đang tắt. Phân tích theo quy tắc nội bộ trên máy; không gửi token Ads ra ngoài.';
+   }catch(err){
+     // Connectivity/API failure is not proof that a license is invalid.
+     window.lhmAILicenseBlocked=false;
+     $('ai-license-warning').classList.add('hidden');
+     $('fp-ai-mode').textContent='Chưa xác minh';
+     $('fp-ai-disclosure').textContent='Chưa kiểm tra được cài đặt AI hoặc bản quyền: '+String(err.message||err);
+   }
  }
+ window.lhmRefreshAILicense=refreshAI;
  document.addEventListener('DOMContentLoaded',()=>{
    initAccounts();initAI();
    document.addEventListener('lhm:accounts-loaded',()=>setTimeout(refreshAccounts,0));
