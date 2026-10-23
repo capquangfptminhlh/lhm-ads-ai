@@ -1,0 +1,163 @@
+/* LHM Ads AI · calmer Studio 2026
+ * One bundled Inter family, clear hierarchy and progressive disclosure.
+ * Loaded last; no remote fonts, inline styles, or changed API behaviour.
+ */
+:root{
+  --studio-ink:#f5f7fa;
+  --studio-body:#d7dce5;
+  --studio-muted:#a5aebb;
+  --studio-border:#343945;
+  --studio-panel:#191c23;
+  --studio-card:#21252e;
+  --studio-focus:#ffb28d;
+}
+#shell{
+  font-family:Inter,"Segoe UI",system-ui,sans-serif;
+  font-synthesis:none;
+  font-size:14px;
+  line-height:1.58;
+  color:var(--studio-body);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+#shell h1,#shell h2,#shell h3,#shell h4,
+#shell .nav-link,#shell .btn,#shell button,
+#shell input,#shell select,#shell textarea{
+  font-family:inherit;
+  font-synthesis:none;
+}
+#shell .section-heading h1{font-size:clamp(26px,2.35vw,32px);line-height:1.25;letter-spacing:-.55px;color:var(--studio-ink);font-weight:750}
+#shell h2{line-height:1.32;letter-spacing:-.25px}
+#shell h3{font-size:17px;line-height:1.36;font-weight:700;color:var(--studio-ink);letter-spacing:-.12px}
+#shell .panel p,#shell .view p,#shell .license-disclosure-body{line-height:1.65}
+#shell .muted,#shell .hint,#shell .tiny{color:var(--studio-muted);line-height:1.65}
+#shell .nav-link{font-size:13px;font-weight:650;line-height:1.42}
+#shell .btn{min-height:44px;max-width:100%;font-size:13px;font-weight:700;white-space:normal;line-height:1.35}
+#shell input,#shell textarea,#shell select{font-size:14px;line-height:1.5;max-width:100%}
+#shell label{font-size:13px;line-height:1.55}
+#shell [role="status"],#shell .license-disclosure,#shell .license-meta{overflow-wrap:anywhere}
+#shell .panel{border-radius:16px}
+#shell .view>.section-heading{margin-bottom:23px}
+#shell .section-heading .muted{font-size:13px;line-height:1.65}
+#shell button:focus-visible,#shell summary:focus-visible,#shell a:focus-visible{
+  outline:2px solid var(--studio-focus);outline-offset:3px;
+}
+
+/* 5 essential items in sidebar; power tools remain one click away. */
+#shell #navigation .nav-advanced{margin:10px 7px 10px;min-width:0}
+#shell #navigation .nav-advanced>summary{
+  list-style:none;display:flex;align-items:center;gap:13px;
+  min-height:44px;cursor:pointer;padding:11px 13px;
+  border:1px solid #353941;border-radius:11px;
+  background:#20232a;color:#c9cdd6;font-size:13px;font-weight:700;
+}
+#shell #navigation .nav-advanced>summary::-webkit-details-marker{display:none}
+#shell #navigation .nav-advanced>summary>span:first-child{font-size:18px;line-height:1}
+#shell #navigation .nav-advanced-chevron{margin-left:auto;transition:transform .2s ease}
+#shell #navigation .nav-advanced[open] .nav-advanced-chevron{transform:rotate(180deg)}
+#shell #navigation .nav-advanced-links{margin-top:7px;padding:5px 0 8px;border-left:1px solid #424650;margin-left:16px}
+#shell #navigation .nav-advanced-links>.nav-link{min-height:42px;min-width:0;width:calc(100% - 8px);margin-left:8px}
+#shell #navigation .nav-advanced-links>.nav-label{margin:13px 12px 7px;font-size:10px}
+
+/* License top-level view and high-signal overview. */
+#page-license>.panel{padding:clamp(17px,2.4vw,28px)}
+#page-license .license-meta{display:flex;flex-wrap:wrap;gap:5px 26px;font-size:13px}
+#page-license .license-meta p{margin:8px 0}
+#page-license .license-meta b{color:#c7cbd6;font-weight:600}
+#page-license .license-meta span{color:#fff;font-weight:650}
+#page-license .license-status{margin:17px 0 20px;padding:14px 17px;border-radius:12px}
+#page-license .license-status-line{font-size:14px;line-height:1.55}
+#page-license .license-overview-grid{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;margin:15px 0 20px;
+}
+#page-license .license-overview-card{
+  display:flex;flex-direction:column;gap:9px;min-width:0;
+  background:var(--studio-card);border:1px solid var(--studio-border);
+  border-radius:13px;padding:15px;
+}
+#page-license .license-overview-card small{font-size:11px;color:#afb6c5;line-height:1.4;font-weight:600}
+#page-license .license-overview-card strong{font-size:14px;font-weight:730;line-height:1.45;overflow-wrap:anywhere;color:#f4f4f5}
+#page-license .license-overview-card strong[data-tone="ok"]{color:#9ce8c3}
+#page-license .license-overview-card strong[data-tone="warn"]{color:#ffbf9b}
+#page-license .license-overview-card strong[data-tone="neutral"]{color:#dce0e9}
+#page-license #license-device{font-size:12px;line-height:1.8}
+#page-license #license-copy-device{margin:7px 0 0}
+#page-license .license-disclosure{
+  border:1px solid var(--studio-border);background:#1b1e25;
+  border-radius:13px;margin:16px 0;min-width:0;overflow:hidden;
+}
+#page-license .license-disclosure>summary{
+  display:flex;gap:6px;align-items:center;flex-wrap:wrap;
+  cursor:pointer;list-style:none;padding:17px 19px;
+  font-size:14px;line-height:1.45;font-weight:720;color:#f2f4f8;
+}
+#page-license .license-disclosure>summary::-webkit-details-marker{display:none}
+#page-license .license-disclosure>summary::before{
+  content:"›";display:inline-grid;place-items:center;
+  width:23px;height:23px;flex:0 0 23px;border-radius:7px;
+  border:1px solid #626572;color:#ffba92;font-size:20px;line-height:1;
+}
+#page-license .license-disclosure[open]>summary::before{content:"⌄";font-size:15px}
+#page-license .license-disclosure>summary>span{
+  font-size:11px;font-weight:500;color:#a9b0bb;margin-left:auto;
+}
+#page-license .license-disclosure-body{
+  border-top:1px solid #353945;padding:14px 19px 20px;
+  min-width:0;
+}
+#page-license .license-disclosure-body h3{margin:0 0 9px}
+#page-license .license-disclosure-body label{display:block;margin:13px 0;color:#cbd2de}
+#page-license .license-disclosure-body input:not([type="checkbox"]),
+#page-license .license-disclosure-body textarea,#page-license .license-disclosure-body select{
+  display:block;width:100%;min-width:0;max-width:650px;min-height:44px;
+  padding:10px 13px;margin-top:7px;color:#f4f6f9;
+  background:#252932;border:1px solid #505561;border-radius:10px;
+}
+#page-license .license-disclosure-body textarea{min-height:105px;resize:vertical}
+#page-license .license-steps{padding:2px 0}
+#page-license #desktop-local-ops{margin-top:23px}
+#page-license .license-preflight-heading{margin:5px 0 16px}
+#page-license .license-preflight-heading h3{margin:0 0 6px}
+#page-license .license-preflight-heading p{margin:0;color:#aeb6c3}
+#page-license .license-check-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#page-license .license-check-group{
+  background:#20242b;border:1px solid #3a3d47;
+  border-radius:12px;padding:14px;min-width:0;
+}
+#page-license .license-check-group h4{margin:0 0 10px;color:#f2f5f8;font-size:13px}
+#page-license .license-check-row{
+  display:flex;gap:10px;align-items:center;justify-content:space-between;
+  min-width:0;padding:11px 0;border-top:1px solid #383c46;
+  color:#d7dce5;font-size:12px;line-height:1.55;
+}
+#page-license .license-check-row>span:first-child{min-width:0;overflow-wrap:anywhere}
+#page-license .license-state-pill{
+  flex:0 0 auto;display:inline-block;max-width:48%;font-size:10px;
+  font-weight:750;letter-spacing:.02em;padding:5px 8px;
+  border-radius:100px;text-align:center;white-space:normal;
+}
+#page-license .license-state-ok{background:#203b31;color:#a4edc8}
+#page-license .license-state-warn{background:#423024;color:#ffd4ab}
+#page-license .license-state-unknown{background:#30343c;color:#d5dae3}
+#page-license .license-state-bad{background:#48262a;color:#ffb1b1}
+#page-license #readiness-refresh,#page-license #readiness-export{min-height:44px}
+@media(max-width:1100px){
+  #page-license .license-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:720px){
+  #page-license .license-check-grid{grid-template-columns:1fr}
+  #page-license .license-overview-grid{gap:9px}
+  #page-license .license-overview-card{padding:12px}
+  #page-license .license-disclosure>summary{padding:13px;gap:8px}
+  #page-license .license-disclosure>summary>span{flex-basis:100%;margin-left:31px}
+  #page-license .license-disclosure-body{padding:12px}
+}
+@media(max-width:380px){
+  #page-license .license-overview-grid{grid-template-columns:1fr}
+  #page-license .license-check-row{align-items:flex-start;flex-direction:column}
+  #page-license .license-state-pill{max-width:100%}
+}
+@media(prefers-reduced-motion:reduce){
+  #shell #navigation .nav-advanced-chevron{transition:none}
+}
