@@ -32,6 +32,14 @@ Nguồn Git integration: https://developers.cloudflare.com/workers/ci-cd/builds/
 
 Nguồn custom-domain: https://developers.cloudflare.com/workers/configuration/routing/custom-domains/
 
+## Chính sách chủ sản phẩm: 100% tài khoản Ads chỉ ở thiết bị
+
+**Đã khóa quyết định:** không đưa credentials, danh sách tài khoản Ads hay báo cáo Ads của khách lên Cloudflare kể cả khi đã mã hóa. Cloudflare chỉ quản lý hợp đồng, đăng nhập LHM, giấy phép và trạng thái kết nối không nhạy cảm. OAuth + API quảng cáo + MCP data-plane phải vận hành trên thiết bị của khách sau khi xác minh tính khả thi của từng nền tảng; **không được giữ token Ads trên server để chạy Cron**.
+
+PWA có thể bị hệ điều hành tạm ngừng khi khóa máy, nên không thể cam kết theo dõi 24/7 chỉ nhờ điện thoại. Bản Cloudflare Worker cố ý trả `device_only_ready:false` và API Ads 503 cho đến khi thật sự đạt yêu cầu.
+
+Đọc toàn bộ điều kiện kỹ thuật tại [DEVICE_ONLY_ADS_DATA.md](DEVICE_ONLY_ADS_DATA.md).
+
 ## Backend thương mại chưa được chuyển đổi
 
 Repo hiện vẫn có FastAPI/Python dùng SQLite, phiên đăng nhập, OAuth, mã hóa token, agent và MCP cục bộ. Không thể bê nguyên code cùng SQLite/uvicorn vào một Worker JS mà coi là chạy được. Để có app thật **không VPS**, cần port/test các hạng mục theo thứ tự:
