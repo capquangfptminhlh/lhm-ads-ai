@@ -20,6 +20,27 @@ self.addEventListener('activate', event => {
       .then(() => self.clients.claim())
   );
 });
+// Web Push uses explicit browser permission and an encrypted subscription.
+self.addEventListener('push', event => {
+  let payload={};
+  try { payload=event.data ? event.data.json() : {}; } catch (_) { /* invalid push */ }
+  const title=typeof payload.title==='string' ? payload.title.slice(0,100) : 'LHM Ads AI';
+  const body=typeof payload.body==='string' ? payload.body.slice(0,240) : 'Có cảnh báo quảng cáo mới.';
+  event.waitUntil(self.registration.showNotification(title, {
+    body,icon:'/static/icons/icon-192.png',badge:'/static/icons/icon-192.png',
+    tag:'lhm-budget',renotify:true,data:{url:'/studio'}
+  }));
+});
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(async windows => {
+    for (const client of windows) {
+      if (new URL(client.url).origin===self.location.origin && 'focus' in client)
+        return client.focus();
+    }
+    return self.clients.openWindow('/studio');
+  }));
+});
 self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET') return;
