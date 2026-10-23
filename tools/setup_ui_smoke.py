@@ -82,7 +82,19 @@ def main():
                 assert page.locator('link[href="/static/setup-dark.css"]').count()==1
                 expect(page.locator('.preview-head')).to_contain_text('CHƯA CÓ DỮ LIỆU ADS')
                 expect(page.locator('.intro')).to_contain_text('Dashboard đen')
+                assert page.evaluate("""() => {
+                    const rect=document.querySelector('.app-frame').getBoundingClientRect();
+                    return Math.abs(rect.left)<=1 &&
+                        Math.abs(rect.width-window.innerWidth)<=1 &&
+                        document.documentElement.scrollWidth<=window.innerWidth+1;
+                }"""), 'Desktop setup should fill the native window without horizontal overflow'
                 page.screenshot(path=str(ARTIFACTS/'16-desktop-first-run-dark.png'),
+                                full_page=True)
+                page.set_viewport_size({'width':1024,'height':768})
+                expect(page.locator('.aside-card')).to_be_hidden()
+                expect(page.locator('#submit')).to_be_visible()
+                assert page.evaluate('document.documentElement.scrollWidth<=window.innerWidth+1')
+                page.screenshot(path=str(ARTIFACTS/'18-compact-desktop-first-run.png'),
                                 full_page=True)
                 page.set_viewport_size({'width':390,'height':844})
                 expect(page.locator('#email')).to_be_visible()
