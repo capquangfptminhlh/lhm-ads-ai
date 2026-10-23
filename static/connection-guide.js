@@ -101,7 +101,7 @@
     ]
   };
   // Official MCP products are documented here as an ALTERNATIVE AI-client path.
-  // No MCP execution endpoint is exposed by LHM Ads AI itself.
+  // LHM now exposes a local read-only stdio MCP server, but no remote HTTP MCP endpoint.
   const mcpGuides = {
     google: `<h4>Google Ads MCP chính thức · Dành cho AI client</h4>
       <p>Google cung cấp <strong>google-ads-mcp</strong> (chỉ đọc số liệu, không sửa giá thầu/chiến dịch). Bản LHM Ads AI Windows vẫn kết nối Google bằng OAuth/API riêng.</p>
@@ -109,7 +109,7 @@
       <li>Cấu hình OAuth hoặc Application Default Credentials (ADC) trên máy theo hướng dẫn Google. Không nhập token vào khung chat.</li>
       <li>Trong AI client hỗ trợ MCP, thêm máy chủ Google Ads chính thức bằng <code>pipx</code>, <code>GOOGLE_PROJECT_ID</code> và ADC; đăng nhập chính chủ.</li>
       <li>Thử lệnh “Liệt kê tài khoản Google Ads được phép truy cập” hoặc “Báo cáo chi phí 7 ngày qua”.</li></ol>
-      <div class="connection-tip">Lưu ý: Đây là <strong>hướng dẫn cấu hình AI client bên ngoài</strong>, không phải nút MCP hoạt động sẵn trong LHM Ads AI.</div>
+      <div class="connection-tip">Lưu ý: Đây là <strong>hướng dẫn cấu hình AI client bên ngoài</strong>, MCP local của LHM có thể tạo khóa ở Cài đặt; Google MCP chính thức vẫn là kết nối riêng bên ngoài.</div>
       <div class="connection-action-row"><a class="btn secondary" href="https://developers.google.com/google-ads/api/docs/developer-toolkit/mcp-server" target="_blank" rel="noopener noreferrer">Tài liệu Google Ads MCP chính thức ↗</a></div>`,
     meta: `<h4>Meta Ads MCP / AI Connectors chính thức</h4>
       <p>Meta có Ads MCP dành cho AI client hỗ trợ kết nối. Đây là luồng khác với Meta Marketing API đang dùng trực tiếp trong LHM Ads AI.</p>
