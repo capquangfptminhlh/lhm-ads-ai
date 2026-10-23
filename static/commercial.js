@@ -45,11 +45,16 @@
     box.className='license-status license-status-'+state;
     line.textContent=lineText;
     const overview=el('license-overview-state');
-    if(overview){overview.textContent=license.active?'Đang hoạt động':state==='expiring'?'Sắp hết hạn':'Chưa kích hoạt / hết hạn';overview.dataset.tone=license.active?'ok':'warn';}
+    if(overview){overview.textContent=state==='expiring'?'Sắp hết hạn':license.active?'Đang hoạt động':'Chưa kích hoạt / hết hạn';overview.dataset.tone=state==='active'?'ok':'warn';}
     const device=el('license-overview-device');
     if(device)device.textContent=license.device?'Đã nhận diện máy':'Chưa xác minh';
     if(guidance){guidance.textContent=guidanceText;guidance.classList.toggle('hidden',!guidanceText);}
     if(steps)steps.classList.toggle('hidden',!!license.active);
+    const activation=el('license-activation-panel');
+    if(activation && activation.dataset.initialized!=='yes'){
+      activation.open=!license.active;
+      activation.dataset.initialized='yes';
+    }
   }
   const escape = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   async function refresh() {
