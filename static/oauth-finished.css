@@ -14,7 +14,7 @@ h1{font-size:clamp(25px,4.3vw,34px);line-height:1.22;letter-spacing:-.65px;margi
 .oauth-summary{margin:0 auto 21px;max-width:430px;line-height:1.7;color:#d5d9e4;font-size:15px}
 .next-step{border:1px solid #495261;background:#2a2f3a;border-radius:13px;text-align:left;padding:16px 18px;margin:0 0 24px}
 .next-step p{margin:7px 0 0;line-height:1.65;font-size:14px;color:#f3f4f8}
-#oauth-finished-close{display:block;width:100%;min-height:52px;padding:11px 18px;border:1px solid #ffb48c;border-radius:12px;background:#e9895e;color:#17130f;font:800 15px/1.35 inherit;cursor:pointer;transition:background-color .2s ease,transform .2s ease}
+#oauth-finished-close{display:block;width:100%;min-height:52px;padding:11px 18px;border:1px solid #ffb48c;border-radius:12px;background:#e9895e;color:#17130f;font-family:inherit;font-weight:800;font-size:15px;line-height:1.35;cursor:pointer;transition:background-color .2s ease,transform .2s ease}
 #oauth-finished-close:hover{background:#ffb88f}
 #oauth-finished-close:active{transform:scale(.985)}
 #oauth-finished-close:focus-visible{outline:3px solid #ffe2ce;outline-offset:3px}
