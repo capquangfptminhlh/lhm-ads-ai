@@ -213,3 +213,6 @@ from . import secure_backup, desktop_readiness  # noqa: E402,F401
 
 # Optional per-user TOTP MFA enrolment/management endpoints.
 from . import mfa  # noqa: E402,F401
+
+# Explicit admin-provisioned, read-only MCP stdio access; no public MCP route.
+from . import mcp_bridge  # noqa: E402,F401
