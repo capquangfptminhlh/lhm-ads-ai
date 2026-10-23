@@ -98,11 +98,12 @@ def test_return_action_uses_one_time_token_and_safe_origin(monkeypatch, tmp_path
 def test_no_remote_focusing_and_no_lingering_token(monkeypatch, tmp_path):
     _configure_desktop(monkeypatch, tmp_path)
     from ads_core import oauth_connect
-    monkeypatch.setattr(oauth_connect.time, "monotonic", lambda: 1000.0)
     with TestClient(app, client=("127.0.0.1", 52739)) as browser:
         page=browser.get("/oauth/finished")
         token=re.search(r'data-return-token="([^"]+)"', page.text).group(1)
-    monkeypatch.setattr(oauth_connect.time, "monotonic", lambda: 1121.0)
+        # Expire only the in-memory nonce, not the process-wide time module.
+        with oauth_connect._desktop_return_lock:
+            oauth_connect._desktop_return_tokens[token] = 0
     with TestClient(app, client=("127.0.0.1", 52739)) as browser:
         r=browser.post("/api/oauth/finished/activate",
                        headers={"origin": "http://127.0.0.1:8765",
