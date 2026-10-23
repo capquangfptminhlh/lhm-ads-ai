@@ -142,11 +142,10 @@ def change_password(body: PasswordInput, ident=Depends(require('admin','operator
     return {'ok':True,'message':'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.'}
 
 @app.get('/api/export/reports')
-async def export_report(period:str='last_7d', ident=Depends(require('admin','operator','reader'))):
+async def export_report(period:str='last_7d',date_from:str|None=None,date_to:str|None=None,
+                        ident=Depends(require('admin','operator','reader'))):
     import csv, io
-    if period not in ('last_7d','yesterday'):
-        raise HTTPException(422,'Khoảng thời gian không hợp lệ')
-    data=await summary(period=period,ident=ident)
+    data=await summary(period=period,date_from=date_from,date_to=date_to,ident=ident)
     output=io.StringIO()
     writer=csv.writer(output)
     def safe(value):
