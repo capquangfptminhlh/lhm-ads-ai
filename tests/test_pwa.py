@@ -5,7 +5,12 @@ from ads_core.extended import app
 
 ROOT = Path(__file__).resolve().parents[1] / "static"
 
-def test_pwa_manifest_and_scope():
+def test_pwa_manifest_and_scope(tmp_path, monkeypatch):
+    import base64
+    monkeypatch.setenv('DB_PATH', str(tmp_path / 'pwa.sqlite'))
+    monkeypatch.setenv('MASTER_KEY', base64.b64encode(b'x' * 32).decode())
+    monkeypatch.setenv('SESSION_SECRET', 's' * 48)
+    monkeypatch.setenv('COOKIE_SECURE', 'false')
     with TestClient(app) as client:
         r = client.get('/manifest.webmanifest')
         assert r.status_code == 200
