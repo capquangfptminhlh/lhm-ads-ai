@@ -39,6 +39,10 @@ def init_push_db():
           created_at INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_push_org ON push_subscriptions(org_id);
+        CREATE TABLE IF NOT EXISTS push_test_limits (
+          user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+          last_at INTEGER NOT NULL
+        );
         """)
 
 class BudgetRuleInput(BaseModel):
@@ -141,6 +145,26 @@ def unsubscribe(body:SubscriptionInput, ident=Depends(require('admin','operator'
         audit(db,ident,'push.unsubscribe','Disabled Web Push on a user device')
     return {'ok':True}
 
+@app.post('/api/push/test')
+async def send_test_push(ident=Depends(require('admin','operator','reader'))):
+    """Explicit user gesture from Settings; deliver to this user's devices only."""
+    if not push_available():
+        raise HTTPException(503,'Máy chủ chưa cấu hình VAPID')
+    init_push_db()
+    now=int(time.time())
+    with connection() as db:
+        old=db.execute('SELECT last_at FROM push_test_limits WHERE user_id=?',
+                       (ident['id'],)).fetchone()
+        if old and now-old['last_at']<60:
+            raise HTTPException(429,'Chờ 60 giây trước khi gửi thử lần nữa')
+        db.execute("""INSERT INTO push_test_limits(user_id,last_at) VALUES(?,?)
+          ON CONFLICT(user_id) DO UPDATE SET last_at=excluded.last_at""",
+          (ident['id'],now))
+        audit(db,ident,'push.test','Requested one user-only test notification')
+    result=await deliver_to_org(ident['org_id'],'Đây là thông báo thử. Dịch vụ Web Push đã gửi yêu cầu.',user_id=ident['id'])
+    return {'ok':result['sent']>0,'accepted':result['sent'],
+            'note':'Accepted by push gateway does not guarantee delivery to the screen.'}
+
 def _deliver_one(info, message):
     # pywebpush is an optional server dependency, but never silently simulate success.
     from pywebpush import webpush, WebPushException
@@ -155,14 +179,14 @@ def _deliver_one(info, message):
             return 'gone'
         return 'failed'
 
-async def deliver_to_org(org,message):
+async def deliver_to_org(org,message,user_id=None):
     if not push_available():
         return {'sent':0,'reason':'vapid_not_configured'}
     init_push_db()
     with connection() as db:
         rows=[dict(x) for x in db.execute("""SELECT p.endpoint_hash,p.sealed FROM push_subscriptions p
           JOIN users u ON u.id=p.user_id WHERE p.org_id=? AND u.org_id=?
-          AND u.disabled=0""",(org,org)).fetchall()]
+          AND u.disabled=0 AND (? IS NULL OR p.user_id=?)""",(org,org,user_id,user_id)).fetchall()]
     sent=0
     for item in rows:
         try:
