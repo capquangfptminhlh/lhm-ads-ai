@@ -1,0 +1,10 @@
+name = "lhm-ads-cloudflare-api"
+main = "src/index.js"
+compatibility_date = "2026-10-24"
+workers_dev = false
+
+# ads.lhm.com must be a proxied record in the Cloudflare lhm.com zone.
+# This Worker intercepts /api/*; GitHub Pages serves all static PWA paths.
+[[routes]]
+pattern = "ads.lhm.com/api/*"
+zone_name = "lhm.com"
