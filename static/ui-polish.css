@@ -210,3 +210,39 @@
  #shell .ui-mobile-dock button:active{transform:none}
  #shell .ui-mobile-dock button{transition:none}
 }
+
+
+/* Dashboard daily-spend chart/table: same API data, two readable views. */
+#page-dashboard .chart-controls{display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:10px}
+#page-dashboard .chart-mode{display:inline-flex;gap:3px;padding:3px;background:#1b1d22;border:1px solid #41434a;border-radius:11px;flex-shrink:0}
+#page-dashboard .chart-mode button{min-height:38px;padding:7px 12px;border:1px solid transparent;border-radius:8px;
+ background:transparent;color:#b9bdc7;font-size:12px;font-weight:750;white-space:nowrap;
+ transition:background-color .18s ease,border-color .18s ease,color .18s ease}
+#page-dashboard .chart-mode button:hover:not(:disabled){background:#333039;color:#fff}
+#page-dashboard .chart-mode button[aria-pressed="true"]{background:#4b2f28;border-color:#9a543c;color:#ffbea5}
+#page-dashboard .chart-mode button:disabled{opacity:.44;cursor:not-allowed}
+#page-dashboard .chart-mode button:focus-visible{outline:2px solid var(--ui-focus);outline-offset:3px}
+#page-dashboard .chart-data-view{padding:15px 0 10px;min-height:232px;animation:ui-chart-table-arrive .25s ease both}
+#page-dashboard .chart-detail-scroll{max-height:268px;overflow:auto;overscroll-behavior:contain;
+ scrollbar-color:#555860 #25272b;scrollbar-width:thin;border:1px solid #3a3c43;border-radius:13px}
+#page-dashboard .chart-detail-scroll table{width:100%;min-width:250px;border-collapse:collapse}
+#page-dashboard .chart-detail-scroll thead th{position:sticky;top:0;background:#292b30;color:#d4d5db;z-index:1;
+ font-weight:750;font-size:11px;letter-spacing:.06em}
+#page-dashboard .chart-detail-scroll th,#page-dashboard .chart-detail-scroll td{padding:12px 16px;text-align:left}
+#page-dashboard .chart-detail-scroll td{text-align:right;font-variant-numeric:tabular-nums;color:#f2eee9;font-weight:700}
+#page-dashboard .chart-detail-scroll tbody th{font-size:12px;font-variant-numeric:tabular-nums;color:#c6c8cf;font-weight:600}
+#page-dashboard .chart-detail-scroll tbody tr:nth-child(even){background:#ffffff06}
+#page-dashboard .chart-detail-scroll tbody tr:hover{background:#ff8a5012}
+#page-dashboard .chart-detail-scroll:focus-visible{outline:2px solid var(--ui-focus);outline-offset:3px}
+@keyframes ui-chart-table-arrive{from{opacity:.25;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:650px){
+ #page-dashboard .chart-panel .panel-title{flex-wrap:wrap}
+ #page-dashboard .chart-controls{justify-content:space-between;width:100%}
+ #page-dashboard .chart-mode{width:100%;flex:1 1 100%}
+ #page-dashboard .chart-mode button{flex:1;min-width:0;min-height:44px}
+ #page-dashboard .chart-detail-scroll th,#page-dashboard .chart-detail-scroll td{padding:12px}
+}
+@media(prefers-reduced-motion:reduce){
+ #page-dashboard .chart-mode button{transition:none}
+ #page-dashboard .chart-data-view{animation:none}
+}
