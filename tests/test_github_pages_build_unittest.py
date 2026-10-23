@@ -32,6 +32,21 @@ class StaticPagesTests(unittest.TestCase):
             self.assertIn("credentials: 'same-origin'",js)
             self.assertIn("event.stopImmediatePropagation()",js)
 
+    def test_cloudflare_production_route_and_commercial_policy(self):
+        cfg=(ROOT/'wrangler.toml').read_text(encoding='utf-8')
+        worker=(ROOT/'workers/ads-api/src/index.js').read_text(encoding='utf-8')
+        workflow=(ROOT/'.github/workflows/github-pages-pwa.yml').read_text(encoding='utf-8')
+        assert 'pattern = "ads.lhm.com"' in cfg
+        assert 'custom_domain = true' in cfg
+        assert 'directory = "./_site"' in cfg
+        assert 'run_worker_first = ["/api/*"]' in cfg
+        assert "auth_ready: false" in worker
+        assert "return json({" in worker
+        assert "503" in worker
+        assert 'env.ASSETS.fetch(request)' in worker
+        assert 'deploy-pages' not in workflow
+        assert 'pages: write' not in workflow
+
     def test_existing_source_not_mutated(self):
         original=(ROOT/'static/studio.html').read_bytes()
         with tempfile.TemporaryDirectory() as temp:
