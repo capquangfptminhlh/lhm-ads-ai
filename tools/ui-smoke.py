@@ -293,6 +293,29 @@ def main():
                 expect(page.locator('#dashboard-onboarding')).to_be_visible()  # Demo is NOT live Ads
                 page.wait_for_timeout(1800)
                 page.screenshot(path=str(ARTIFACTS/'11-finpoint-orange-chart-demo.png'),full_page=True)
+                # Full Google-style period selection must hit the real local
+                # reporting endpoint, not change only the visual dropdown.
+                assert page.locator('#period option').count()>=15
+                with page.expect_response(lambda r:'/api/summary?' in r.url and 'period=today' in r.url,timeout=15000) as today_resp:
+                    page.locator('#period').select_option('today')
+                d=today_resp.value.json()
+                assert d['date_from']==d['date_to'] and d['period']=='today'
+                page.screenshot(path=str(ARTIFACTS/'27-dashboard-today-range.png'))
+                page.locator('#period').select_option('custom')
+                expect(page.locator('#dashboard-custom-dates')).to_be_visible()
+                dates=page.evaluate("""() => {
+                  const today=new Date(), fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+                  const start=new Date(today);start.setDate(today.getDate()-2);
+                  return {from:fmt(start),to:fmt(today)}
+                }""")
+                page.locator('#dashboard-date-from').fill(dates['from'])
+                page.locator('#dashboard-date-to').fill(dates['to'])
+                with page.expect_response(lambda r:'/api/summary?' in r.url and 'period=custom' in r.url,timeout=15000) as custom_resp:
+                    page.locator('#dashboard-custom-dates button[type=submit]').click()
+                dc=custom_resp.value.json()
+                assert dc['date_from']==dates['from'] and dc['date_to']==dates['to']
+                page.screenshot(path=str(ARTIFACTS/'28-dashboard-custom-range.png'))
+                page.locator('#period').select_option('last_7d')
                 page.locator('#navigation button[data-page=accounts]').click()
                 page.locator('#navigation button[data-page=assistant]').click()
                 page.locator('#fp-ai-mode').wait_for(state='visible')

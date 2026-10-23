@@ -28,7 +28,9 @@ def studio():
 
 class ChatInput(BaseModel):
     message: str = Field(min_length=2, max_length=1200)
-    period: str = Field(default='last_7d', pattern=r'^(last_7d|yesterday)$')
+    period: str = Field(default='last_7d', pattern=r'^(today|yesterday|last_(7|14|30|90)d|this_(week|month|quarter|year)|last_(week|month|quarter|year)|custom)$')
+    date_from: str | None = None
+    date_to: str | None = None
 
 
 def num(value):
@@ -67,10 +69,12 @@ from .openrouter_ai import openrouter_answer
 
 @app.post('/api/assistant/chat')
 async def assistant_chat(payload: ChatInput, ident=Depends(require('admin', 'operator', 'reader'))):
-    ai_reply = await openrouter_answer(ident, payload.message, payload.period)
+    ai_reply = await openrouter_answer(ident, payload.message, payload.period,
+                                      date_from=payload.date_from,date_to=payload.date_to)
     if ai_reply is not None:
         return ai_reply
-    data = await summary(period=payload.period, ident=ident)
+    data = await summary(period=payload.period,date_from=payload.date_from,
+                         date_to=payload.date_to,ident=ident)
     explanation = grounded_answer(payload.message, data)
     # Privacy-first: only deterministic local analysis. Never export report data to LLM services.
     return {'reply': explanation, 'mode': 'analyst', 'sources': data['totals']['sources'],
@@ -142,11 +146,10 @@ def change_password(body: PasswordInput, ident=Depends(require('admin','operator
     return {'ok':True,'message':'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.'}
 
 @app.get('/api/export/reports')
-async def export_report(period:str='last_7d', ident=Depends(require('admin','operator','reader'))):
+async def export_report(period:str='last_7d',date_from:str|None=None,date_to:str|None=None,
+                        ident=Depends(require('admin','operator','reader'))):
     import csv, io
-    if period not in ('last_7d','yesterday'):
-        raise HTTPException(422,'Khoảng thời gian không hợp lệ')
-    data=await summary(period=period,ident=ident)
+    data=await summary(period=period,date_from=date_from,date_to=date_to,ident=ident)
     output=io.StringIO()
     writer=csv.writer(output)
     def safe(value):

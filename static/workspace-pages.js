@@ -38,8 +38,9 @@
     $('ws-report-chart').replaceChildren();$('ws-report-table').replaceChildren();
     $('ws-report-currency-wrap').classList.add('hidden');
     try{
-      const period=$('ws-report-period').value;
-      const result=await api('/api/summary?period='+encodeURIComponent(period));
+      const q=window.LHMReportDates?.ensureReady('ws-report-period');
+      if(!q){box.textContent='Hãy chọn khoảng ngày và bấm Áp dụng.';return;}
+      const result=await api('/api/summary?period='+q.slice('period='.length));
       const t=result.totals;
       $('ws-report-spend').textContent=t.spend===null?(Object.keys(t.by_currency||{}).length>1?'Đa tiền tệ':'—'):fmt(t.spend)+(t.currency?' '+t.currency:'');
       $('ws-report-currency').textContent=t.currency?'Đơn vị '+t.currency:
@@ -67,13 +68,14 @@
   document.addEventListener('DOMContentLoaded',()=>{
     const page=$('page-reports');if(!page)return;
     $('ws-report-period').addEventListener('change',load);
+    document.addEventListener('lhm:report-dates-applied',load);
     $('ws-report-currency-choice').addEventListener('change',()=>{if(activeReport)drawReportChart(activeReport)});
     $('ws-report-refresh').addEventListener('click',load);
     $('ws-report-export').addEventListener('click',()=>{
+      const q=window.LHMReportDates?.ensureReady('ws-report-period');if(!q)return;
       const period=$('ws-report-period').value;
-      if(!['last_7d','yesterday'].includes(period))return;
       const link=document.createElement('a');
-      link.href='/api/export/reports?period='+encodeURIComponent(period);
+      link.href='/api/export/reports?period='+q.slice('period='.length);
       link.download='lhm-ads-'+period+'.csv';link.rel='noopener';link.click();
     });
     document.querySelectorAll('.nav-link[data-page="reports"]').forEach(x=>x.addEventListener('click',()=>setTimeout(load,0)));

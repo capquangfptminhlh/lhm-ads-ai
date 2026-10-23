@@ -3,6 +3,7 @@ import os
 import json
 import re
 from datetime import date, timedelta
+from .report_dates import resolve_date_range
 from urllib.parse import quote
 import httpx
 from fastapi import HTTPException
@@ -19,20 +20,20 @@ def account_token(acc):
     return unseal(cipher, f"acct:{acc['org_id']}:{acc['platform']}:{acc['external_id']}")
 
 
-def demo_report(account_id, period):
-    # Deterministic example data; never report demo as real ads performance.
-    factor = 1 if period == 'yesterday' else 7
+def demo_report(account_id, period, date_from=None, date_to=None):
+    # Deterministic example data for requested calendar days; never present
+    # the fixture as live Google/Meta performance.
+    first, last = resolve_date_range(period, date_from, date_to)
+    start, end = date.fromisoformat(first), date.fromisoformat(last)
     seed = int(account_id)
     rows = []
-    n = 1 if factor == 1 else 7
-    for i in range(n):
+    for i in range((end-start).days+1):
         spend = (310_000 + (seed * 41_000 + i * 29_000) % 270_000)
         impressions = 8900 + (seed * 1700 + i * 913) % 9200
         clicks = 110 + (seed * 37 + i * 13) % 190
-        rows.append({'date': (date.today() - timedelta(days=n-i)).isoformat(),
+        rows.append({'date': (start + timedelta(days=i)).isoformat(),
                      'spend': spend, 'impressions': impressions, 'clicks': clicks})
     return report_output(rows, 'VND', 'demo')
-
 
 def report_output(rows, currency, source):
     spend = round(sum(float(x.get('spend') or 0) for x in rows), 2)
@@ -56,26 +57,25 @@ def report_output(rows, currency, source):
             'daily': rows}
 
 
-async def fetch_report(acc, period='last_7d'):
-    if period not in ('last_7d', 'yesterday'):
-        raise HTTPException(422, 'Khoảng thời gian không hỗ trợ')
+async def fetch_report(acc, period='last_7d', date_from=None, date_to=None):
+    start, end = resolve_date_range(period, date_from, date_to)
     if acc['platform'] == 'demo':
-        return demo_report(acc['id'], period)
+        return demo_report(acc['id'], 'custom', start, end)
     if acc['platform'] == 'google':
-        return await google_report(acc,period)
+        return await google_report(acc, period, date_from=start, date_to=end)
     if acc['platform'] != 'meta':
         raise HTTPException(501, f"{acc['platform'].upper()}: adapter báo cáo đang phát triển, không trả dữ liệu giả")
     external = acc['external_id'].replace('act_', '')
     if not re.fullmatch(r'\d{4,30}', external):
         raise HTTPException(422, 'ID tài khoản Meta không hợp lệ')
     token = account_token(acc)
-    preset = 'yesterday' if period == 'yesterday' else 'last_7d'
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.get(f'{META_HOST}/{META_VERSION()}/act_{external}/insights',
                 headers={'Authorization': f'Bearer {token}'},
                 params={'fields':'date_start,spend,impressions,clicks',
-                        'date_preset':preset,'time_increment':1,'limit':31})
+                        'time_range':json.dumps({'since':start,'until':end}),
+                        'time_increment':1,'limit':500})
             r.raise_for_status()
             data = r.json()
             if 'error' in data:
@@ -116,7 +116,7 @@ async def pause_meta_campaign(acc, campaign_id):
     return {'success':True}
 
 
-async def google_report(acc, period):
+async def google_report(acc, period, date_from=None, date_to=None):
     """Google Ads v25 read-only GAQL; untested against a customer's live credentials.
     Account token is a JSON credential bundle, encrypted like other providers.
     """
@@ -131,10 +131,15 @@ async def google_report(acc, period):
             raise ValueError('Missing OAuth credentials')
     except (json.JSONDecodeError,ValueError,TypeError):
         raise HTTPException(422,'Google Ads token phải là JSON gồm client_id và refresh_token (client_secret có thể để trống ở Desktop)')
-    during='YESTERDAY' if period=='yesterday' else 'LAST_7_DAYS'
+    start, end = resolve_date_range('custom', date_from, date_to) if date_from else resolve_date_range(period)
+    # Retain the published GAQL presets for direct legacy adapter callers;
+    # normalized cross-provider/custom API requests use explicit date bounds.
+    clause = ('segments.date DURING YESTERDAY' if date_from is None and period == 'yesterday' else
+              'segments.date DURING LAST_7_DAYS' if date_from is None and period == 'last_7d' else
+              f"segments.date BETWEEN '{start}' AND '{end}'")
     query=('SELECT segments.date, metrics.cost_micros, metrics.impressions, metrics.clicks, '
            'metrics.conversions, metrics.conversions_value '
-           f'FROM customer WHERE segments.date DURING {during} ORDER BY segments.date ASC')
+           f'FROM customer WHERE {clause} ORDER BY segments.date ASC')
     headers={}
     if developer_token: headers['developer-token']=developer_token
     if credentials.get('login_customer_id'):

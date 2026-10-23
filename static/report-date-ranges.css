@@ -1,0 +1,13 @@
+/* Date range controls: responsive, accessible, same look as Studio. */
+#shell #period,#shell #ws-report-period{min-width:180px;max-width:260px;color:#f5f7fa;background:#24262c;border:1px solid #4b4e57;border-radius:12px;min-height:44px;padding:10px 14px}
+#shell #period option,#shell #ws-report-period option{background:#24262c;color:#f5f7fa}
+#shell .lhm-custom-dates{display:flex;gap:12px;align-items:end;flex-wrap:wrap;background:#202229;border:1px solid #41454d;border-radius:14px;padding:14px 16px;margin:0 0 20px}
+#shell .lhm-custom-dates.hidden{display:none!important}
+#shell .lhm-custom-dates label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:650;color:#d7dce5}
+#shell .lhm-custom-dates input{background:#292d36;color:#f5f7fa;border:1px solid #686d76;border-radius:10px;padding:9px 12px;min-height:44px;color-scheme:dark}
+#shell .lhm-custom-dates [role="status"]{font-size:12px;color:#d0d6e0;flex:1 1 220px;overflow-wrap:anywhere}
+@media(max-width:680px){
+  #shell #period,#shell #ws-report-period{width:100%;max-width:none;min-width:0}
+  #shell .lhm-custom-dates>*{flex:1 1 100%}
+  #shell .lhm-custom-dates input{width:100%}
+}

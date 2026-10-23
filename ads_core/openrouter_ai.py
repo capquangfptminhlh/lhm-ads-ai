@@ -211,7 +211,7 @@ SYSTEM = ('Bạn là chuyên gia phân tích hiệu suất quảng cáo bằng t
           'Không được giả nhận đã triển khai thay đổi nào.')
 
 
-async def openrouter_answer(ident, message, period):
+async def openrouter_answer(ident, message, period, date_from=None, date_to=None):
     init_ai_settings()
     org = ident['org_id']
     with connection() as db:
@@ -230,7 +230,7 @@ async def openrouter_answer(ident, message, period):
         raise HTTPException(429, 'Giới hạn 10 yêu cầu AI trong 5 phút')
     CALLS[ident_key].append(now)
     key = unseal(cfg['token_ciphertext'],f'openrouter:{org}')
-    data = await summary(period=period, ident=ident)
+    data = await summary(period=period,date_from=date_from,date_to=date_to,ident=ident)
     rollup = sanitized_rollup(data)
     reserve_daily_call(org, cfg['daily_limit'])
     payload = {
@@ -397,13 +397,15 @@ async def openrouter_diagnostics(ident=Depends(browser_admin)):
 
 class PreviewRequest(BaseModel):
     message: str = Field(min_length=2, max_length=1200)
-    period: str = Field(default='last_7d', pattern=r'^(last_7d|yesterday)$')
+    period: str = Field(default='last_7d', pattern=r'^(today|yesterday|last_(7|14|30|90)d|this_(week|month|quarter|year)|last_(week|month|quarter|year)|custom)$')
+    date_from: str | None = None
+    date_to: str | None = None
 
 
 @app.post('/api/ai/preview')
 async def privacy_preview(payload: PreviewRequest, ident=Depends(require('admin','operator','reader'))):
     """Local-only preview of outgoing content. NEVER calls OpenRouter or uses AI quota."""
-    data=await summary(period=payload.period,ident=ident)
+    data=await summary(period=payload.period,date_from=payload.date_from,date_to=payload.date_to,ident=ident)
     return {'question':scrub_user_message(payload.message),
             'statistics':sanitized_rollup(data),
             'routing':{'zdr':True,'data_collection':'deny'},
