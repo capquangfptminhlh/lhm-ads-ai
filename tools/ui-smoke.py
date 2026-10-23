@@ -307,6 +307,9 @@ def main():
                 page.screenshot(path=str(ARTIFACTS/'03-demo-filter.png'),full_page=True)
                 # Essential workspace stays calm; advanced navigation opens
                 # on demand and all existing features remain accessible.
+                # Earlier OAuth guidance might already have opened Settings.
+                if page.locator('#nav-advanced').get_attribute('open') is not None:
+                    page.locator('#nav-advanced > summary').click()
                 expect(page.locator('#nav-advanced')).not_to_have_attribute('open', '')
                 page.locator('#nav-advanced > summary').click()
                 expect(page.locator('#nav-advanced')).to_have_attribute('open','')
