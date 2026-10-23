@@ -38,9 +38,10 @@ def resolve_date_range(period='last_7d', date_from=None, date_to=None, *, today=
     elif period == 'yesterday':
         start = end = now - timedelta(days=1)
     elif period in ('last_7d', 'last_14d', 'last_30d', 'last_90d'):
-        # Include current day, following everyday Google Ads dashboard use.
+        # Match Google's LAST_N_DAYS: completed days, excluding today.
+        # Today has its own explicit filter and may contain partial data.
         n = int(period.split('_')[1][:-1])
-        start, end = now - timedelta(days=n - 1), now
+        start, end = now - timedelta(days=n), now - timedelta(days=1)
     elif period == 'this_week':
         start, end = now - timedelta(days=now.weekday()), now
     elif period == 'last_week':
