@@ -48,3 +48,12 @@
  #customer-help-dialog .customer-help-footer div{width:100%;justify-content:space-between}
 }
 @media(prefers-reduced-motion:reduce){#customer-help-dialog *,#customer-help-dialog *::before,#customer-help-dialog *::after{scroll-behavior:auto;animation:none!important;transition:none!important}}
+
+/* Do not let the help CTA widen mobile provider configuration pages. */
+#provider-connect-guide [data-customer-help]{
+ max-width:100%;min-width:0;box-sizing:border-box;white-space:normal;
+ overflow-wrap:anywhere;text-align:center;line-height:1.45;min-height:44px;
+}
+@media(max-width:650px){
+ #provider-connect-guide [data-customer-help]{display:flex;width:100%;align-items:center;justify-content:center;padding:12px 14px}
+}
