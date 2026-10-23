@@ -94,10 +94,11 @@ def _safe_endpoint(endpoint):
     try:
         url=urlparse(endpoint)
         host=(url.hostname or '').lower()
+        port=url.port
     except ValueError:
         return False
     # Explicit allowlist prevents server-side request forgery by malicious subscriptions.
-    return url.scheme=='https' and url.port in (None,443) and not url.username and not url.password and (
+    return url.scheme=='https' and port in (None,443) and not url.username and not url.password and (
         host=='fcm.googleapis.com' or host=='updates.push.services.mozilla.com'
         or host=='push.services.mozilla.com' or host=='web.push.apple.com'
         or host.endswith('.push.apple.com'))
@@ -178,6 +179,9 @@ async def deliver_to_org(org,message):
 async def check_budget_after_sample(acc,now):
     """Check provider TODAY only for opted-in, authenticated threshold accounts."""
     init_push_db()
+    # May also be invoked by a standalone test or worker without prior monitor init.
+    from .monitoring import init_monitor_db
+    init_monitor_db()
     with connection() as db:
         rule=db.execute("""SELECT threshold FROM budget_rules WHERE org_id=? AND account_id=?
            AND enabled=1""",(acc['org_id'],acc['id'])).fetchone()
