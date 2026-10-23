@@ -35,7 +35,7 @@ def _configure(monkeypatch, binary: bytes, *, tamper_signature=False, tamper_bin
     pub = base64.b64encode(key.public_key().public_bytes(
         serialization.Encoding.Raw, serialization.PublicFormat.Raw)).decode()
     manifest = {
-        'version': '0.3.1', 'download_url': 'https://updates.example.test/LHM-Ads-AI.exe',
+        'version': '0.3.2', 'download_url': 'https://updates.example.test/LHM-Ads-AI.exe',
         'sha256': hashlib.sha256(binary).hexdigest(), 'notes': 'Regression update',
         'issued_at': 1790000000,
     }
@@ -93,7 +93,7 @@ def test_signed_version_check_and_verified_staging(tmp_path, monkeypatch):
     staged = online_update.staged_update(tmp_path)
     assert staged is not None
     assert staged[0].read_bytes() == binary
-    assert staged[1:] == (manifest['sha256'], '0.3.1')
+    assert staged[1:] == (manifest['sha256'], '0.3.2')
 
 
 def test_bad_signature_rejected_without_download(tmp_path, monkeypatch):
