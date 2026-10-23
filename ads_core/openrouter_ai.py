@@ -410,16 +410,3 @@ async def privacy_preview(payload: PreviewRequest, ident=Depends(require('admin'
             'statistics':sanitized_rollup(data),
             'routing':{'zdr':True,'data_collection':'deny'},
             'notice':'Bản xem trước trên máy; văn bản có thể chứa tên riêng không được tự động nhận diện.'}
-)
-    date_from: str | None = None
-    date_to: str | None = None
-
-
-@app.post('/api/ai/preview')
-async def privacy_preview(payload: PreviewRequest, ident=Depends(require('admin','operator','reader'))):
-    """Local-only preview of outgoing content. NEVER calls OpenRouter or uses AI quota."""
-    data=await summary(period=payload.period,ident=ident)
-    return {'question':scrub_user_message(payload.message),
-            'statistics':sanitized_rollup(data),
-            'routing':{'zdr':True,'data_collection':'deny'},
-            'notice':'Bản xem trước trên máy; văn bản có thể chứa tên riêng không được tự động nhận diện.'}
