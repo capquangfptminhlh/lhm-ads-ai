@@ -21,6 +21,7 @@ jobs:
       - run: node --check static/finpoint-motion.js
       - run: node --check static/command-palette.js
       - run: node --check static/update-ui.js
+      - run: node --check static/connection-guide.js
       - run: node --check static/goal-settings.js
       - run: node --check static/workspace-pages.js
       - run: node --check static/commercial.js

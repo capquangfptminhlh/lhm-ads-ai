@@ -1,0 +1,38 @@
+/* Local-only provider connection wizard. No third-party assets or remote AI calls. */
+#provider-connect-guide{margin:21px 0 25px;padding:clamp(16px,2.6vw,26px);border:1px solid #554239;border-radius:18px;background:linear-gradient(155deg,#25211f 0%,#18191d 65%);color:#f5f2ef}
+#provider-connect-guide .connection-guide-heading{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:start}
+#provider-connect-guide .connection-kicker{color:#ffb28e;font-size:10px;font-weight:850;letter-spacing:1.2px}
+#provider-connect-guide h3{margin:7px 0 8px;font-size:20px;color:#fff}
+#provider-connect-guide .connection-guide-heading p{color:#bfc1c9;margin:0;font-size:12px;line-height:1.6}
+#connection-guide-status{padding:8px 11px;border:1px solid #665044;background:#372821;border-radius:999px;font-weight:700;font-size:11px;color:#ffd1b4;max-width:100%;overflow-wrap:anywhere}
+.connection-switch{display:flex;gap:9px;margin:22px 0 15px}
+.connection-switch-btn{min-height:45px;flex:1;border-radius:11px;border:1px solid #494951;background:#2a2b30;color:#d3d6de;font-weight:750;cursor:pointer}
+.connection-switch-btn.is-selected{background:#543227;color:#fff1e5;border-color:#eb8559;box-shadow:0 0 0 2px #ea86591b}
+.connection-step-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:0 0 19px}
+.connection-step-nav button{min-width:0;min-height:47px;padding:8px 6px;border:1px solid #383a40;background:#25262b;border-radius:10px;color:#aeb1bc;font-size:11px;font-weight:750;cursor:pointer}
+.connection-step-nav button[aria-current="step"]{background:#493027;color:#ffe0cc;border-color:#da885f}
+.connection-guide-body{background:#16171b;border:1px solid #39393f;border-radius:14px;padding:17px 18px;min-height:210px}
+.connection-guide-body h4{color:#fff;margin:0 0 12px;font-size:16px}
+.connection-guide-body p,.connection-guide-body li{font-size:12px;line-height:1.7;color:#c1c5cf}
+.connection-guide-body ol{padding-left:23px;margin:8px 0 15px}
+.connection-guide-body li{margin-bottom:7px}
+.connection-guide-body a{color:#ffb08e;font-weight:750;text-underline-offset:3px}
+.connection-guide-body .connection-tip{background:#2a2b30;border:1px solid #464148;padding:12px;border-radius:10px;margin:12px 0;color:#d2d3db}
+.connection-guide-body .connection-diagnostic{font-size:12px;line-height:1.6;padding:12px 14px;border-radius:10px;background:#25342e;border:1px solid #3f6b56;color:#cbf0da;margin:12px 0}
+.connection-guide-body .connection-diagnostic.warning{background:#382b24;border-color:#684c3c;color:#f9c3a7}
+.connection-guide-body .connection-action-row{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin:12px 0}
+.connection-guide-body .connection-action-row button{min-height:44px}
+.connection-guide-body .connection-callback{display:block;font-size:12px;background:#24252a;border-radius:8px;border:1px solid #494b54;color:#ffcfb2;padding:11px;overflow-wrap:anywhere;user-select:all}
+.connection-guide-body input[type="file"]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#provider-connect-guide .connection-guide-footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:16px}
+#provider-connect-guide .connection-guide-footer .btn{min-height:44px}
+#provider-connect-guide .connection-security{font-size:11px;line-height:1.65;margin:18px 0 0;color:#aeb2bd}
+#provider-connect-guide button:focus-visible,#provider-connect-guide a:focus-visible{outline:2px solid #ffb189;outline-offset:3px}
+@media(max-width:650px){
+ #provider-connect-guide{margin:17px 0;padding:15px}
+ #provider-connect-guide .connection-step-nav{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #provider-connect-guide .connection-step-nav button{font-size:10px}
+ #provider-connect-guide .connection-guide-footer .btn{flex:1}
+ #provider-connect-guide .connection-guide-body{padding:14px}
+}
+@media(prefers-reduced-motion:reduce){#provider-connect-guide *,#provider-connect-guide *::before,#provider-connect-guide *::after{transition:none!important;animation:none!important}}
