@@ -44,6 +44,10 @@
     }
     box.className='license-status license-status-'+state;
     line.textContent=lineText;
+    const overview=el('license-overview-state');
+    if(overview){overview.textContent=license.active?'Đang hoạt động':state==='expiring'?'Sắp hết hạn':'Chưa kích hoạt / hết hạn';overview.dataset.tone=license.active?'ok':'warn';}
+    const device=el('license-overview-device');
+    if(device)device.textContent=license.device?'Đã nhận diện máy':'Chưa xác minh';
     if(guidance){guidance.textContent=guidanceText;guidance.classList.toggle('hidden',!guidanceText);}
     if(steps)steps.classList.toggle('hidden',!!license.active);
   }
@@ -84,12 +88,45 @@
       el('readiness-summary').textContent=data.ready_for_commercial_distribution?
         'Đã hoàn tất các kiểm tra cơ bản.':
         'Chưa nghiệm thu thương mại: '+data.reason;
-      const labels={ok:'Đạt',configured:'Đã cấu hình, chưa xác minh API',
-        available:'Sẵn có',manual:'Thao tác thủ công',action_required:'Cần thực hiện',
+      const labels={ok:'Đạt',configured:'Đã cấu hình · cần kiểm tra API',
+        available:'Sẵn có',manual:'Thủ công',action_required:'Cần thực hiện',
         not_verified:'CHƯA XÁC MINH',blocked:'Lỗi'};
-      el('readiness-checks').innerHTML='<table><thead><tr><th>Hạng mục</th><th>Trạng thái</th></tr></thead><tbody>'+
-        data.checks.map(x=>'<tr><td>'+escape(x.detail)+'</td><td>'+
-          escape(labels[x.status]||x.status)+'</td></tr>').join('')+'</tbody></table>';
+      const descriptions={
+        local_storage:'Dữ liệu SQLite trên máy',
+        license:'Giấy phép thuê bao theo máy',
+        oauth_google:'Ứng dụng Google OAuth · chưa xác minh quyền Ads',
+        oauth_meta:'Ứng dụng Meta · có thể cần xét duyệt',
+        live_api:'Kết nối API quảng cáo thật',
+        authenticode:'Chữ ký nhà phát hành file EXE',
+        secure_backup:'Sao lưu được mã hóa bằng mật khẩu',
+        billing:'Thanh toán và xuất hóa đơn'
+      };
+      const groups=[
+        ['Bản quyền và thiết bị',['local_storage','license','authenticode']],
+        ['Kết nối quảng cáo',['oauth_google','oauth_meta','live_api']],
+        ['Dữ liệu và vận hành',['secure_backup','billing']]
+      ];
+      const checks=new Map(data.checks.map(x=>[x.code,x]));
+      el('readiness-checks').innerHTML=groups.map(([title,codes])=>
+        '<section class="license-check-group"><h4>'+escape(title)+'</h4>'+
+        codes.filter(code=>checks.has(code)).map(code=>{
+          const item=checks.get(code),kind=['ok','available'].includes(item.status)?'ok':
+            item.status==='blocked'?'bad':item.status==='not_verified'?'unknown':'warn';
+          return '<div class="license-check-row"><span>'+escape(descriptions[code]||item.detail)+'</span>'+
+            '<span class="license-state-pill license-state-'+kind+'">'+escape(labels[item.status]||item.status)+'</span></div>';
+        }).join('')+'</section>'
+      ).join('');
+      const licenseCheck=checks.get('license');
+      const apiCheck=checks.get('live_api');
+      const localCheck=checks.get('local_storage');
+      const state=(id,text,tone)=>{
+        const node=el(id);if(node){node.textContent=text;node.dataset.tone=tone;}
+      };
+      state('license-overview-device',localCheck?.status==='ok'?'Dữ liệu máy: Đạt':'Cần kiểm tra dữ liệu',localCheck?.status==='ok'?'ok':'warn');
+      state('license-overview-provider',apiCheck?.status==='ok'?'API đã xác minh':'API chưa xác minh',apiCheck?.status==='ok'?'ok':'neutral');
+      state('license-overview-data',checks.get('secure_backup')?.status==='available'?'Có thể sao lưu':'Cần kiểm tra sao lưu',checks.get('secure_backup')?.status==='available'?'ok':'warn');
+      // Readiness and license status are independent; never infer a live Ads
+      // connection from Google/Meta OAuth configuration alone.
     }catch(e){
       localDiagnostics=null;panel.classList.add('hidden');
     }
@@ -140,17 +177,22 @@
     const target=el('page-license');
     if(!target)return;
     const panel=document.createElement('article');panel.className='panel';
-    panel.innerHTML=`<h3>Bản quyền thuê bao theo tháng</h3>
+    panel.innerHTML=`<h3>Trạng thái giấy phép</h3>
       <p class="muted tiny">Mỗi máy có mã riêng; gia hạn bằng giấy phép ký số. Không chuyển dữ liệu Ads về máy chủ cấp phép.</p>
-      <p><b>Phiên bản:</b> <span id="license-edition">Đang kiểm tra...</span></p>
-      <p><b>Trạng thái:</b> <span id="license-state">Đang kiểm tra...</span></p>
+      <div class="license-meta"><p><b>Phiên bản:</b> <span id="license-edition">Đang kiểm tra...</span></p><p><b>Gói sử dụng:</b> <span id="license-state">Đang kiểm tra...</span></p></div>
       <div id="license-status-box" class="license-status license-status-unknown" role="status" aria-live="polite">
         <p id="license-status-line" class="license-status-line">Đang kiểm tra trạng thái bản quyền...</p>
         <p id="license-status-guidance" class="license-status-guidance hidden"></p>
       </div>
+      <div class="license-overview-grid" aria-label="Tóm tắt tình trạng phần mềm">
+        <div class="license-overview-card"><small>Giấy phép</small><strong id="license-overview-state" data-tone="neutral">Đang kiểm tra</strong></div>
+        <div class="license-overview-card"><small>Thiết bị và dữ liệu</small><strong id="license-overview-device" data-tone="neutral">Đang kiểm tra</strong></div>
+        <div class="license-overview-card"><small>API quảng cáo thật</small><strong id="license-overview-provider" data-tone="neutral">Chưa xác minh</strong></div>
+        <div class="license-overview-card"><small>Sao lưu</small><strong id="license-overview-data" data-tone="neutral">Đang kiểm tra</strong></div>
+      </div>
       <p><b>Mã máy:</b> <code id="license-device" class="wrap-anywhere"></code>
       <button type="button" id="license-copy-device" class="btn secondary" title="Sao chép mã máy để gửi cho bên bán">Sao chép mã máy</button></p>
-      <section id="license-activate-steps" class="license-steps hidden" aria-label="Các bước kích hoạt bản quyền">
+      <details id="license-activation-panel" class="license-disclosure" open><summary>Kích hoạt / gia hạn giấy phép <span>Nhận giấy phép theo mã máy</span></summary><div class="license-disclosure-body"><section id="license-activate-steps" class="license-steps hidden" aria-label="Các bước kích hoạt bản quyền">
         <h4>Làm theo 3 bước để kích hoạt</h4>
         <ol class="license-steps-list">
           <li><b>Bước 1:</b> Sao chép mã máy ở trên bằng nút "Sao chép mã máy".</li>
@@ -160,30 +202,30 @@
       </section>
       <label>Nhập nội dung file license.json (do đơn vị cung cấp phát hành)
         <textarea id="license-input" rows="4" placeholder="Dán JSON giấy phép đã ký tại đây"></textarea></label>
-      <button id="license-activate" type="button" class="btn primary">Kích hoạt / Gia hạn</button>
-      <hr><h3>Giám sát quảng cáo chạy nền</h3>
+      <button id="license-activate" type="button" class="btn primary">Kích hoạt / Gia hạn</button></div></details>
+      <details id="license-monitor-panel" class="license-disclosure"><summary>Giám sát quảng cáo chạy nền <span>Tùy chọn nâng cao</span></summary><div class="license-disclosure-body"><h3>Cấu hình giám sát</h3>
       <p class="muted tiny">Chỉ đọc báo cáo Google/Meta qua API và ghi lỗi. Máy phải bật, đăng nhập Windows và có Internet. Không tự tăng ngân sách hay chỉnh giá thầu.</p>
       <label><input type="checkbox" id="monitor-enable"> Bật giám sát tài khoản đã kết nối</label>
       <label>Chu kỳ đọc báo cáo <select id="monitor-interval"><option value="15">15 phút</option><option value="30">30 phút</option><option value="60">60 phút</option><option value="120">120 phút</option><option value="240">240 phút</option></select></label>
       <div class="btn-row"><button type="button" class="btn primary" id="monitor-save">Lưu cấu hình</button>
       <button type="button" class="btn secondary" id="monitor-autostart">Chạy nền khi đăng nhập Windows</button>
       <button type="button" class="btn secondary" id="monitor-stop">Tắt tự chạy</button></div>
-      <p id="monitor-help" class="muted tiny"></p><div id="monitor-samples" class="table-wrap"></div>
-      <hr><section id="desktop-local-ops" class="hidden" aria-label="Sẵn sàng thương mại và sao lưu">
-      <h3>Kiểm tra sẵn sàng &amp; bảo vệ dữ liệu</h3>
-      <p id="readiness-summary" class="muted tiny" role="status" aria-live="polite"></p>
-      <div id="readiness-checks" class="table-wrap" tabindex="0"></div>
+      <p id="monitor-help" class="muted tiny"></p><div id="monitor-samples" class="table-wrap"></div></div></details>
+      <section id="desktop-local-ops" class="hidden" aria-label="Sẵn sàng thương mại và sao lưu">
+      <div class="license-preflight-heading"><h3>Kiểm tra bảo vệ dữ liệu</h3><p id="readiness-summary" class="muted tiny" role="status" aria-live="polite"></p></div>
+      <details id="license-readiness-detail" class="license-disclosure"><summary>Xem các mục kiểm tra <span>Chi tiết kỹ thuật và trạng thái</span></summary><div class="license-disclosure-body">
+      <div id="readiness-checks" class="license-check-grid" tabindex="0"></div>
       <div class="inline-actions inline-actions-spaced">
         <button type="button" id="readiness-refresh" class="btn secondary">↻ Kiểm tra lại</button>
         <button type="button" id="readiness-export" class="btn secondary">↓ Xuất báo cáo không chứa token</button>
-      </div>
-      <h3>Sao lưu dữ liệu có mã hóa</h3>
+      </div></div></details>
+      <details id="license-backup-detail" class="license-disclosure"><summary>Sao lưu dữ liệu có mã hóa <span>Mở khi cần xuất bản sao an toàn</span></summary><div class="license-disclosure-body"><h3>Tạo bản sao lưu</h3>
       <p class="muted tiny">Bản sao lưu chứa dữ liệu khách và khóa Ads đã được mã hóa bằng mật khẩu riêng của bạn. Không gửi mật khẩu hay file backup cho bên thứ ba. Không bao gồm giấy phép theo máy; đổi máy phải kích hoạt lại.</p>
       <label>Mật khẩu sao lưu (ít nhất 16 ký tự)<input type="password" id="secure-backup-password" autocomplete="new-password" minlength="16" maxlength="256"></label>
       <label>Nhập lại mật khẩu<input type="password" id="secure-backup-confirm" autocomplete="new-password" minlength="16" maxlength="256"></label>
       <button type="button" class="btn primary" id="secure-backup-export">↓ Tải bản sao lưu .lhmbak đã mã hóa</button>
       <p class="muted tiny">Khôi phục cần kỹ thuật hỗ trợ khi phần mềm đã đóng, trên thư mục trống, không ghi đè dữ liệu đang có.</p>
-      </section>
+      </div></details></section>
       <p id="commercial-message" role="status" aria-live="polite"></p>`;
     target.append(panel);
     el('license-copy-device').addEventListener('click',async()=>{
@@ -213,5 +255,11 @@
     if(nav)nav.addEventListener('click',()=>setTimeout(()=>{
       refresh();refreshReadiness();
     },100));
+    const watcher=new MutationObserver(()=>{
+      if(!target.classList.contains('hidden')&&!el('shell').classList.contains('hidden')){
+        refresh();refreshReadiness();
+      }
+    });
+    watcher.observe(target,{attributes:true,attributeFilter:['class']});
   });
 })();
