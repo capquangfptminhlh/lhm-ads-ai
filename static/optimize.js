@@ -66,7 +66,7 @@
         selector.disabled=false;inspectButton.disabled=false;
         accountMessage('Đã tìm thấy '+usable.length+' tài khoản Google/Meta đã lưu. Chọn tài khoản rồi bấm Phân tích chiến dịch.');
       }else{
-        selector.replaceChildren(new Option('Chưa có tài khoản Google/Meta đã kết nối',''));
+        selector.replaceChildren(new Option('Chưa có tài khoản đã kết nối',''));
         accountMessage('Chưa có tài khoản Ads đã lưu. Vào Tài khoản Ads, bấm Lưu tài khoản đã chọn sau khi cấp quyền Google/Meta.');
       }
     }catch(err){
