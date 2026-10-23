@@ -147,7 +147,7 @@
     }
     byId('connection-back').disabled=step===0;
     byId('connection-next').textContent=step===3?'Hoàn tất hướng dẫn':'Tiếp tục →';
-    status.textContent=readiness[provider]?'✓ Đã lưu ứng dụng':'Chưa lưu ứng dụng';
+    status.textContent=mode==='mcp'?'MCP · Kết nối trong AI client':(readiness[provider]?'✓ Đã lưu ứng dụng':'Chưa lưu ứng dụng');
   }
   function goStep(value) {
     step=Math.max(0,Math.min(3,value));
