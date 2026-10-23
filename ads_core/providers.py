@@ -132,9 +132,14 @@ async def google_report(acc, period, date_from=None, date_to=None):
     except (json.JSONDecodeError,ValueError,TypeError):
         raise HTTPException(422,'Google Ads token phải là JSON gồm client_id và refresh_token (client_secret có thể để trống ở Desktop)')
     start, end = resolve_date_range('custom', date_from, date_to) if date_from else resolve_date_range(period)
+    # Retain the published GAQL presets for direct legacy adapter callers;
+    # normalized cross-provider/custom API requests use explicit date bounds.
+    clause = ('segments.date DURING YESTERDAY' if date_from is None and period == 'yesterday' else
+              'segments.date DURING LAST_7_DAYS' if date_from is None and period == 'last_7d' else
+              f"segments.date BETWEEN '{start}' AND '{end}'")
     query=('SELECT segments.date, metrics.cost_micros, metrics.impressions, metrics.clicks, '
            'metrics.conversions, metrics.conversions_value '
-           f"FROM customer WHERE segments.date BETWEEN '{start}' AND '{end}' ORDER BY segments.date ASC")
+           f'FROM customer WHERE {clause} ORDER BY segments.date ASC')
     headers={}
     if developer_token: headers['developer-token']=developer_token
     if credentials.get('login_customer_id'):
