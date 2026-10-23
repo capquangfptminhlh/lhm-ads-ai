@@ -55,6 +55,7 @@ jobs:
           node --check static/command-palette.js
           node --check static/update-ui.js
           node --check static/connection-guide.js
+          node --check static/customer-help.js
       - name: Pin vendor public key for manual COMMERCIAL build only
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.commercial }}
         shell: pwsh
@@ -174,6 +175,13 @@ jobs:
             $instructions += 'PILOT only: do not rebrand or distribute as paid Commercial.'
           }
           Set-Content -Path 'dist/README-VERIFY-BEFORE-SALE.txt' -Value $instructions -Encoding ascii
+      - name: Bundle customer quick-start next to Windows EXE
+        if: success()
+        shell: pwsh
+        run: |
+          Copy-Item 'static/huong-dan-ket-noi.html' 'dist/HUONG-DAN-KET-NOI.html'
+          Copy-Item 'static/customer-help-print.css' 'dist/customer-help-print.css'
+          if (-not (Test-Path 'dist/HUONG-DAN-KET-NOI.html')) { throw 'Missing customer guide' }
       - name: Upload tested EXE and checksum
         if: success()
         uses: actions/upload-artifact@v4
@@ -184,5 +192,7 @@ jobs:
             dist/LHM-Ads-AI.sha256
             dist/release-manifest.json
             dist/README-VERIFY-BEFORE-SALE.txt
+            dist/HUONG-DAN-KET-NOI.html
+            dist/customer-help-print.css
           if-no-files-found: error
           retention-days: 14

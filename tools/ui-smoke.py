@@ -107,6 +107,21 @@ def main():
                 expect(page.locator('#global-account-search')).to_be_focused(timeout=5000)
                 assert page.locator('#navigation button[data-page=accounts]').get_attribute('aria-current') == 'page'
                 page.locator('[data-provider-choice=google]').wait_for(state='visible')
+                # Help is bundled locally for customers and opens inside Studio.
+                page.locator('#page-accounts [data-customer-help=google]').click()
+                expect(page.locator('#customer-help-dialog')).to_be_visible()
+                expect(page.locator('#customer-help-content')).to_contain_text('Google Ads API')
+                page.locator('[data-help-tab=meta]').click()
+                expect(page.locator('#customer-help-content')).to_contain_text('Facebook / Meta Ads')
+                page.locator('[data-help-tab=mcp]').click()
+                expect(page.locator('#customer-help-content')).to_contain_text('chưa tích hợp MCP server trực tiếp')
+                page.locator('[data-help-tab=errors]').click()
+                expect(page.locator('#customer-help-content')).to_contain_text('access_denied')
+                page.locator('[data-help-tab=google]').click()
+                page.screenshot(path=str(ARTIFACTS/'21-customer-offline-help.png'))
+                page.locator('#customer-help-start').click()
+                expect(page.locator('#customer-help-dialog')).to_be_hidden()
+                expect(page.locator('#provider-connect-guide')).to_be_visible()
                 page.locator('#navigation button[data-page=dashboard]').click()
                 page.locator('#page-dashboard').wait_for(state='visible')
                 page.wait_for_timeout(1250)
@@ -170,7 +185,15 @@ def main():
                 page.locator('[data-connect-step="0"]').click()
                 page.set_viewport_size({'width':390,'height':844})
                 expect(page.locator('#provider-connect-guide')).to_be_visible()
-                assert page.evaluate('document.documentElement.scrollWidth<=window.innerWidth+1')
+                overflow = page.evaluate("""() => ({
+                    width: window.innerWidth,
+                    scrollWidth: document.documentElement.scrollWidth,
+                    elements: [...document.querySelectorAll('body *')].filter(el => {
+                        const r = el.getBoundingClientRect();
+                        return r.width > 0 && (r.right > window.innerWidth + 2 || r.left < -2);
+                    }).slice(0, 14).map(el => ({tag:el.tagName, id:el.id, cls:String(el.className).slice(0,70)}))
+                })""")
+                assert overflow['scrollWidth']<=overflow['width']+1, overflow
                 page.screenshot(path=str(ARTIFACTS/'20-connection-guide-mobile.png'),full_page=True)
                 page.set_viewport_size({'width':1440,'height':940})
                 page.locator('#navigation button[data-page=accounts]').click()

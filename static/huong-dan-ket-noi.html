@@ -1,0 +1,32 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LHM Ads AI · Hướng dẫn khách hàng</title><link rel="stylesheet" href="customer-help-print.css"></head>
+<body><main class="handout">
+<header><p class="brand">✦ LHM ADS AI · HƯỚNG DẪN KHÁCH HÀNG</p><h1>Kết nối Google Ads và Meta Ads</h1><p>Hướng dẫn tự thực hiện trên máy Windows. Chọn đúng tài khoản có quyền quản lý quảng cáo; không gửi mật khẩu hay token cho bên hỗ trợ.</p></header>
+<nav><a href="#google">Google Ads API</a><a href="#meta">Meta Ads API</a><a href="#mcp">MCP / AI</a><a href="#faq">Khắc phục lỗi</a></nav>
+<section id="google"><h2>1. Google Ads API trong phần mềm</h2><ol>
+<li>Đăng nhập email Google có quyền truy cập tài khoản Ads, có thể qua MCC.</li>
+<li>Truy cập <a href="https://console.cloud.google.com/">Google Cloud Console</a>, chọn/tạo dự án, bật Google Ads API và kiểm tra quyền API để đọc tài khoản thật (thường Explorer trở lên).</li>
+<li>Trong Google Auth Platform, thiết lập màn hình đồng ý, scope <code>https://www.googleapis.com/auth/adwords</code> và Test users nếu đang Testing.</li>
+<li>Tạo OAuth Client ID loại <strong>Desktop app</strong> tại Credentials/Clients và tải file JSON. Không dùng Service Account JSON.</li>
+<li>Trong LHM Ads AI → <strong>Tài khoản Ads → Google Ads → Cấu hình Google OAuth</strong>; ở bước 2 chọn file JSON, kiểm tra thông tin đã điền rồi bấm <strong>Lưu</strong>.</li>
+<li>Bấm <strong>Đăng nhập Google Ads</strong>, đăng nhập qua trình duyệt Google chính thức, cấp quyền, chọn Ads/MCC và bấm <strong>Kiểm tra API</strong>.</li>
+</ol><p class="note">Từ 09/09/2026 Google Ads API không bắt buộc developer token; dự án Cloud vẫn phải có quyền API thích hợp. OAuth thành công chưa bảo đảm đã có quyền truy cập Ads thật.</p></section>
+<section id="meta"><h2>2. Meta/Facebook Ads API trong phần mềm</h2><ol>
+<li>Truy cập <a href="https://business.facebook.com/settings">Meta Business Settings</a> kiểm tra quyền trên tài khoản quảng cáo.</li>
+<li>Mở <a href="https://developers.facebook.com/apps/">Meta for Developers</a>, tạo Meta App cho Marketing API/Facebook Login; yêu cầu quyền <code>ads_read</code> để đọc, <code>ads_management</code> chỉ khi cần ghi.</li>
+<li>Ở App Settings → Basic lấy <strong>App ID</strong> và <strong>App Secret</strong>; khai báo callback hiển thị trong LHM nếu Meta chấp nhận.</li>
+<li>Trong LHM Ads AI → <strong>Tài khoản Ads → Meta Ads → Cấu hình Meta App</strong>, nhập ID/Secret và lưu trên máy.</li>
+<li>Bấm <strong>Đăng nhập Meta Ads</strong>, cấp quyền trên trang Facebook chính thức, chọn tài khoản Ads và chạy <strong>Kiểm tra API</strong>.</li>
+</ol><p class="note">App Live có thể cần HTTPS Redirect URI, App Review, Business Verification và Advanced Access. Không dùng thủ thuật vượt quy trình này.</p></section>
+<section id="mcp"><h2>3. MCP để kết nối AI</h2><p>MCP của Google/Meta là kết nối cho <strong>AI client tương thích riêng</strong>. LHM Ads AI hiện có API trực tiếp nhưng <strong>chưa có máy chủ MCP hoạt động trong EXE</strong>.</p><ol>
+<li>Google Ads: tham khảo <a href="https://developers.google.com/google-ads/api/docs/developer-toolkit/mcp-server">Google Ads MCP chính thức</a>, cấu hình Google Cloud và xác thực theo Google.</li>
+<li>Meta Ads: xem <a href="https://developers.facebook.com/ads-mcp-server">Meta Ads MCP</a> hoặc <a href="https://www.facebook.com/meta-ads-ai-connectors">Meta Ads AI Connectors</a>, đăng nhập và cấp quyền đúng cho AI client.</li>
+<li>Ưu tiên quyền chỉ đọc; không dán token bí mật vào prompt hoặc file cấu hình công khai.</li></ol></section>
+<section id="faq"><h2>4. Khi kết nối gặp lỗi</h2><dl>
+<dt>Google access_denied/403</dt><dd>Kiểm tra email Ads/MCC, quyền Google Cloud API, Test users và màn hình đồng ý OAuth.</dd>
+<dt>Google redirect_uri_mismatch</dt><dd>Tạo lại OAuth Client đúng loại Desktop app.</dd>
+<dt>Google không thấy tài khoản</dt><dd>Kiểm tra quyền email đăng nhập đối với tài khoản Ads/MCC.</dd>
+<dt>Meta Redirect URI không hợp lệ</dt><dd>Sao chép callback chính xác; kiểm tra yêu cầu HTTPS và App Review.</dd>
+<dt>Meta không lấy được báo cáo</dt><dd>Kiểm tra quyền ads_read, account ID, hạn token và vai trò người dùng.</dd></dl>
+<p class="note">Hỗ trợ khách: gửi ảnh đã che email/tài khoản nhạy cảm và mã lỗi. Không gửi mật khẩu, Refresh Token, Access Token, App Secret hay file OAuth JSON.</p></section>
+<footer><p><strong>Trong phần mềm:</strong> Tài khoản Ads → 📖 Hướng dẫn cho khách → Bắt đầu kết nối.</p><small>LHM Ads AI · Bản hướng dẫn đi kèm phần mềm, dùng để mở hoặc in ngay khi không có Internet.</small></footer>
+</main></body></html>
