@@ -100,6 +100,11 @@
     if(settings)createPanel(settings,'or-diagnostics-settings');
     const assistant=$('page-assistant');
     const hub=$('fp-ai-hub');
-    if(assistant)createPanel(hub||assistant,'or-diagnostics-ai');
+    if(assistant){
+      createPanel(assistant,'or-diagnostics-ai');
+      const container=$('or-diagnostics-ai');
+      if(container&&assistant.querySelector('.chat-panel'))
+        assistant.querySelector('.chat-panel').before(container);
+    }
   });
 })();
