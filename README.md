@@ -1,8 +1,8 @@
-# LHM Ads AI — GitHub Pages + Cloudflare (không VPS)
+# LHM Ads AI — GitHub + Cloudflare Workers (không VPS)
 
-**Phương án ưu tiên hiện tại:** frontend PWA tĩnh phát hành qua GitHub Pages tại `https://ads.lhm.com`, GitHub lưu mã nguồn, Cloudflare quản lý DNS và Cloudflare Worker sẽ đảm nhiệm backend khi được chuyển đổi. Bộ build GitHub Pages và Worker an toàn mặc định nằm trong repo; **đăng nhập Google/Meta, giám sát 24/7 và MCP cloud chưa hoạt động trên hosting tĩnh**. Đừng triển khai cho khách thật khi các API còn trả 503.
+**Phương án ưu tiên hiện tại:** GitHub lưu mã nguồn và CI, Cloudflare Workers + Static Assets phát hành PWA tại `https://ads.lhm.com` và sẽ xử lý backend khi được chuyển đổi. **GitHub Pages không được dùng làm hosting thương mại cho SaaS**. Bộ build GitHub Pages và Worker an toàn mặc định nằm trong repo; **đăng nhập Google/Meta, giám sát 24/7 và MCP cloud chưa hoạt động trên hosting tĩnh**. Đừng triển khai cho khách thật khi các API còn trả 503.
 
-Xem [hướng dẫn GitHub Pages + Cloudflare](docs/DEPLOY_GITHUB_PAGES_CLOUDFLARE.md). Các hướng dẫn Docker/Caddy bên dưới là phương án hosting backend khác, không phải lựa chọn trước mắt.
+Xem [hướng dẫn Cloudflare Workers không VPS](docs/DEPLOY_CLOUDFLARE_WORKERS.md). Các hướng dẫn Docker/Caddy bên dưới là phương án hosting backend khác, không phải lựa chọn trước mắt.
 
 # Desktop local-only mode (EXE, không VPS)
 
