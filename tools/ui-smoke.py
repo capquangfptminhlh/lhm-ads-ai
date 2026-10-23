@@ -185,7 +185,15 @@ def main():
                 page.locator('[data-connect-step="0"]').click()
                 page.set_viewport_size({'width':390,'height':844})
                 expect(page.locator('#provider-connect-guide')).to_be_visible()
-                assert page.evaluate('document.documentElement.scrollWidth<=window.innerWidth+1')
+                overflow = page.evaluate("""() => ({
+                    width: window.innerWidth,
+                    scrollWidth: document.documentElement.scrollWidth,
+                    elements: [...document.querySelectorAll('body *')].filter(el => {
+                        const r = el.getBoundingClientRect();
+                        return r.width > 0 && (r.right > window.innerWidth + 2 || r.left < -2);
+                    }).slice(0, 14).map(el => ({tag:el.tagName, id:el.id, cls:String(el.className).slice(0,70)}))
+                })""")
+                assert overflow['scrollWidth']<=overflow['width']+1, overflow
                 page.screenshot(path=str(ARTIFACTS/'20-connection-guide-mobile.png'),full_page=True)
                 page.set_viewport_size({'width':1440,'height':940})
                 page.locator('#navigation button[data-page=accounts]').click()
