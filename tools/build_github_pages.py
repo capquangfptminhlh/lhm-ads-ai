@@ -59,8 +59,6 @@ def build(output: Path) -> Path:
         '<p><a href="/studio/">Mở LHM Ads AI</a></p></body></html>',
         encoding="utf-8"
     )
-    (output / "CNAME").write_text("ads.lhm.com\n", encoding="ascii")
-    (output / ".nojekyll").touch()
     return output
 
 
