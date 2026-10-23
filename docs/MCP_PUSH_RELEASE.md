@@ -1,5 +1,8 @@
 # LHM Ads AI — MCP read-only + Mobile Web Push (24/10/2026)
 
+**Security architecture superseded for cloud deployments:** all Ads account data and OAuth tokens are required to stay on customer devices. The server-side monitor/Cloudflare Cron scheme described below **must not be deployed with customer Ads credentials**. Cloud control-plane push remains unable to discover new Ads budget overruns while devices are offline. See [DEVICE_ONLY_ADS_DATA.md](DEVICE_ONLY_ADS_DATA.md). Existing Linux server functionality below documents legacy capabilities, not the approved cloud model.
+
+
 ## What works in source code
 
 - Local MCP stdio JSON-RPC 2.0 (2025-06-18) exposes `lhm_accounts`, `lhm_report`, `lhm_alerts` (read-only). It authenticates via a browser-admin-issued 1–30 day revocable key; every tool call checks its tenant/user identity. No credentials or external Ads customer IDs returned by these tools.
