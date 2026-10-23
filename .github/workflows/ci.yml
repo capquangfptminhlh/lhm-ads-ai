@@ -24,6 +24,7 @@ jobs:
       - run: node --check static/connection-guide.js
       - run: node --check static/oauth-finished.js
       - run: node --check static/customer-help.js
+      - run: node --check static/openrouter-diagnostics.js
       - run: node --check static/goal-settings.js
       - run: node --check static/workspace-pages.js
       - run: node --check static/commercial.js
