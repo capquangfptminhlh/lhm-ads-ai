@@ -86,8 +86,9 @@ def main():
                     const rect=document.querySelector('.app-frame').getBoundingClientRect();
                     return Math.abs(rect.left)<=1 &&
                         Math.abs(rect.width-window.innerWidth)<=1 &&
-                        document.documentElement.scrollWidth<=window.innerWidth+1;
-                }"""), 'Desktop setup should fill the native window without horizontal overflow'
+                        document.documentElement.scrollWidth<=window.innerWidth+1 &&
+                        document.documentElement.scrollHeight<=window.innerHeight+2;
+                }"""), 'Desktop setup should fit 1440x940 without unnecessary page scrolling'
                 page.screenshot(path=str(ARTIFACTS/'16-desktop-first-run-dark.png'),
                                 full_page=True)
                 page.set_viewport_size({'width':1024,'height':768})
