@@ -49,8 +49,15 @@ class DesktopBridge:
         from windows.online_update import staged_update
         if staged_update(self.data_folder) is None or self.window is None:
             return {'status': 'invalid', 'message': 'Chưa có bản cập nhật được xác minh.'}
-        # The outer run_window() finally block will wait for the local API to
-        # exit and then spawn the replacement worker. No running EXE is replaced.
+        # Start the helper BEFORE closing the UI, so failure to start it
+        # can be reported to the user while the running EXE is still safe.
+        # The helper waits for this process to exit before touching the EXE.
+        from windows.update_install import spawn_install_after_exit
+        try:
+            spawn_install_after_exit(self.data_folder, self.executable)
+        except (OSError, RuntimeError, ValueError):
+            return {'status': 'invalid',
+                    'message': 'Không chạy được bộ cập nhật trên Windows. Phần mềm vẫn hoạt động.'}
         self.install_requested = True
         threading.Thread(target=self.window.destroy, daemon=True).start()
         return {'status': 'restarting', 'message': 'Đang đóng để cài đặt bản mới.'}
@@ -144,12 +151,3 @@ def run_window(app, *, port: int, setup_token: str | None, data_folder: Path,
     finally:
         server.should_exit = True
         thread.join(timeout=8)
-        if bridge.install_requested and not smoke_window:
-            from windows.update_install import spawn_install_after_exit
-            try:
-                spawn_install_after_exit(data_folder, Path(sys.executable))
-            except Exception:
-                # Do not mark a broken install as successful; the old EXE
-                # remains untouched if the detached updater cannot start.
-                import traceback
-                traceback.print_exc()
