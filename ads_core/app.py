@@ -277,7 +277,8 @@ async def summary(period:str='last_7d',date_from:str|None=None,date_to:str|None=
         async with semaphore:
             try:
                 return {'account_id':a['id'],'label':a['label'],'platform':a['platform'],
-                        'result':await fetch_report(a,'custom',first,last)}
+                        'result':await (fetch_report(a,period) if period!='custom' else
+                                                fetch_report(a,'custom',first,last))}
             except HTTPException as exc:
                 return {'account_id':a['id'],'label':a['label'],'platform':a['platform'],
                         'error':str(exc.detail)}
