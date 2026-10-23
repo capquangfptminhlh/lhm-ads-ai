@@ -12,7 +12,7 @@
 - The service worker only caches public JavaScript, CSS, fonts and icon files. It never caches `/studio`, `/api/*`, OAuth callbacks or reports.
 - Access to live Google/Meta Ads requires the configured official API integration and secure HTTPS origin.
 - **Existing backend storage model has not changed.** The current FastAPI deployment encrypts provider credentials in its SQLite store; therefore it **does not meet a phone-only token-storage guarantee**. Do not market PWA as device-only storage yet. Redesign OAuth/provider access and test each platform before claiming that guarantee.
-- TikTok MCP integration is intentionally out of scope; no new third-party MCP endpoints were added.
+- A local, opt-in read-only MCP stdio bridge now exists; this does not implement TikTok Ads MCP or expose a remote HTTP MCP service. See docs/MCP_PUSH_RELEASE.md.
 - API responses are not real-time push; refresh cadence and quotas still apply. The PWA adds no Web Push backend, and background notifications cannot yet be promised.
 
 ## Test before release
