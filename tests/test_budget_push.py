@@ -81,3 +81,22 @@ def test_webpush_subscription_denies_untrusted_host(client,monkeypatch,tmp_path)
         raw=str(db.execute('SELECT sealed FROM push_subscriptions').fetchone()['sealed'])
         assert good['endpoint'] not in raw
     assert c.request('DELETE','/api/push/subscriptions',json=good,headers=h).status_code==200
+
+def test_push_test_notification_is_self_only_and_rate_limited(client,monkeypatch,tmp_path):
+    c,h=client
+    key=tmp_path/'vapid.pem'; key.write_text('not-a-production-key')
+    monkeypatch.setenv('LHM_VAPID_PRIVATE_KEY_FILE',str(key))
+    monkeypatch.setenv('LHM_VAPID_PUBLIC_KEY','example-pub')
+    monkeypatch.setenv('LHM_VAPID_SUBJECT','mailto:owner@example.com')
+    sub={'endpoint':'https://fcm.googleapis.com/fcm/send/unique-push-endpoint-1234',
+         'keys':{'p256dh':'12345678901234567890','auth':'1234567890123456'}}
+    assert c.post('/api/push/subscriptions',json=sub,headers=h).status_code==200
+    calls=[]
+    def fake_deliver(info,message):
+        calls.append(info['endpoint'])
+        return 'sent'
+    monkeypatch.setattr(budget_push,'_deliver_one',fake_deliver)
+    first=c.post('/api/push/test',headers=h)
+    assert first.status_code==200 and first.json()['accepted']==1
+    assert calls==[sub['endpoint']]
+    assert c.post('/api/push/test',headers=h).status_code==429
