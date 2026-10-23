@@ -40,7 +40,7 @@
     try{
       const q=window.LHMReportDates?.ensureReady('ws-report-period');
       if(!q){box.textContent='Hãy chọn khoảng ngày và bấm Áp dụng.';return;}
-      const result=await api('/api/summary?'+q);
+      const result=await api('/api/summary?period='+q.slice('period='.length));
       const t=result.totals;
       $('ws-report-spend').textContent=t.spend===null?(Object.keys(t.by_currency||{}).length>1?'Đa tiền tệ':'—'):fmt(t.spend)+(t.currency?' '+t.currency:'');
       $('ws-report-currency').textContent=t.currency?'Đơn vị '+t.currency:
@@ -75,7 +75,7 @@
       const q=window.LHMReportDates?.ensureReady('ws-report-period');if(!q)return;
       const period=$('ws-report-period').value;
       const link=document.createElement('a');
-      link.href='/api/export/reports?'+q;
+      link.href='/api/export/reports?period='+q.slice('period='.length);
       link.download='lhm-ads-'+period+'.csv';link.rel='noopener';link.click();
     });
     document.querySelectorAll('.nav-link[data-page="reports"]').forEach(x=>x.addEventListener('click',()=>setTimeout(load,0)));
