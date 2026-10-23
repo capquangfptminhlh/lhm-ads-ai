@@ -16,6 +16,43 @@ import webbrowser
 from pathlib import Path
 
 
+# A browser callback cannot close an Edge/Chrome tab that it did not open.
+# Keep a process-local reference to the already running native WebView2 window
+# so its own loopback OAuth return page can bring the app to the foreground.
+_native_window = None
+_focus_reset_timer = None
+_focus_lock = threading.Lock()
+
+
+def focus_native_window() -> bool:
+    global _focus_reset_timer
+    with _focus_lock:
+        window = _native_window
+        if window is None:
+            return False
+        try:
+            # pywebview supports an on_top property; toggling it briefly raises
+            # the existing app without changing the user's permanent preference.
+            window.show()
+            window.on_top = True
+            if _focus_reset_timer is not None:
+                _focus_reset_timer.cancel()
+            def reset_on_top():
+                with _focus_lock:
+                    if _native_window is window:
+                        try:
+                            window.on_top = False
+                        except (AttributeError, OSError, RuntimeError):
+                            pass
+            timer = threading.Timer(1.0, reset_on_top)
+            timer.daemon = True
+            _focus_reset_timer = timer
+            timer.start()
+            return True
+        except (AttributeError, OSError, RuntimeError):
+            return False
+
+
 class DesktopBridge:
     """Native-only bridge: allowlisted OAuth and cryptographically verified updates."""
 
@@ -129,6 +166,8 @@ def run_window(app, *, port: int, setup_token: str | None, data_folder: Path,
             confirm_close=False,
         )
         bridge.window = window
+        global _native_window
+        _native_window = window
         if smoke_window:
             def close_after_start():
                 time.sleep(8)
@@ -149,5 +188,11 @@ def run_window(app, *, port: int, setup_token: str | None, data_folder: Path,
             storage_path=str(data_folder / 'webview'),
         )
     finally:
+        global _focus_reset_timer
+        with _focus_lock:
+            _native_window = None
+            if _focus_reset_timer is not None:
+                _focus_reset_timer.cancel()
+                _focus_reset_timer = None
         server.should_exit = True
         thread.join(timeout=8)
