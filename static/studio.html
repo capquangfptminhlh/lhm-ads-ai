@@ -108,6 +108,10 @@
   <button type="button" class="connection-switch-btn is-selected" data-connect-provider="google" aria-pressed="true">Google Ads</button>
   <button type="button" class="connection-switch-btn" data-connect-provider="meta" aria-pressed="false">Meta Ads</button>
  </div>
+ <div class="connection-mode-switch" role="group" aria-label="Phương thức kết nối">
+  <button type="button" data-connection-mode="api" class="is-selected" aria-pressed="true">API trực tiếp · Trong LHM</button>
+  <button type="button" data-connection-mode="mcp" aria-pressed="false">MCP · Trợ lý AI</button>
+ </div>
  <div class="connection-step-nav" role="group" aria-label="Các bước kết nối">
   <button type="button" data-connect-step="0" aria-current="step">1. Tạo ứng dụng</button>
   <button type="button" data-connect-step="1">2. Nhập cấu hình</button>
@@ -119,7 +123,8 @@
   <button type="button" class="btn secondary" id="connection-back">← Quay lại</button>
   <button type="button" class="btn primary" id="connection-next">Tiếp tục →</button>
  </div>
- <p class="connection-security">🔒 Trợ lý chỉ kiểm tra trường đã điền và trạng thái kết nối; không tự tạo Google Cloud/Meta App, không truy cập mật khẩu, không gửi bí mật hay dữ liệu Ads tới mô hình AI.</p>
+ <p class="connection-security">🔒 API trực tiếp giữ token mã hóa trên máy. MCP là kết nối riêng của ứng dụng AI tương thích, <strong>chưa tích hợp vào backend LHM Ads AI</strong>. Không gửi Client Secret, access token hay mật khẩu qua chat/AI.</p>
+ <a class="connection-guide-link" href="https://github.com/capquangfptminhlh/lhm-ads-ai/blob/main/docs/ADS_CONNECT_API_MCP_GUIDE.md" target="_blank" rel="noopener noreferrer">Xem toàn bộ hướng dẫn API &amp; MCP cập nhật 2026 ↗</a>
 </section>
 <form id="desktop-google-form" class="settings-panel" autocomplete="off"><h3>Google Ads — OAuth Desktop</h3>
 <label>Google Cloud OAuth Client ID (loại Desktop app)<input id="desktop-google-id" required placeholder="...apps.googleusercontent.com" spellcheck="false"></label>

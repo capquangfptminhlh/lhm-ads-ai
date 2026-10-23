@@ -134,6 +134,16 @@ def main():
                 expect(page.locator('#provider-connect-guide')).to_be_visible()
                 assert page.locator('[data-connect-provider=meta]').get_attribute('aria-pressed')=='true'
                 expect(page.locator('#connection-guide-body')).to_contain_text('Redirect URI')
+                # MCP mode is documentation-only, not an active LHM MCP endpoint.
+                page.locator('[data-connection-mode=mcp]').click()
+                expect(page.locator('#connection-guide-body')).to_contain_text('Meta Ads MCP')
+                expect(page.locator('.connection-step-nav')).to_be_hidden()
+                assert page.locator('[data-connection-mode=mcp]').get_attribute('aria-pressed')=='true'
+                page.locator('[data-connect-provider=google]').click()
+                expect(page.locator('#connection-guide-body')).to_contain_text('Google Ads MCP')
+                page.locator('[data-connection-mode=api]').click()
+                expect(page.locator('.connection-step-nav')).to_be_visible()
+                expect(page.locator('#connection-guide-body')).to_contain_text('Google Cloud Console')
                 page.screenshot(path=str(ARTIFACTS/'19-meta-guided-connection.png'),full_page=True)
                 page.locator('[data-connect-provider=google]').click()
                 expect(page.locator('#connection-guide-body')).to_contain_text('Google Cloud Console')
