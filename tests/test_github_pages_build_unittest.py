@@ -28,7 +28,7 @@ class StaticPagesTests(unittest.TestCase):
             self.assertIn('đăng nhập',studio.lower())
             self.assertEqual(json.loads((out/'manifest.webmanifest').read_text())['start_url'],'/studio')
             js=(out/'static/cloudflare-hosting-gate.js').read_text()
-            self.assertIn("data?.auth_ready === true",js)
+            self.assertIn("data?.auth_ready === true && data?.device_only_ready === true",js)
             self.assertIn("credentials: 'same-origin'",js)
             self.assertIn("event.stopImmediatePropagation()",js)
 
@@ -40,7 +40,7 @@ class StaticPagesTests(unittest.TestCase):
         assert 'custom_domain = true' in cfg
         assert 'directory = "./_site"' in cfg
         assert 'run_worker_first = ["/api/*"]' in cfg
-        assert "auth_ready: false" in worker
+        assert "auth_ready:false" in worker\n        assert "device_only_ready:false" in worker\n        assert "ads_credential_custody:'device_only'" in worker
         assert "return json({" in worker
         assert "503" in worker
         assert 'env.ASSETS.fetch(request)' in worker
