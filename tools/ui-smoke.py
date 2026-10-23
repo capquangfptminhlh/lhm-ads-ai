@@ -76,6 +76,12 @@ def main():
                 assert finish.locator('h1').evaluate('el => getComputedStyle(el).color') == 'rgb(255, 255, 255)'
                 assert finish.locator('body').evaluate('el => getComputedStyle(el).backgroundColor') == 'rgb(11, 14, 19)'
                 finish.screenshot(path=str(ARTIFACTS/'22-oauth-complete-browser.png'))
+                # The standalone browser test has no native window; a click
+                # must show Alt+Tab instead of falsely claiming the tab closed.
+                finish.locator('#oauth-finished-close').click()
+                expect(finish.locator('#oauth-close-hint')).to_contain_text(
+                    'Alt + Tab', timeout=7000)
+                expect(finish.locator('#oauth-finished-close')).to_contain_text('Thử quay về phần mềm')
                 finish.close()
                 page=browser.new_page(viewport={'width':1440,'height':940},device_scale_factor=1)
                 page.goto(BASE+'/studio',wait_until='networkidle')
