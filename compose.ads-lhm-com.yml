@@ -1,0 +1,26 @@
+# Production HTTPS reverse-proxy overlay:
+# docker compose -f docker-compose.yml -f compose.ads-lhm-com.yml up -d --build
+# Requires A/AAAA records for ads.lhm.com and reachable TCP 80/443.
+services:
+  ads-ai:
+    environment:
+      PUBLIC_BASE_URL: https://ads.lhm.com
+      COOKIE_SECURE: "true"
+  reverse-proxy:
+    image: caddy:2.10.2
+    restart: unless-stopped
+    depends_on:
+      - ads-ai
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  caddy_data:
+  caddy_config:
