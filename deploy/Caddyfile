@@ -1,0 +1,12 @@
+# LHM Ads AI public PWA endpoint. TLS is provisioned automatically by Caddy
+# AFTER ads.lhm.com DNS points to this host and ports 80/443 are reachable.
+ads.lhm.com {
+    encode zstd gzip
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "no-referrer"
+        Strict-Transport-Security "max-age=31536000"
+    }
+    reverse_proxy ads-ai:8080
+}
