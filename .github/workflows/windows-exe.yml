@@ -77,6 +77,12 @@ jobs:
             if ($errors.Count -gt 0) { throw ($errors | Out-String) }
             Write-Host "PASS: parsed $file"
           }
+      - name: Embed signed online update trust (public settings only)
+        shell: pwsh
+        env:
+          LHM_UPDATE_MANIFEST_URL: ${{ vars.LHM_UPDATE_MANIFEST_URL }}
+          LHM_UPDATE_PUBLIC_KEY_B64: ${{ vars.LHM_UPDATE_PUBLIC_KEY_B64 }}
+        run: python tools/configure_desktop_update.py
       - name: Make branded Windows icon
         shell: pwsh
         run: python windows/make_icon.py
