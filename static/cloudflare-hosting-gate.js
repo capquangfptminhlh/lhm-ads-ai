@@ -28,7 +28,7 @@
       if (!res.ok || !ct.includes('application/json')) return;
       const data = await res.json();
       // This must be a verified API auth readiness signal, not just 200 /healthz.
-      if (data?.service === 'lhm-ads-cloudflare' && data?.auth_ready === true) {
+      if (data?.service === 'lhm-ads-cloudflare' && data?.auth_ready === true && data?.device_only_ready === true && data?.ads_credential_custody === 'device_only') {
         guard.remove();
         status.textContent = 'Cloudflare API đã sẵn sàng. Bạn có thể đăng nhập.';
         status.style.borderColor = '#60a57d';
