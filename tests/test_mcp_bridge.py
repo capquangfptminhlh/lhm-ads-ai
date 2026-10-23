@@ -65,3 +65,16 @@ def test_mcp_reports_only_supported_periods(mcp_client):
        'params':{'name':'lhm_report','arguments':{'period':'custom'}}},token))
     assert invalid['error']['code']==-32602
     assert asyncio.run(handle({'jsonrpc':'2.0','id':2,'method':'initialize'},token))['result']['serverInfo']['name']=='lhm-ads-ai-local'
+
+def test_password_change_revokes_all_local_mcp_keys(mcp_client):
+    client,h=mcp_client
+    res=client.post('/api/mcp/local/tokens',headers=h,json={'days':7})
+    assert res.status_code==200
+    token=res.json()['token']
+    assert resolve_mcp_identity(token)['org_id']=='tenantA'
+    updated=client.post('/api/me/password',headers=h,json={
+      'old_password':'long-test-password-123',
+      'new_password':'even-longer-test-password-456'})
+    assert updated.status_code==200
+    with pytest.raises(PermissionError):
+        resolve_mcp_identity(token)
