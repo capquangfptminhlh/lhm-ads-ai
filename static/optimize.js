@@ -3,7 +3,7 @@
 (() => {
   const el = id => document.getElementById(id);
   const escHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const show = (message, error=false) => { const node=el('optimization-message'); node.textContent=message; node.style.color=error?'#b91c1c':'inherit'; };
+  const show = (message, error=false) => { const node=el('optimization-message'); node.textContent=message; node.classList.toggle('error',error);node.classList.toggle('good',!error); };
   const actionForm = () => el('pause-form');
   async function inspect() {
     const accountId=Number(el('opt-account').value);
@@ -33,25 +33,54 @@
       show('Đã đọc '+data.campaigns.length+' chiến dịch; không có lệnh ghi Ads được gửi.');
     } catch(e) {output.textContent='';show(e.message||String(e),true)}
   }
-  async function populate() {
-    if(!el('opt-account')) return;
-    try {
-      const accounts=await api('/api/accounts');
-      const previous=el('opt-account').value;
+  let loadingAccounts=false, reloadRequested=false;
+  const onCampaignPage=()=>!el('page-campaigns')?.classList.contains('hidden') &&
+    !el('shell')?.classList.contains('hidden');
+  function accountMessage(message, error=false){
+    const node=el('optimization-message');
+    if(!node)return;
+    node.textContent=message;
+    node.classList.toggle('error',error);
+    node.classList.toggle('good',!error&&message.startsWith('Đã tìm thấy'));
+  }
+  async function populate(){
+    if(!el('opt-account')||!onCampaignPage())return;
+    if(loadingAccounts){reloadRequested=true;return}
+    loadingAccounts=true;
+    const selector=el('opt-account'),inspectButton=el('opt-inspect'),retry=el('opt-retry');
+    const previous=selector.value;
+    selector.disabled=true;inspectButton.disabled=true;retry.disabled=true;
+    selector.replaceChildren(new Option('Đang tải tài khoản…',''));
+    accountMessage('Đang đọc tài khoản Ads đã lưu trong phần mềm…');
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),15000);
+    try{
+      const accounts=await api('/api/accounts',{signal:controller.signal});
+      if(!Array.isArray(accounts))throw Error('API không trả về danh sách tài khoản hợp lệ');
       const usable=accounts.filter(a=>['meta','google'].includes(a.platform)&&a.connected);
-      el('opt-account').innerHTML=usable.length?usable
-        .map(a=>`<option value="${a.id}">${escHtml(a.platform.toUpperCase())}: ${escHtml(a.label)}</option>`).join('')
-        :'<option value="" disabled selected>Chưa có tài khoản đã kết nối</option>';
-      el('opt-inspect').disabled=!usable.length;
-      if(!usable.length)
-        el('optimization-message').textContent='Hãy kết nối tài khoản Google Ads hoặc Meta Ads ở mục Tài khoản Ads trước khi phân tích.';
-      if(previous && [...el('opt-account').options].some(o=>o.value===previous))el('opt-account').value=previous;
-    } catch(e) {show(e.message||String(e),true)}
+      selector.replaceChildren();
+      if(usable.length){
+        const choices=usable.map(a=>new Option(a.platform.toUpperCase()+': '+a.label+' ('+a.external_id+')',String(a.id)));
+        selector.replaceChildren(...choices);
+        if(previous && choices.some(x=>x.value===previous))selector.value=previous;
+        selector.disabled=false;inspectButton.disabled=false;
+        accountMessage('Đã tìm thấy '+usable.length+' tài khoản Google/Meta đã lưu. Chọn tài khoản rồi bấm Phân tích chiến dịch.');
+      }else{
+        selector.replaceChildren(new Option('Chưa có tài khoản Google/Meta đã kết nối',''));
+        accountMessage('Chưa có tài khoản Ads đã lưu. Vào Tài khoản Ads, bấm Lưu tài khoản đã chọn sau khi cấp quyền Google/Meta.');
+      }
+    }catch(err){
+      selector.replaceChildren(new Option('Không tải được tài khoản — thử lại',''));
+      accountMessage(controller.signal.aborted?'Hết thời gian chờ 15 giây. Kiểm tra ứng dụng còn chạy, rồi bấm Thử lại.':'Không tải được tài khoản: '+String(err.message||err),true);
+    }finally{
+      clearTimeout(timeout);loadingAccounts=false;retry.disabled=false;
+      if(reloadRequested){reloadRequested=false;queueMicrotask(populate)}
+    }
   }
   document.addEventListener('DOMContentLoaded',()=>{
     const view=el('page-campaigns'); if(!view)return;
     const article=document.createElement('article');article.className='panel';
-    article.innerHTML='<h3>Trung tâm phân tích chiến dịch</h3><p class="muted tiny">Đọc hiệu suất Google/Meta 7 ngày, tìm điểm cần xem xét. Khuyến nghị không tự chỉnh quảng cáo hoặc ngân sách. Tạm dừng chỉ được thực hiện khi admin duyệt riêng.</p><div class="inline-actions"><select id="opt-account" aria-label="Tài khoản cần phân tích"><option value="" disabled selected>Đang tải tài khoản…</option></select><button id="opt-inspect" class="btn primary" type="button">Phân tích chiến dịch</button></div><p id="optimization-message" role="status" class="muted tiny"></p><div id="optimization-result" class="table-wrap"></div>';
+    article.innerHTML='<h3>Trung tâm phân tích chiến dịch</h3><p class="muted tiny">Đọc hiệu suất Google/Meta 7 ngày, tìm điểm cần xem xét. Khuyến nghị không tự chỉnh quảng cáo hoặc ngân sách. Tạm dừng chỉ được thực hiện khi admin duyệt riêng.</p><div class="inline-actions campaign-actions"><select id="opt-account" aria-label="Tài khoản cần phân tích" disabled><option value="" disabled selected>Đang tải tài khoản…</option></select><button id="opt-inspect" class="btn primary" type="button" disabled>Phân tích chiến dịch</button><button id="opt-retry" class="btn secondary" type="button">↻ Tải lại tài khoản</button><button type="button" class="btn secondary" data-go="accounts">↗ Kết nối tài khoản</button></div><p id="optimization-message" role="status" aria-live="polite" class="muted tiny campaign-state">Mở trang để tải tài khoản đã lưu.</p><div id="optimization-result" class="table-wrap"></div>';
     view.append(article);
     el('opt-inspect').addEventListener('click',inspect);
     el('optimization-result').addEventListener('click',async e=>{
@@ -62,6 +91,14 @@
       try{await api('/api/actions',{method:'POST',body:JSON.stringify({account_id:accountId,campaign_id:campaignId})});show('Đã tạo yêu cầu chờ duyệt, không thay đổi quảng cáo.');if(typeof loadActions==='function')await loadActions();}
       catch(err){show(err.message||String(err),true)}
     });
-    const link=document.querySelector('[data-page="campaigns"]');if(link)link.addEventListener('click',()=>setTimeout(populate,100));
+    el('opt-retry').addEventListener('click',populate);
+    // go('campaigns') is also called by command palette, shortcuts and
+    // Account rows. Those paths do not fire a .nav-link click event.
+    const viewWatcher=new MutationObserver(()=>{if(onCampaignPage())populate()});
+    viewWatcher.observe(view,{attributes:true,attributeFilter:['class']});
+    document.addEventListener('lhm:accounts-loaded',()=>{if(onCampaignPage())populate()});
+    document.querySelectorAll('[data-page="campaigns"]').forEach(link=>
+      link.addEventListener('click',()=>setTimeout(populate,0)));
+    if(onCampaignPage())populate();
   });
 })();
