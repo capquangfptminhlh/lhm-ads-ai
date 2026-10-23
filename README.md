@@ -105,3 +105,7 @@ See [docs/COMMERCIAL_LICENSE.md](docs/COMMERCIAL_LICENSE.md). Local machine-boun
 ## MCP and PWA budget Web Push (24/10/2026)
 
 Read-only stdio MCP integration with revocable admin-issued credentials; and opt-in daily-spend thresholds with encrypted device Push subscriptions are implemented in the source code. Both need live OAuth/API approval, HTTPS, a continuously running monitor worker and real phone/browser acceptance testing before production claims. **No TikTok reporting MCP adapter, no unattended provider write tools and no guaranteed 24/7 alerts from a phone-only PWA.** See [deployment guide](docs/MCP_PUSH_RELEASE.md).
+
+## Deployment domain for PWA/API
+
+Public production origin: **https://ads.lhm.com** (pending DNS and VPS deployment). The Caddy HTTPS production overlay lives in [compose.ads-lhm-com.yml](compose.ads-lhm-com.yml), with exact Google/Meta callback URLs and step-by-step setup in [docs/DEPLOY_ADS_LHM_COM.md](docs/DEPLOY_ADS_LHM_COM.md). The Windows local app remains separate on localhost. Never assume the GitHub commit means this public domain is already live.
