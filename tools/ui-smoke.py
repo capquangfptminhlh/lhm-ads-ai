@@ -66,6 +66,17 @@ def main():
             wait_ready(proc)
             with sync_playwright() as play:
                 browser=play.chromium.launch(headless=True)
+                # System-browser OAuth confirmation must be legible on dark
+                # desktop and must guide customer back to the native window.
+                finish=browser.new_page(viewport={'width':900,'height':700},device_scale_factor=1)
+                finish.goto(BASE+'/oauth/finished?status=ready',wait_until='networkidle')
+                expect(finish.locator('#result-title')).to_contain_text('Đã nhận quyền truy cập')
+                expect(finish.locator('#oauth-finished-close')).to_be_visible()
+                expect(finish.locator('#oauth-close-hint')).to_contain_text('Ctrl')
+                assert finish.locator('h1').evaluate('el => getComputedStyle(el).color') == 'rgb(255, 255, 255)'
+                assert finish.locator('body').evaluate('el => getComputedStyle(el).backgroundColor') == 'rgb(11, 14, 19)'
+                finish.screenshot(path=str(ARTIFACTS/'22-oauth-complete-browser.png'))
+                finish.close()
                 page=browser.new_page(viewport={'width':1440,'height':940},device_scale_factor=1)
                 page.goto(BASE+'/studio',wait_until='networkidle')
                 page.locator('#login-email').fill('preview@example.test')

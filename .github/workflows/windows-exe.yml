@@ -55,6 +55,7 @@ jobs:
           node --check static/command-palette.js
           node --check static/update-ui.js
           node --check static/connection-guide.js
+          node --check static/oauth-finished.js
           node --check static/customer-help.js
       - name: Pin vendor public key for manual COMMERCIAL build only
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.commercial }}

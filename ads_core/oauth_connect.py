@@ -160,20 +160,69 @@ def redirect_status(value):
 
 @app.get('/oauth/finished', include_in_schema=False)
 def oauth_finished(request: Request, status: str='ready'):
-    # The system browser only displays this confirmation; imported accounts
-    # remain accessible exclusively from the native window's signed-in session.
+    # Only a loopback browser callback. This browser has NO native app session:
+    # do not redirect it to /studio and do not show provider tokens / account IDs.
     if os.getenv('LHM_DESKTOP_MODE')!='1' or request.client is None or request.client.host not in ('127.0.0.1','::1'):
         raise HTTPException(404, 'Not found')
     from fastapi.responses import HTMLResponse
+    from html import escape
+    # Exact allowlist for query input; never place raw OAuth status in HTML.
+    outcomes = {
+        'ready': (
+            'Đã nhận quyền truy cập',
+            'Google hoặc Meta đã chuyển quyền về LHM Ads AI.',
+            'Quay lại cửa sổ LHM Ads AI, chọn tài khoản quảng cáo được phép dùng và bấm Lưu tài khoản đã chọn.'
+        ),
+        'cancelled': (
+            'Bạn đã hủy cấp quyền',
+            'Chưa có quyền truy cập mới được lưu.',
+            'Quay lại LHM Ads AI để thử đăng nhập lần nữa khi bạn sẵn sàng.'
+        ),
+        'no_accounts': (
+            'Chưa tìm thấy tài khoản Ads',
+            'Đã đăng nhập nhưng tài khoản này không có tài khoản quảng cáo phù hợp để lựa chọn.',
+            'Kiểm tra quyền Google Ads / Meta Business và thử lại trong LHM Ads AI.'
+        ),
+        'provider_error': (
+            'Chưa lấy được dữ liệu quảng cáo',
+            'Dịch vụ quảng cáo không trả về tài khoản hợp lệ ở bước xác minh API.',
+            'Kiểm tra quyền API, ứng dụng OAuth và quyền tài khoản trước khi thử lại.'
+        ),
+        'error': (
+            'Không thể hoàn thành kết nối',
+            'Cấu hình OAuth chưa hợp lệ hoặc đã thay đổi.',
+            'Quay lại phần mềm, xem cấu hình Google/Meta và thử lại.'
+        ),
+    }
     success = status == 'ready'
-    message = 'Đã nhận quyền truy cập. Quay lại cửa sổ LHM Ads AI để chọn tài khoản.' if success else 'Chưa hoàn thành kết nối. Quay lại ứng dụng để thử lại.'
-    html = ("<!doctype html><html lang='vi'><meta charset='utf-8'><title>LHM Ads AI</title>"
-            "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-            "<body style='background:#f6ede6;color:#211d1b;font:16px Segoe UI,Arial,sans-serif;max-width:590px;margin:15vh auto;padding:30px'>"
-            "<h1 style='color:#d77240'>LHM Ads AI</h1><h2>"+
-            ('Kết nối thành công' if success else 'Chưa kết nối được')+
-            "</h2><p>"+message+"</p><p>Bạn có thể đóng tab trình duyệt này.</p></body></html>")
-    return HTMLResponse(html,headers={'Cache-Control':'no-store'})
+    title, subtitle, next_step = outcomes.get(status, outcomes['error'])
+    screen_type = 'success' if success else 'warning'
+    html = (
+        '<!doctype html><html lang="vi"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta name="color-scheme" content="dark">'
+        '<title>LHM Ads AI · Trạng thái kết nối OAuth</title>'
+        '<link rel="stylesheet" href="/static/oauth-finished.css">'
+        '<script src="/static/oauth-finished.js" defer></script></head>'
+        '<body class="oauth-finished '+screen_type+'">'
+        '<main class="oauth-finished-card" aria-labelledby="result-title">'
+        '<div class="brand"><span class="brand-star" aria-hidden="true">✳</span>'
+        '<span>LHM <strong>Ads AI</strong></span></div>'
+        '<div class="oauth-mark" aria-hidden="true">'+('✓' if success else '!')+'</div>'
+        '<p class="eyebrow">XÁC NHẬN KẾT NỐI</p>'
+        '<h1 id="result-title">'+escape(title)+'</h1>'
+        '<p class="oauth-summary">'+escape(subtitle)+'</p>'
+        '<section class="next-step" aria-label="Bước tiếp theo">'
+        '<span class="step-label">BƯỚC TIẾP THEO</span>'
+        '<p>'+escape(next_step)+'</p></section>'
+        '<button id="oauth-finished-close" type="button">Đóng tab &amp; quay lại phần mềm</button>'
+        '<p class="close-hint" id="oauth-close-hint" role="status" aria-live="polite">'
+        'Nếu trình duyệt không cho phép đóng tab bằng nút này, nhấn '
+        '<kbd>Ctrl</kbd> + <kbd>W</kbd>, rồi chọn cửa sổ LHM Ads AI.</p>'
+        '<p class="privacy-note">Tab trình duyệt không hiển thị hoặc lưu token quảng cáo.</p>'
+        '</main></body></html>'
+    )
+    return HTMLResponse(html, headers={'Cache-Control':'no-store'})
 
 
 async def google_exchange(client, code, redirect_uri, verifier, cid, secret):
