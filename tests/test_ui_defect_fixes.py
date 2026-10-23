@@ -56,7 +56,8 @@ def test_ai_consent_checkbox_stays_attached_to_its_label():
 def test_campaigns_account_picker_has_empty_state():
     js = _read("optimize.js")
     assert "Chưa có tài khoản đã kết nối" in js
-    assert "opt-inspect').disabled" in js
+    assert "inspectButton.disabled=true" in js
+    assert "inspectButton.disabled=false" in js
     assert "Đang tải tài khoản…" in js
 
 

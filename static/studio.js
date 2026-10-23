@@ -196,7 +196,21 @@ async function loadActions(){try{[actions,cache]=await Promise.all([api('/api/ac
 async function loadTeam(){try{const list=await api('/api/team');$('team-table').innerHTML=table(['ID','Email','Quyền','Trạng thái',''],list.map(u=>`<tr><td>#${u.id}</td><td><strong>${esc(u.email)}</strong></td><td>${esc(u.role)}</td><td>${status(u.disabled?'Đã khóa':'Đang hoạt động',u.disabled?'error':'success')}</td><td>${u.id!==session.id&&!u.disabled?`<button class="small-btn" data-disable="${u.id}">Khóa</button>`:''}</td></tr>`))}catch(e){notify(e.message,true)}}
 async function loadAudit(){try{const arr=await api('/api/audit');$('audit-table').innerHTML=table(['Ngày giờ','Sự kiện','Actor','Chi tiết'],arr.map(x=>`<tr><td>${esc(x.created_at)}</td><td><strong>${esc(x.event)}</strong></td><td>${esc(x.actor_id)}</td><td>${esc(x.detail)}</td></tr>`))}catch(e){notify(e.message,true)}}
 function chatBubble(txt,user=false){const d=document.createElement('div');d.className='chat-bubble '+(user?'user':'bot');if(user){d.textContent=txt}else{const icon=document.createElement('span');icon.className='bot-icon';icon.textContent='✧';const content=document.createElement('div');content.textContent=txt;d.append(icon,content)}$('chat-messages').append(d);$('chat-messages').scrollTop=$('chat-messages').scrollHeight;return d}
-async function chat(text){if(!text.trim())return;chatBubble(text,true);$('chat-input').value='';$('chat-send').disabled=true;const bubble=chatBubble('Đang phân tích dữ liệu...');try{const r=await api('/api/assistant/chat',{method:'POST',body:JSON.stringify({message:text,period:$('period').value})});bubble.lastChild.textContent=r.reply+'\n\n'+(r.disclaimer||''); if(r.mode==='openrouter')$('ai-provider-label').textContent='OPENROUTER: '+r.model}catch(e){bubble.lastChild.textContent=e.message}finally{$('chat-send').disabled=false;$('chat-messages').scrollTop=$('chat-messages').scrollHeight}}
+async function chat(text){if(!text.trim())return;
+  // Preflight paid OpenRouter in the native client. Never bypass the signed
+  // license: prompt customers to activate or disable external AI explicitly.
+  if(window.lhmAILicenseBlocked===true){
+    notify('AI OpenRouter đang cần kích hoạt/gia hạn. Vào Bản quyền, hoặc Cài đặt để dùng phân tích nội bộ.',true);
+    return;
+  }
+  chatBubble(text,true);$('chat-input').value='';$('chat-send').disabled=true;const bubble=chatBubble('Đang phân tích dữ liệu...');try{const r=await api('/api/assistant/chat',{method:'POST',body:JSON.stringify({message:text,period:$('period').value})});bubble.lastChild.textContent=r.reply+'\n\n'+(r.disclaimer||''); if(r.mode==='openrouter')$('ai-provider-label').textContent='OPENROUTER: '+r.model}catch(e){
+    bubble.lastChild.textContent=e.message;
+    if(String(e.message||'').includes('Gói sử dụng đã hết hạn')||
+       String(e.message||'').includes('chưa kích hoạt')){
+      window.lhmAILicenseBlocked=true;
+      window.lhmRefreshAILicense?.();
+    }
+  }finally{$('chat-send').disabled=false;$('chat-messages').scrollTop=$('chat-messages').scrollHeight}}
 function accountDialog(open){$('account-dialog').classList.toggle('hidden',!open);if(open){$('account-form').reset();$('acc-platform').dispatchEvent(new Event('change'))}}
 document.querySelectorAll('[data-page]').forEach(e=>e.addEventListener('click',()=>go(e.dataset.page)));document.querySelectorAll('[data-go]').forEach(e=>e.addEventListener('click',()=>go(e.dataset.go)));$('menu').onclick=()=>$('sidebar').classList.toggle('open');for(const id of ['global-account-search','account-list-search']){
   $(id)?.addEventListener('input',event=>syncAccountSearch(event.target.value,event.target));

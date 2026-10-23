@@ -151,6 +151,37 @@ def main():
                 page.evaluate('window.scrollTo(0, 0)')
                 page.wait_for_timeout(850)  # Let transitions finish before capture
                 page.screenshot(path=str(ARTIFACTS/'01-google-provider.png'),full_page=True)
+
+                # Regression for customer screenshot: an OAuth import option must
+                # NEVER render light text on a white card in the dark Studio.
+                page.evaluate("""() => {
+                  const host=document.getElementById('oauth-pending-list');
+                  const box=document.createElement('div');box.className='oauth-choice-box';
+                  box.id='smoke-pending-import';
+                  const heading=document.createElement('strong');heading.textContent='Chọn tài khoản Google Ads để thêm';
+                  const list=document.createElement('div');list.className='oauth-choice-list';
+                  const label=document.createElement('label');label.className='oauth-choice';
+                  const cb=document.createElement('input');cb.type='checkbox';cb.checked=true;
+                  const name=document.createElement('span');name.textContent='Tài khoản kiểm thử giao diện — VND';
+                  label.append(cb,name);list.append(label);box.append(heading,list);host.append(box);
+                }""")
+                expect(page.locator('#smoke-pending-import')).to_be_visible()
+                assert page.locator('#smoke-pending-import').evaluate("""box=>{
+                  const text=box.querySelector('label span');
+                  const fg=getComputedStyle(text).color;
+                  const bg=getComputedStyle(box.querySelector('label')).backgroundColor;
+                  return fg==='rgb(240, 241, 244)' && bg==='rgb(57, 48, 40)';
+                }"""), 'OAuth account list text/background should be readable in dark mode'
+                page.screenshot(path=str(ARTIFACTS/'23-oauth-selection-dark-contrast.png'))
+                page.locator('#smoke-pending-import').evaluate('el => el.remove()')
+
+                # Programmatic go() must trigger a real campaign account refresh,
+                # not leave the dropdown permanently saying Đang tải tài khoản.
+                page.evaluate("go('campaigns')")
+                expect(page.locator('#opt-account')).not_to_contain_text('Đang tải tài khoản',timeout=15000)
+                expect(page.locator('#opt-retry')).to_be_visible()
+                page.screenshot(path=str(ARTIFACTS/'24-campaign-accounts-state.png'))
+                page.locator('#navigation button[data-page=accounts]').click()
                 page.locator('[data-provider-choice=meta]').click()
                 assert page.locator('[data-provider-detail=meta]').is_visible()
                 assert not page.locator('[data-provider-detail=google]').is_visible()
