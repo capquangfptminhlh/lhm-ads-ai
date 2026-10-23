@@ -153,6 +153,10 @@ def change_password(body: PasswordInput, ident=Depends(require('admin','operator
         attempt_succeeded(db, scope)
         db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(body.new_password),ident['id']))
         db.execute('DELETE FROM sessions WHERE user_id=?',(ident['id'],))
+        # A password reset revokes every local MCP key for this user as well.
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='mcp_read_tokens'").fetchone():
+            db.execute('UPDATE mcp_read_tokens SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL',
+                       (int(__import__('time').time()), ident['id']))
         audit(db,ident,'auth.password_changed','Revoked all sessions on password change')
     return {'ok':True,'message':'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.'}
 
