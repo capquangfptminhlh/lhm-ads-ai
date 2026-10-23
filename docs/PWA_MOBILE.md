@@ -1,5 +1,8 @@
 # LHM Ads AI — Installable mobile PWA
 
+**Device-only privacy requirement is mandatory:** provider account metadata, Ads reports, and credentials must reside only on the customer device. The existing remote FastAPI backend is NOT compliant and must not be used for commercial Cloudflare-based Ads access. See [DEVICE_ONLY_ADS_DATA.md](DEVICE_ONLY_ADS_DATA.md).
+
+
 ## Mobile install
 
 - Open the HTTPS deployment's `/studio` URL in Android Chrome. Choose **Cài LHM Ads AI trên điện thoại** (or the browser menu's **Cài đặt ứng dụng**).
