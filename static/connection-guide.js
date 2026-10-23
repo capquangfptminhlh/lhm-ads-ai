@@ -10,6 +10,7 @@
   const providers = ['google', 'meta'];
   let provider = 'google';
   let step = 0;
+  let mode = 'api';
   const readiness = {google:false,meta:false};
   const callbacks = {google:'',meta:''};
   const GOOGLE_ID = /^[A-Za-z0-9._-]{8,200}\.apps\.googleusercontent\.com$/;
@@ -54,7 +55,7 @@
        <li>Thiết lập màn hình đồng ý OAuth (Google Auth Platform): tên ứng dụng, email hỗ trợ, đối tượng dùng, người dùng thử nghiệm và phạm vi truy cập theo yêu cầu.</li>
        <li>Vào <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Credentials</a>, tạo <strong>OAuth Client ID → Desktop app</strong>, sau đó tải file JSON.</li>
        </ol>
-       <p class="connection-tip">Để đọc số liệu Google Ads bằng API, dự án/tài khoản phải có quyền truy cập API phù hợp. Google Ads API cũng yêu cầu developer token; có Client ID không có nghĩa API đã được cấp quyền đầy đủ.</p>
+       <p class="connection-tip">Để đọc số liệu Google Ads bằng API, dự án/tài khoản phải có quyền truy cập API phù hợp. Từ 09/09/2026 Google không yêu cầu developer token cho Google Ads API. Trong Google Cloud, dự án cần được cấp Explorer (hoặc Basic/Standard) để đọc tài khoản thật; chỉ có OAuth Client ID chưa đủ.</p>
        <div class="connection-action-row"><a class="btn secondary" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Mở trang tạo OAuth ↗</a></div>`,
       `<h4>Bước 2 · Nhập OAuth tự động từ file JSON</h4>
        <p>Không cần gõ Client ID hay Secret thủ công. Chọn file JSON <strong>Desktop app</strong> vừa tải từ Google. File được đọc ngay trong ứng dụng, không đưa cho AI hoặc máy chủ bên ngoài.</p>
@@ -99,6 +100,26 @@
        <p>Nếu App Live không cho phép localhost, cấu hình HTTPS và quyền app theo yêu cầu Meta; không dùng cách vòng qua xác minh hay App Review.</p>`
     ]
   };
+  // Official MCP products are documented here as an ALTERNATIVE AI-client path.
+  // No MCP execution endpoint is exposed by LHM Ads AI itself.
+  const mcpGuides = {
+    google: `<h4>Google Ads MCP chính thức · Dành cho AI client</h4>
+      <p>Google cung cấp <strong>google-ads-mcp</strong> (chỉ đọc số liệu, không sửa giá thầu/chiến dịch). Bản LHM Ads AI Windows vẫn kết nối Google bằng OAuth/API riêng.</p>
+      <ol><li>Vào Google Cloud, bật Google Ads API và cấp quyền <strong>Explorer hoặc cao hơn</strong> cho dự án để truy cập tài khoản thật; developer token đã ngừng yêu cầu từ 09/09/2026.</li>
+      <li>Cấu hình OAuth hoặc Application Default Credentials (ADC) trên máy theo hướng dẫn Google. Không nhập token vào khung chat.</li>
+      <li>Trong AI client hỗ trợ MCP, thêm máy chủ Google Ads chính thức bằng <code>pipx</code>, `GOOGLE_PROJECT_ID` và ADC; đăng nhập chính chủ.</li>
+      <li>Thử lệnh “Liệt kê tài khoản Google Ads được phép truy cập” hoặc “Báo cáo chi phí 7 ngày qua”.</li></ol>
+      <div class="connection-tip">Lưu ý: Đây là <strong>hướng dẫn cấu hình AI client bên ngoài</strong>, không phải nút MCP hoạt động sẵn trong LHM Ads AI.</div>
+      <div class="connection-action-row"><a class="btn secondary" href="https://developers.google.com/google-ads/api/docs/developer-toolkit/mcp-server" target="_blank" rel="noopener noreferrer">Tài liệu Google Ads MCP chính thức ↗</a></div>`,
+    meta: `<h4>Meta Ads MCP / AI Connectors chính thức</h4>
+      <p>Meta có Ads MCP dành cho AI client hỗ trợ kết nối. Đây là luồng khác với Meta Marketing API đang dùng trực tiếp trong LHM Ads AI.</p>
+      <ol><li>Đăng nhập Meta bằng tài khoản được cấp quyền truy cập Business Portfolio/ad account.</li>
+      <li>Mở trang <strong>Meta Ads AI Connectors</strong> hoặc hướng dẫn Ads MCP của Meta và làm theo quy trình dành cho AI client bạn chọn.</li>
+      <li>Chỉ cấp phạm vi cần thiết; đọc báo cáo trước. Những thao tác sửa quảng cáo phải có xác nhận rõ ràng.</li>
+      <li>Thử hỏi AI phân tích hiệu suất, kiểm tra đúng tài khoản Meta và không gửi Access Token qua chat.</li></ol>
+      <div class="connection-tip">LHM Ads AI hiện <strong>chưa tích hợp máy chủ MCP Meta</strong>. Để quản lý trực tiếp trong EXE, chuyển về mục API và làm theo hướng dẫn OAuth/Marketing API.</div>
+      <div class="connection-action-row"><a class="btn secondary" href="https://developers.facebook.com/ads-mcp-server" target="_blank" rel="noopener noreferrer">Meta Ads MCP chính thức ↗</a><a class="btn secondary" href="https://www.facebook.com/meta-ads-ai-connectors" target="_blank" rel="noopener noreferrer">Meta Ads AI Connectors ↗</a></div>`
+  };
   function redraw() {
     for (const button of root.querySelectorAll('[data-connect-provider]')) {
       const active = button.dataset.connectProvider === provider;
@@ -109,7 +130,14 @@
       if (Number(button.dataset.connectStep)===step) button.setAttribute('aria-current','step');
       else button.removeAttribute('aria-current');
     }
-    body.innerHTML = templates[provider][step]; // Static checked-in HTML only; never user content.
+    for (const button of root.querySelectorAll('[data-connection-mode]')) {
+      const active=button.dataset.connectionMode===mode;
+      button.classList.toggle('is-selected',active);
+      button.setAttribute('aria-pressed',String(active));
+    }
+    root.querySelector('.connection-step-nav').classList.toggle('hidden',mode==='mcp');
+    root.querySelector('.connection-guide-footer').classList.toggle('hidden',mode==='mcp');
+    body.innerHTML = mode==='mcp'?mcpGuides[provider]:templates[provider][step]; // Static checked-in HTML only.
     const callback = body.querySelector('[data-connection-callback]');
     if (callback) callback.textContent = callbacks[provider] || 'Địa chỉ sẽ có sau khi tải cấu hình.';
     const diagnosis = body.querySelector('#connection-inline-message');
@@ -165,6 +193,10 @@
   root.addEventListener('click', event=>{
     const button=event.target.closest('button');
     if(!button)return;
+    if(button.dataset.connectionMode){
+      mode=button.dataset.connectionMode==='mcp'?'mcp':'api';
+      redraw();return;
+    }
     if(button.dataset.connectProvider){provider=button.dataset.connectProvider;goStep(0);return;}
     if(button.dataset.connectStep!==undefined){goStep(Number(button.dataset.connectStep));return;}
     if(button.id==='connection-back'){goStep(step-1);return;}
