@@ -112,14 +112,11 @@
     btn.addEventListener('click', () => {
       if (typeof go !== 'function') return;
       go('settings');
-      // DOM updates and browser painting before scrolling.
-      requestAnimationFrame(() => {
-        const field = get('desktop-'+btn.dataset.providerSettings+'-id');
-        if (field) {
-          field.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});
-          field.focus({preventScroll:true});
-        }
-      });
+      // Open the guided assistant instead of dropping new users into
+      // unexplained Client ID / App Secret inputs.
+      window.dispatchEvent(new CustomEvent('lhm:open-connect-guide',{
+        detail:{provider:btn.dataset.providerSettings}
+      }));
     });
   }
   for (const btn of document.querySelectorAll('[data-manual-platform]')) {
