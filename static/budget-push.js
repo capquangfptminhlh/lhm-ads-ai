@@ -18,6 +18,7 @@
     <p class="muted tiny">Android: mở bằng Chrome. iPhone: cài ứng dụng lên màn hình chính rồi mở ứng dụng. Trình duyệt phải hỗ trợ Web Push và bạn phải đồng ý nhận thông báo. Không có quyền thông báo sẽ không gửi.</p>
     <button type="button" class="btn secondary" id="lhm-push-enable">Bật thông báo trên thiết bị này</button>
     <button type="button" class="btn secondary" id="lhm-push-disable">Tắt thông báo thiết bị này</button>
+    <button type="button" class="btn secondary" id="lhm-push-test">Gửi thử thông báo</button>
     <p id="lhm-push-status" class="muted tiny" role="status"></p>
   </article>
   <article class="panel lhm-mcp-admin">
@@ -114,6 +115,14 @@
       await request('/api/push/subscriptions',{method:'POST',
         body:JSON.stringify(subscription.toJSON())});
       status('lhm-push-status','Đã đăng ký Push trên thiết bị. Chỉ gửi khi có cảnh báo mới từ agent.');
+    }catch(err){status('lhm-push-status',err.message);}
+  });
+  id('lhm-push-test').addEventListener('click',async()=>{
+    try{
+      const result=await request('/api/push/test',{method:'POST'});
+      status('lhm-push-status',result.accepted>0
+        ? 'Đã gửi '+result.accepted+' yêu cầu Push; hãy kiểm tra thông báo trên thiết bị.'
+        : 'Không có thiết bị nào nhận được yêu cầu Push; kiểm tra quyền/khóa VAPID và đăng ký lại.');
     }catch(err){status('lhm-push-status',err.message);}
   });
   id('lhm-push-disable').addEventListener('click',async()=>{
