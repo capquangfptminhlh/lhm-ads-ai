@@ -1,0 +1,94 @@
+/* Admin Commerce v2 · accessible, responsive, light-blue LHM console. */
+:root{color-scheme:light;--ui-bg:#f2f7fd;--ui-panel:#fff;--ui-ink:#223a55;--ui-muted:#647f98;--ui-line:#dce8f4;--ui-blue:#207bd8;--ui-blue-deep:#1465b8;--ui-warn:#b96d1f;--ui-green:#168259;background:var(--ui-bg);color:var(--ui-ink);font-family:Inter,"Segoe UI",system-ui,sans-serif}
+body{min-height:100dvh;background:radial-gradient(ellipse at 95% 0%,#dceeff,transparent 28%),var(--ui-bg);color:var(--ui-ink);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+[hidden]{display:none!important}
+a{color:#176fbd;text-decoration:none}a:hover{text-decoration:underline}
+button,input,select{font:inherit}
+button{border:1px solid #d1dfed;background:#fff;color:#2a608d;min-height:41px;padding:9px 14px;border-radius:11px;font-weight:720;box-shadow:none;transition:background .18s,border-color .18s,transform .18s}
+button:hover{background:#edf5fc;border-color:#b4d4ef}
+button:active{transform:translateY(1px)}
+button:disabled{opacity:.5}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #65b1ff;outline-offset:2px}
+header{position:sticky;top:0;z-index:8;min-height:75px;background:#fffffff0;border-bottom:1px solid #dce8f4;box-shadow:0 6px 26px #2754820d;padding:15px clamp(16px,3vw,48px);display:flex;align-items:center;justify-content:space-between;gap:18px;backdrop-filter:blur(14px)}
+header strong{font-size:21px;color:#2b435e;letter-spacing:-.5px}
+header strong span{color:#2787df}
+header a{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;border:1px solid #dce9f5;background:#eff7fe;padding:9px 14px;border-radius:11px;white-space:nowrap}
+.layout{max-width:1440px;margin:0 auto;padding:34px clamp(14px,3vw,40px) 105px}
+h1{font-size:clamp(27px,3.2vw,38px);font-weight:840;letter-spacing:-1.2px;color:#203955;margin:6px 0 8px}
+h2{font-size:19px;color:#28435e;margin:0 0 8px;letter-spacing:-.35px}
+p{color:#677f99;line-height:1.65}
+.admin-eyebrow{color:#237bc7;font-weight:850;font-size:11px;letter-spacing:1.5px}
+.admin-heading{display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap;margin-bottom:23px}
+.admin-heading>div>p{margin:0;max-width:740px}
+.admin-refresh{background:linear-gradient(130deg,#359aff,#1c70cd);color:#fff;border:1px solid #2d85dc;box-shadow:0 9px 20px #2a86d92f}
+.admin-refresh:hover{background:linear-gradient(130deg,#348ee9,#165cae);color:#fff}
+.grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.metric,.panel{background:#fff;border:1px solid #e0e9f5;border-radius:18px;box-shadow:0 11px 35px #376b9b0b}
+.metric{padding:23px;position:relative;overflow:hidden;min-height:152px}
+.metric:before{content:"";position:absolute;right:-20px;top:-23px;width:115px;height:115px;background:#eaf5ff;border-radius:50%;pointer-events:none}
+.metric small{color:#6d89a2;font-size:13px;font-weight:650;position:relative}
+.metric b{font-size:38px;letter-spacing:-1.3px;color:#246fba;font-weight:840;margin-top:16px;position:relative}
+.metric:nth-child(2) b{color:#b17626}
+.metric:nth-child(3) b{color:#138364}
+.panel{padding:25px;min-width:0}
+#unavailable{background:linear-gradient(135deg,#fff,#f0f7ff);border-color:#d5e6f5;margin-bottom:22px}
+#unavailable h2{margin-bottom:6px}
+#unavailable p{margin:0}
+#unavailable:before{content:"●";color:#d89d24;margin-right:10px;float:left}
+#message{position:sticky;top:89px;z-index:10;display:none;background:#e5f6ee;color:#166448;border:1px solid #addcc9;padding:13px 17px;border-radius:13px;font-weight:680;box-shadow:0 10px 26px #2c728f14;margin-bottom:16px}
+#message.show{display:block}
+#message.error{background:#fff0ec;color:#9d3c29;border-color:#f5c7bc}
+nav[aria-label="Chức năng quản trị"]{display:flex;flex-wrap:wrap;gap:6px;background:#e8f1fa;border:1px solid #d5e6f4;border-radius:15px;padding:7px;margin:24px 0 17px;width:max-content;max-width:100%}
+nav[aria-label="Chức năng quản trị"] button{color:#537796;border:0;background:transparent;white-space:nowrap;border-radius:10px;font-size:13px;min-height:43px}
+nav[aria-label="Chức năng quản trị"] button:hover{background:#f6fbff}
+nav[aria-label="Chức năng quản trị"] button[aria-current=page]{color:#1d6db9;background:#fff;border:0;box-shadow:0 4px 12px #28699b1b}
+.view{display:none}
+.view.active{display:block;animation:admin-appear .25s ease-out}
+@keyframes admin-appear{from{opacity:.4;transform:translateY(8px)}to{opacity:1;transform:none}}
+.admin-section-title{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;margin-bottom:12px}
+.admin-section-title p{margin:0;font-size:12px}
+input,select{color:#2b455f;background:#f7fafe;border:1px solid #d0dfef;min-height:44px;padding:10px 13px;border-radius:10px;box-shadow:inset 0 1px 2px #2c67900b;min-width:150px}
+input::placeholder{color:#8fa6bd}
+input:focus,select:focus{background:#fff;border-color:#69adf0}
+form{display:flex;gap:10px;flex-wrap:wrap;margin:13px 0 24px}
+form button[type=submit],.primary-action{background:linear-gradient(120deg,#3198ec,#2474d1);border:1px solid #358be0;color:#fff;box-shadow:0 7px 18px #2582d32b}
+form button[type=submit]:hover,.primary-action:hover{background:#1b6cbc;color:#fff}
+#customer-form input:first-child{flex:1.4}
+.scroll{width:100%;overflow-x:auto;border:1px solid #e1eaf4;border-radius:12px}
+table{width:100%;border-collapse:collapse;text-align:left;font-size:13px;min-width:670px}
+th{color:#6985a0;background:#f5f9fd;font-size:11px;letter-spacing:.6px;border-color:#e3ecf6;font-weight:830}
+td{color:#35516d;border-color:#e6edf6;max-width:300px}
+tbody tr:hover{background:#f6faff}
+tbody tr:last-child td{border-bottom:0}
+td button{margin:3px;font-size:11px;padding:7px 10px;min-height:35px;border-radius:9px;white-space:nowrap}
+td button:focus-visible{outline-offset:1px}
+td:empty:before{content:"—";color:#b1bfcf}
+.admin-filter{width:min(315px,100%);flex:none;font-size:13px}
+.empty-state{padding:28px 16px;text-align:center;color:#7790a9;background:#fbfdff;font-size:13px}
+.empty-state:before{content:"◇";display:block;font-size:29px;color:#70a6d3;margin-bottom:6px}
+.admin-muted{font-size:12px;color:#758ca3}
+.admin-tag{font-size:10px;font-weight:760;background:#eaf5ff;border:1px solid #cfdef0;padding:5px 10px;border-radius:99px;color:#3778ae;display:inline-flex;align-items:center;white-space:nowrap}
+.review{border-left:3px solid #e5a23f;background:#fff8ed;border-radius:0 10px 10px 0;color:#806037;padding:12px 14px;margin:9px 0 18px}
+.secret{background:#f3f8ff;border:1px dashed #a0c4e7;border-radius:12px;color:#265782;padding:16px;margin:12px 0;white-space:pre-wrap;overflow-wrap:anywhere;font-family:ui-monospace,monospace}
+#issued{margin-top:20px;border-top:1px solid #e5edf5;padding-top:20px}
+#issued button{background:#e8f4ff;color:#1c69a9}
+.admin-help{background:#eff7fe;border:1px solid #d6e8f5;border-radius:13px;padding:14px 16px;font-size:13px;color:#496e90;margin-top:15px}
+.admin-help strong{display:block;color:#245c8c;margin-bottom:5px}
+.admin-footer{text-align:center;font-size:12px;color:#8198ac;padding-top:28px}
+@media(max-width:900px){.grid{gap:11px}.metric{padding:17px;min-height:135px}.metric b{font-size:31px}}
+@media(max-width:680px){
+ header{position:relative;min-height:68px;padding:13px 16px}header strong{font-size:18px}header a{font-size:12px;padding:8px}
+ .layout{padding:23px 12px 80px}
+ .admin-heading{align-items:flex-start;margin-bottom:17px}.admin-heading .admin-refresh{width:100%}
+ .grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+ .metric{padding:12px;min-height:110px;border-radius:13px}.metric small{font-size:10px;line-height:1.25}.metric b{font-size:25px;margin-top:9px}
+ .panel{padding:16px;border-radius:14px}
+ nav[aria-label="Chức năng quản trị"]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+ nav[aria-label="Chức năng quản trị"] button{white-space:normal;text-align:center;line-height:1.3;min-height:42px;font-size:12px}
+ form{display:grid;grid-template-columns:1fr;gap:9px}input,select,form button[type=submit]{width:100%;min-width:0}
+ .admin-section-title{align-items:flex-start}.admin-filter{width:100%}
+ table{min-width:620px}td,th{white-space:nowrap}
+ #message{top:8px}
+}
+@media(max-width:370px){.metric b{font-size:23px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
