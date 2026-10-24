@@ -29,7 +29,7 @@ class CloudflareBootstrapTests(unittest.TestCase):
         mock_result=types.SimpleNamespace(stdout='[]')
         with patch.object(deploy_commerce.subprocess,"run",return_value=mock_result):
             with patch.object(deploy_commerce,"create_database") as create:
-                with self.assertRaises(deploy_commerce.RuntimeError):
+                with self.assertRaises(RuntimeError):
                     deploy_commerce.find_database_id()
                 create.assert_not_called()
                 create.return_value=DB_UUID
@@ -38,7 +38,7 @@ class CloudflareBootstrapTests(unittest.TestCase):
     def test_mismatched_d1_name_does_not_deploy(self):
         mock_result=types.SimpleNamespace(stdout='[{"name":"unrelated","uuid":"'+DB_UUID+'"}]')
         with patch.object(deploy_commerce.subprocess,"run",return_value=mock_result):
-            with self.assertRaises(deploy_commerce.RuntimeError):
+            with self.assertRaises(RuntimeError):
                 deploy_commerce.find_database_id()
 
     def test_d1_config_only_uses_verified_binding(self):
