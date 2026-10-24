@@ -24,6 +24,8 @@ jobs:
       - run: node --check static/pwa-offline.js
       - run: node --check static/budget-push.js
       - run: node --check static/cloudflare-hosting-gate.js
+      - run: node --check static/device-vault.js
+      - run: node --check static/device-vault-ui.js
       - run: node --check workers/ads-api/src/index.js
       - run: python -m unittest discover -s tests -p 'test_github_pages_build_unittest.py' -v
       - run: node --check static/provider-studio.js
@@ -52,6 +54,8 @@ jobs:
             fi
             sleep $((attempt * 8))
           done
+      - name: Validate local encrypted Ads vault in real Chromium
+        run: python tools/device_vault_smoke.py
       - name: Test provider selection with real Chromium and capture screenshots
         run: python tools/ui-smoke.py
       - name: Test actual first-run setup on desktop/mobile and redirect to Studio
