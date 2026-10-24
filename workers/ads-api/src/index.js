@@ -1,4 +1,5 @@
 import { adminApi, adminIdentity } from './admin.js';
+import { customerAuth } from './customer-auth.js';
 /*
  * Cloudflare serves installable PWA assets plus LHM subscription/control-plane API.
  * STRICT device-only advertising credential custody:
@@ -105,6 +106,7 @@ export default {
       }catch{return json({error:'License database unavailable'},503);}
     }
     if(path.startsWith('/api/admin/'))return adminApi(request,env);
+    if(path.startsWith('/api/customer/'))return customerAuth(request,env);
     if(path.startsWith('/api/')){
       return json({
         detail:'Cloudflare Ads API is not enabled. Do not send Ads credentials to this service.',
