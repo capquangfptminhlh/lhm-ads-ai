@@ -91,11 +91,17 @@ def main():
     p=argparse.ArgumentParser()
     p.add_argument("--dry-run",action="store_true",help="Check and print binding name without deploying")
     p.add_argument("--create-db",action="store_true",help="Explicit opt-in: create missing commerce D1 in selected Cloudflare account")
+    p.add_argument("--provision-only",action="store_true",help="Discover or create D1, without migrating or deploying")
     args=p.parse_args()
+    if args.dry_run and args.create_db:
+        p.error("--dry-run never creates a database; use --provision-only --create-db")
     try:
         database_id=find_database_id(create_missing=args.create_db)
         cfg=make_config(database_id)
         print(f"Verified D1 {DB_NAME}: {database_id[:8]}…")
+        if args.provision_only:
+            print("D1 provisioned or found. No migrations or deployment performed.")
+            return 0
         if args.dry_run:
             print("Binding COMMERCE_DB ready; no migration or deployment performed.")
             return 0
