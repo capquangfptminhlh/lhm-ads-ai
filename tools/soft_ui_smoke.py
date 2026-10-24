@@ -89,7 +89,7 @@ def main():
                 mobile_errors=[]
                 mobile.on('pageerror',lambda error:mobile_errors.append(str(error)))
                 mobile.goto(origin+'/',wait_until='domcontentloaded')
-                mobile.locator('.mk-nav-login').wait_for()
+                mobile.locator('.mk-actions a[href="/local/"]').wait_for()
                 check_no_horizontal_overflow(mobile)
                 mobile.screenshot(path=str(OUTPUT/'lhm-public-marketing-mobile.png'),full_page=True)
                 mobile.locator('.mk-actions a[href="/local/"]').click()
