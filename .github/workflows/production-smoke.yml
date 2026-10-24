@@ -1,0 +1,15 @@
+name: Production HTTPS smoke (read-only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify live LHM Ads AI and protected commerce API
+        run: python tools/smoke_production.py --strict
