@@ -28,6 +28,7 @@ jobs:
       - run: node --check static/device-vault-ui.js
       - run: node --check static/device-insights.js
       - run: node --check static/device-mcp.js
+      - run: node --check static/soft-motion-ui.js
       - run: node --check workers/ads-api/src/index.js
       - run: python -m unittest discover -s tests -p 'test_github_pages_build_unittest.py' -v
       - run: node --check static/provider-studio.js
@@ -58,6 +59,8 @@ jobs:
           done
       - name: Validate local encrypted Ads vault in real Chromium
         run: python -m tools.device_vault_smoke
+      - name: Verify soft-depth responsive UI and capture new visual previews
+        run: python -m tools.soft_ui_smoke
       - name: Test provider selection with real Chromium and capture screenshots
         run: python tools/ui-smoke.py
       - name: Test actual first-run setup on desktop/mobile and redirect to Studio
