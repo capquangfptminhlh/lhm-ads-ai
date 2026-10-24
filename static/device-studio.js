@@ -203,6 +203,21 @@
   window.addEventListener('lhm:vault-change',refresh);
   window.addEventListener('lhm:vault-locked',refresh);
   window.addEventListener('pageshow',refresh);
+  // Stay outside the administrative workspace until local vault unlock.
+  // A device vault is NOT a hosted user login; never auto-unlock from cookies.
+  const lockScreen=document.getElementById('pwa-entry-gate');
+  const shell=document.querySelector('.pwa-shell');
+  const dock=document.querySelector('.pwa-mobile-dock');
+  const syncGate=()=>{
+    const open=vault.isUnlocked();
+    if(lockScreen)lockScreen.hidden=open;
+    if(shell)shell.hidden=!open;
+    if(dock)dock.hidden=!open;
+    if(open&&page==='accounts')go('dashboard',false);
+  };
+  window.addEventListener('lhm:vault-change',syncGate);
+  window.addEventListener('lhm:vault-locked',syncGate);
   go('dashboard',false);
   refresh();
+  syncGate();
 })();
