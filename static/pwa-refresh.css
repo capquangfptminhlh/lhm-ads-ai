@@ -1,0 +1,77 @@
+/* LHM Ads AI PWA · unlock-to-dashboard visual continuity on desktop/tablet/mobile. */
+:root{color-scheme:light;--pwa-bg:#f2f7fd;--pwa-rail:#ffffff;--pwa-panel:#ffffff;--pwa-elev:#f4f8ff;--pwa-border:#dce8f4;--pwa-fg:#263e58;--pwa-muted:#69839b;--pwa-accent:#2585d7;--pwa-good:#14825d;--pwa-focus:#53a7f0;background:#f2f7fd;color:#263e58}
+body.lhm-pwa{background:#f2f7fd;color:#263e58}
+.lhm-pwa button:focus-visible,.lhm-pwa a:focus-visible,.lhm-pwa input:focus-visible,.lhm-pwa select:focus-visible{outline-color:#3b9df2}
+.pwa-sidebar{background:#fff;border-right:1px solid #dce8f4;box-shadow:6px 0 24px #2e6b9910}
+.pwa-brand{color:#28445f}
+.pwa-brand b{color:#2480d8}.pwa-brand small{color:#7b98b1}
+.pwa-logo{background:linear-gradient(135deg,#67c0ff,#247bd7);box-shadow:0 9px 22px #3a96e549}
+.pwa-rail-action{background:#eaf5ff;border:1px solid #d2e7f9;color:#2676bd}
+.pwa-rail-action:hover{background:#dceeff}
+.pwa-nav-caption{color:#8ca0b3}
+.pwa-nav button{color:#5b7894}
+.pwa-nav button:hover{color:#2374b8;background:#e8f4ff}
+.pwa-nav button.active,.pwa-nav button[aria-current=page]{color:#1a72bc;background:#e2f1ff;box-shadow:inset 3px 0 0 #2785db}
+.pwa-nav button span:first-child{color:#7391ac}
+.pwa-nav button.active span:first-child{color:#237bd0}
+.pwa-nav .pwa-limited{color:#9d6e38}
+.pwa-sidebar-bottom{background:#eaf6f2;border:1px solid #cbe9da}
+.pwa-sidebar-bottom b{color:#25664e}.pwa-sidebar-bottom small{color:#658679}
+.pwa-status-dot{background:#27a779}
+.pwa-topbar{background:#fffffff0;border-bottom:1px solid #dce6f2;backdrop-filter:blur(15px)}
+.pwa-crumb{color:#8296a8}.pwa-crumb strong{color:#274762}
+.pwa-divider-mark{color:#a7bacb}
+.pwa-topbar .pwa-install-button{background:#eaf5ff;color:#2a78bd;border:1px solid #d0e4f5}
+.pwa-topbar .pwa-install-button:hover{border-color:#70ade0}
+.pwa-menu-toggle{background:#eaf3fc;color:#26688e;border-color:#cde0f1}
+.pwa-avatar{background:linear-gradient(135deg,#4ab1ff,#2479d2)}
+.pwa-offline-tag{color:#198461;background:#e6f7ef;border-color:#c6ead9}
+.pwa-content{background:radial-gradient(ellipse at 95% 0%,#e5f2ff,transparent 30%);max-width:none}
+.pwa-eyebrow{color:#267fc9}
+.pwa-heading h1{color:#24415d}
+.pwa-heading p{color:#6a839b}
+.pwa-notice{background:#ecf6ff;border-color:#cee4f7;color:#38698e}
+.pwa-notice strong{color:#226fbd}
+.pwa-card{background:#fff;border-color:#dfebf5;box-shadow:0 10px 30px #3c6e9811}
+.pwa-card h2,.pwa-card h3{color:#2b455f}
+.pwa-muted,.pwa-kpi-note{color:#7088a0}
+.pwa-kpi{border-radius:17px}
+.pwa-kpi:hover{border-color:#93c6ef}
+.pwa-kpi-icon{background:#e9f4ff;color:#237dce}
+.pwa-kpi-name{color:#69829a}
+.pwa-kpi-value{color:#264663}
+.pwa-select{color:#26435d;background:#f7fbff;border-color:#d4e4f1}
+.pwa-chart{border-color:#dce7f3;background:linear-gradient(to top,#5d98cd0b 1px,transparent 1px) 0 0/100% 25%}
+.pwa-chart-bar{background:linear-gradient(180deg,#72c4ff,#328add)}
+.pwa-btn{background:#f0f6fd;border:1px solid #d1e1f0;color:#356b96}
+.pwa-btn:hover{background:#e6f2ff;color:#216fb3}
+.pwa-btn.primary{color:#fff;background:linear-gradient(125deg,#4cb4fb,#2378d2);border-color:#2587da;box-shadow:0 9px 19px #3486c52b}
+.pwa-btn.primary:hover{background:#1e6ec1;color:#fff}
+.pwa-callout{background:#edf6ff;border-color:#cfe4f4;color:#507997}
+.pwa-account-item,.pwa-report-list>*{border-color:#e1eaf5}
+.pwa-account-title{color:#2c475f}
+.pwa-account-sub{color:#7a94aa}
+.pwa-platform{background:#eaf4fd;border-color:#d0e4f7;color:#2e7bb8}
+.pwa-empty{color:#70879c}
+.pwa-mobile-dock{background:#fffffff2;border-top:1px solid #d6e5f3;box-shadow:0 -4px 18px #3278b213}
+.pwa-mobile-dock button{color:#718da6}
+.pwa-mobile-dock button.active{color:#247ed0}
+.pwa-install-guide{color:#294967;background:#fff;border:1px solid #cddfec;box-shadow:0 24px 70px #25577b38}
+.pwa-install-guide h2{color:#294967}
+#license-check-form{display:flex;gap:10px;flex-wrap:wrap}
+#license-key{background:#f6fbff!important;color:#26445f!important;border:1px solid #d1e2f2!important;min-height:43px;border-radius:10px;padding:11px;font-size:14px}
+#license-check-result{min-height:20px}
+.lhm-pwa #device-only-vault{background:#fff;border-color:#d8e5f2;color:#2c4964}
+.lhm-pwa #device-only-vault :is(label,h3,h4,strong){color:#2e4c68}
+@media(max-width:800px){
+ .pwa-sidebar{box-shadow:14px 0 35px #245e8b29}
+ .pwa-content{padding-bottom:max(110px,env(safe-area-inset-bottom) + 90px)}
+}
+@media(max-width:520px){
+ .pwa-topbar{padding-inline:13px}
+ .pwa-top-right{gap:6px}
+ .pwa-avatar{width:30px;height:30px;font-size:11px}
+ .pwa-card{border-radius:14px}
+ .pwa-mobile-dock{padding-bottom:env(safe-area-inset-bottom)}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
