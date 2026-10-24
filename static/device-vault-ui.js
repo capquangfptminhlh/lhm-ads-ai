@@ -3,7 +3,7 @@
 (() => {
   const api=window.LHMDeviceVault;
   const host=document.querySelector('#login .login-box');
-  if(!api||!host||!document.getElementById('lhm-static-api-guard'))return;
+  if(!api||!host||(!document.getElementById('lhm-static-api-guard')&&!document.getElementById('lhm-local-workspace')))return;
   const section=document.createElement('section');
   section.id='device-only-vault';
   section.className='lhm-vault-panel';
