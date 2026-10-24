@@ -28,6 +28,15 @@
 - **Cloudflare Cron không thể đọc Ads khi tất cả thiết bị khách offline/ứng dụng bị dừng**, vì không có token. Không quảng cáo "PWA luôn online như Zalo", "theo dõi 24/7 khi tắt điện thoại" hoặc "cảnh báo vượt mức ngay lập tức".
 - Web Push từ Cloudflare chỉ có thể thông báo dựa trên tín hiệu không nhạy cảm **đã được thiết bị online chủ động gửi với sự đồng ý**; không thể tự phát hiện mức chi tiêu mới của tài khoản offline.
 
+## Bản PWA đã lập trình: encrypted IndexedDB vault
+
+- `static/device-vault.js`: kho mã hóa dữ liệu Ads ở **trình duyệt khách**, sử dụng AES-GCM 256 bit, PBKDF2-SHA256 (450.000 vòng), salt riêng 128 bit, IV ngẫu nhiên mỗi lần ghi; khóa WebCrypto không xuất được và chỉ nằm trong phiên bộ nhớ của trang sau khi người dùng nhập mật khẩu. Thư viện không thực hiện `fetch`, không sử dụng localStorage để lưu plaintext.
+- `static/device-vault-ui.js`: người dùng tạo/mở/khóa kho, nhập metadata tài khoản Ads, xóa tài khoản, xuất file backup **chỉ có ciphertext**, khôi phục file mã hóa. Hiện chỉ gắn vào **PWA static Cloudflare**, không thay thế kho Windows DPAPI đang có.
+- `tools/device_vault_smoke.py`: kiểm thử Chromium cho luồng tạo kho/ghi token bằng API local, xác minh IndexedDB không chứa token/ID dạng plaintext, sai mật khẩu, khóa/mở lại sau reload, xóa kho và không POST lên LHM.
+- `tools/build_github_pages.py` (tên cũ, nay xuất cho Cloudflare) áp CSP `script-src 'self'` và `connect-src 'self'` cho bundle; không nhúng SDK bên thứ ba vào vault.
+- **Chưa có kết nối Google Ads/Meta Ads/TikTok Ads trực tiếp từ PWA**. Khách chỉ nên lưu metadata thử nghiệm; tuyệt đối không quảng bá nút lưu metadata là đã OAuth hoặc lấy báo cáo thật. Client-only OAuth/API phải xử lý API token và CORS theo yêu cầu từng nhà cung cấp, có kiểm thử thật trước khi phát hành.
+- Trình duyệt có thể xóa IndexedDB, và JavaScript độc hại trên cùng origin có thể đọc dữ liệu khi kho đang mở; vì vậy đây là mức bảo vệ **mã hóa khi nghỉ**, không bảo vệ tuyệt đối khỏi trình duyệt bị xâm nhập.
+
 ## Tình trạng code và phát hành
 
 - Backend FastAPI cũ (`ads_core/app.py`, `ads_core/oauth_connect.py`, `ads_core/db.py`) hiện vẫn lưu token Ads mã hóa vào SQLite phía backend. Đó là **kiến trúc legacy, không đạt chính sách device-only khi chạy trên máy chủ**. Chỉ coi đó là lưu trữ cục bộ nếu FastAPI/DB chạy thực sự trên laptop do khách kiểm soát.
