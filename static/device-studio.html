@@ -38,7 +38,17 @@
  </div>
  <footer class="pwa-access-footer">LHM Ads AI · Bảo vệ dữ liệu trên thiết bị · <a href="/">Giới thiệu dịch vụ</a></footer>
 </section>
-<div class="pwa-shell">
+<section id="pwa-entry-gate" class="pwa-gate" aria-label="Mở khóa không gian quản trị">
+  <div class="pwa-gate-top"><a href="/" class="pwa-brand"><span class="pwa-logo">✦</span><span>LHM <b>ADS AI</b></span></a><a href="/" class="pwa-btn">← Về trang giới thiệu</a></div>
+  <div class="pwa-gate-card"><span class="pwa-eyebrow">SECURE DEVICE WORKSPACE</span>
+    <h1>Đăng nhập không gian quản trị</h1>
+    <p class="pwa-muted">Nhập mật khẩu kho mã hóa trên thiết bị này. Lần đầu sử dụng, hãy tạo kho mới.
+    Đây là khóa dữ liệu cục bộ, chưa phải tài khoản đăng nhập đám mây.</p>
+    <div id="pwa-entry-vault"></div>
+    <p class="pwa-muted">Không cần mở máy Windows. Dữ liệu riêng không được chuyển lên GitHub hay Cloudflare.</p>
+  </div>
+</section>
+<div class="pwa-shell" hidden>
   <div class="pwa-overlay" id="pwa-overlay" aria-hidden="true"></div>
   <aside class="pwa-sidebar" id="pwa-sidebar" aria-label="Điều hướng ứng dụng">
     <a class="pwa-brand" href="/" aria-label="LHM Ads AI — Trang giới thiệu">
@@ -118,7 +128,7 @@
         <div class="pwa-heading"><div><span class="pwa-eyebrow">SECURE DEVICE VAULT</span>
           <h1 id="pwa-account-heading">Tài khoản Ads</h1>
           <p id="pwa-account-caption">Mở khóa kho để quản lý tài khoản và nhập báo cáo.</p></div></div>
-        <div id="login"><div class="login-box"></div></div>
+        <div id="pwa-account-vault"><div id="login"><div class="login-box"></div></div></div>
       </section>
       <section class="pwa-page" data-view="reports" aria-labelledby="pwa-reports-heading" hidden>
         <div class="pwa-heading"><div><span class="pwa-eyebrow">LOCAL ANALYTICS</span>
@@ -179,7 +189,7 @@
     </main>
   </div>
 </div>
-<nav class="pwa-mobile-dock" aria-label="Điều hướng nhanh trên điện thoại">
+<nav class="pwa-mobile-dock" hidden aria-label="Điều hướng nhanh trên điện thoại">
   <button type="button" class="active" data-go="dashboard" aria-current="page"><span aria-hidden="true">▦</span> Tổng quan</button>
   <button type="button" data-go="accounts"><span aria-hidden="true">▤</span> Tài khoản</button>
   <button type="button" data-go="reports"><span aria-hidden="true">▥</span> Báo cáo</button>
