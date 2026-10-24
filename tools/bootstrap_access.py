@@ -1,0 +1,158 @@
+"""Provision/check only LHM Ads AI's Cloudflare Access application, opt-in.
+
+Requires explicitly scoped CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID,
+LHM_ADMIN_EMAIL. No credentials or user email are logged. Does not change
+unrelated Access applications or create a Zero Trust organization.
+"""
+from __future__ import annotations
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import urllib.request
+import urllib.error
+
+ACCOUNT_RE=re.compile(r"^[a-fA-F0-9]{32}$")
+EMAIL_RE=re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+DOMAIN_RE=re.compile(r"^[a-z0-9-]+\.cloudflareaccess\.com$")
+TARGETS={
+    "ads.lhmcrm.com/admin",
+    "ads.lhmcrm.com/admin/*",
+    "ads.lhmcrm.com/api/admin/*",
+}
+NAME="LHM Ads AI Admin"
+BASE="https://api.cloudflare.com/client/v4"
+
+
+class BootstrapError(RuntimeError):
+    pass
+
+
+def api(method: str, path: str, body: dict | None = None):
+    token=os.getenv("CLOUDFLARE_API_TOKEN","").strip()
+    account=os.getenv("CLOUDFLARE_ACCOUNT_ID","").strip()
+    if not token or not ACCOUNT_RE.fullmatch(account):
+        raise BootstrapError("Cloudflare token/account ID missing or invalid")
+    url=BASE+f"/accounts/{account}"+path
+    headers={"Authorization":"Bearer "+token,"Content-Type":"application/json"}
+    data=json.dumps(body).encode("utf-8") if body is not None else None
+    req=urllib.request.Request(url,method=method,headers=headers,data=data)
+    try:
+        with urllib.request.urlopen(req,timeout=30) as resp:
+            payload=json.load(resp)
+    except urllib.error.HTTPError as err:
+        raise BootstrapError(f"Cloudflare API {method} failed with HTTP {err.code}; check Access permissions") from None
+    except urllib.error.URLError:
+        raise BootstrapError("Cloudflare API unavailable") from None
+    if not payload.get("success"):
+        raise BootstrapError("Cloudflare API rejected Access request")
+    return payload.get("result")
+
+
+def app_destinations(app):
+    dest=set()
+    for item in app.get("destinations") or []:
+        if isinstance(item,dict) and item.get("type","public")=="public" and item.get("uri"):
+            dest.add(item["uri"].replace("https://","").rstrip("/"))
+    # Only recognize the exact configured destination set, not broad wildcards.
+    return dest
+
+
+def find_application(apps):
+    relevant=[]
+    for app in apps:
+        if not isinstance(app,dict):
+            continue
+        paths=app_destinations(app)
+        if app.get("name")==NAME or paths & TARGETS:
+            relevant.append(app)
+    if len(relevant)>1:
+        raise BootstrapError("Multiple possibly matching Access apps; refusing to modify them")
+    if relevant:
+        app=relevant[0]
+        if app.get("name")!=NAME or app_destinations(app)!=TARGETS:
+            raise BootstrapError("Conflicting Access app/destinations; inspect Cloudflare Zero Trust manually")
+        return app
+    return None
+
+
+def check_organization():
+    organization=api("GET","/access/organizations")
+    if not isinstance(organization,dict):
+        raise BootstrapError("Zero Trust organization is not configured")
+    domain=str(organization.get("auth_domain") or "").lower()
+    domain=domain.replace("https://","").strip("/")
+    if not DOMAIN_RE.fullmatch(domain):
+        raise BootstrapError("Access auth_domain missing or unexpected")
+    return domain
+
+
+def bootstrap(create=False):
+    email=os.getenv("LHM_ADMIN_EMAIL","").strip().lower()
+    if not EMAIL_RE.fullmatch(email):
+        raise BootstrapError("LHM_ADMIN_EMAIL must be the intended owner's email (configured as a GitHub Secret)")
+    team_domain=check_organization()
+    apps=api("GET","/access/apps")
+    if not isinstance(apps,list):
+        raise BootstrapError("Unexpected Access apps response; refusing to create duplicates")
+    app=find_application(apps)
+    if app is None and not create:
+        raise BootstrapError("Access app missing. Explicit --create-app is required to provision it.")
+    if app is None:
+        payload={
+            "name":NAME,
+            "type":"self_hosted",
+            "domain":"ads.lhmcrm.com/admin/*",
+            "destinations":[{"type":"public","uri":uri} for uri in sorted(TARGETS)],
+            "session_duration":"8h",
+            "app_launcher_visible":False,
+            "policies":[{
+                "name":"LHM Ads AI owner only",
+                "decision":"allow",
+                "include":[{"email":{"email":email}}]
+            }]
+        }
+        app=api("POST","/access/apps",payload)
+    if not isinstance(app,dict) or app_destinations(app)!=TARGETS:
+        raise BootstrapError("Access app response did not confirm all three protected routes")
+    aud=str(app.get("aud") or "")
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{20,128}",aud):
+        raise BootstrapError("Access audience is absent; review the app before deploying")
+    return {"team_domain":team_domain,"aud":aud,"email":email}
+
+
+def put_secret(name: str, value: str):
+    proc=subprocess.run(["npx","wrangler","secret","put",name],
+                        input=value+"\n",cwd=os.path.dirname(os.path.dirname(__file__)),
+                        capture_output=True,text=True)
+    if proc.returncode:
+        # Do not print Wrangler subprocess stderr, which may contain sensitive data.
+        raise BootstrapError(f"Unable to write Worker secret {name}; check Workers Scripts Write permission")
+
+
+def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--create-app",action="store_true",
+                        help="Explicitly create the named Access app if missing")
+    parser.add_argument("--apply-worker-secrets",action="store_true",
+                        help="Store Access issuer/audience/admin email as Worker secrets")
+    args=parser.parse_args()
+    try:
+        result=bootstrap(create=args.create_app)
+        if args.apply_worker_secrets:
+            for name,key in (("CF_ACCESS_TEAM_DOMAIN","team_domain"),
+                             ("CF_ACCESS_AUD","aud"),("ADMIN_EMAIL","email")):
+                put_secret(name,result[key])
+        print("Verified LHM Access app (3 protected paths, one audience).")
+        print("Worker Access variables:", "written" if args.apply_worker_secrets else "not changed")
+        print("Cloudflare Identity Provider and MFA must still be checked in dashboard.")
+        return 0
+    except BootstrapError as exc:
+        print("ACCESS BOOTSTRAP BLOCKED:",exc,file=sys.stderr)
+        return 1
+
+
+if __name__=="__main__":
+    raise SystemExit(main())
