@@ -92,3 +92,18 @@ td:empty:before{content:"—";color:#b1bfcf}
 }
 @media(max-width:370px){.metric b{font-size:23px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+
+.admin-tag.tag-success{background:#e3f7eb;color:#147651;border-color:#bde8d1}
+.admin-tag.tag-pending{background:#fff3df;color:#916222;border-color:#f0d5a5}
+.admin-tag.tag-muted{background:#f1f4f7;color:#697d91;border-color:#dee7ef}
+tr[hidden]{display:none!important}
+#payment-dialog{border:1px solid #d6e7f5;border-radius:20px;box-shadow:0 25px 85px #183e6b40;background:#fff;color:#2a4460;width:min(460px,calc(100vw - 28px));padding:26px}
+#payment-dialog::backdrop{background:#142c457a;backdrop-filter:blur(5px)}
+#payment-dialog form{display:flex;flex-direction:column;align-items:stretch;margin:0;gap:9px}
+#payment-dialog p{font-size:13px;margin:0 0 12px}
+#payment-dialog label{font-size:12px;color:#426887;font-weight:750;margin-top:5px}
+#payment-dialog input{width:100%;min-width:0}
+#payment-dialog .dialog-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:15px;flex-wrap:wrap}
+#payment-dialog .dialog-actions button{flex:1}
+@media(max-width:680px){#payment-dialog{padding:20px}}
