@@ -53,7 +53,7 @@ def main():
                 assert desktop.locator('#login #login-pass').get_attribute('type')=='password'
                 desktop.locator('#login .lhm-soft-eye').evaluate('(el) => el.click()')
                 assert desktop.locator('#login #login-pass').get_attribute('type')=='text'
-                desktop.locator('#login .lhm-soft-eye').click(force=True)
+                desktop.locator('#login .lhm-soft-eye').evaluate('(el) => el.click()')
                 assert desktop.locator('#login #login-pass').get_attribute('type')=='password'
                 check_no_horizontal_overflow(desktop)
                 desktop.screenshot(path=str(OUTPUT/'lhm-soft-login-desktop.png'),full_page=True)
