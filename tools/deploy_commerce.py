@@ -1,8 +1,8 @@
 """Deploy LHM Ads Cloudflare Worker with an existing, verified D1 database.
 
 Requires a Cloudflare-authorized Wrangler environment (Workers Builds or CLI).
-Never creates a database or guesses account/DB IDs. Fails before deployment if
-D1 is missing, so commercial endpoints cannot silently ship without storage.
+Fails before deployment if D1 is missing, unless explicitly opted into --create-db.
+Never guesses account IDs or D1 names; defaults to read-only discovery.
 """
 from __future__ import annotations
 import argparse
@@ -12,13 +12,15 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import urllib.request
+import urllib.error
 
 ROOT=Path(__file__).resolve().parents[1]
 DB_NAME="lhm-ads-commerce"
 UUID=re.compile(r"^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")
 
 
-def find_database_id() -> str:
+def find_database_id(create_missing: bool = False) -> str:
     provided=os.getenv("LHM_COMMERCE_D1_DATABASE_ID","").strip()
     if provided:
         if not UUID.fullmatch(provided):
@@ -35,9 +37,41 @@ def find_database_id() -> str:
     if not isinstance(payload,list):
         raise RuntimeError("Unexpected Wrangler D1 listing format")
     matches=[d for d in payload if isinstance(d,dict) and d.get("name")==DB_NAME]
-    if len(matches)!=1 or not UUID.fullmatch(str(matches[0].get("uuid") or matches[0].get("id") or "")):
-        raise RuntimeError("Database lhm-ads-commerce not found or ambiguous; create/select it in the correct Cloudflare account")
-    return str(matches[0].get("uuid") or matches[0].get("id"))
+    if len(matches)>1:
+        raise RuntimeError("Multiple D1 databases with the same name; refusing to guess")
+    if len(matches)==1:
+        db_id=str(matches[0].get("uuid") or matches[0].get("id") or "")
+        if not UUID.fullmatch(db_id):
+            raise RuntimeError("Invalid database UUID returned by Cloudflare")
+        return db_id
+    if not create_missing:
+        raise RuntimeError("D1 lhm-ads-commerce missing. Enable explicit --create-db to provision in the selected account.")
+    return create_database()
+
+
+def create_database() -> str:
+    """Create the one explicitly named database only with verified account-scoped credentials."""
+    account=os.getenv("CLOUDFLARE_ACCOUNT_ID","").strip()
+    token=os.getenv("CLOUDFLARE_API_TOKEN","").strip()
+    if not re.fullmatch(r"[0-9a-fA-F]{32}",account) or not token:
+        raise RuntimeError("Valid CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN are required for --create-db")
+    url=f"https://api.cloudflare.com/client/v4/accounts/{account}/d1/database"
+    req=urllib.request.Request(url,
+        data=json.dumps({"name":DB_NAME}).encode("utf-8"),
+        headers={"Authorization":"Bearer "+token,"Content-Type":"application/json"},
+        method="POST")
+    try:
+        with urllib.request.urlopen(req,timeout=30) as response:
+            payload=json.load(response)
+    except urllib.error.HTTPError as error:
+        raise RuntimeError("D1 creation failed (HTTP "+str(error.code)+"). Check scoped D1 Write permission.") from None
+    if not payload.get("success"):
+        raise RuntimeError("Cloudflare rejected D1 creation")
+    result=payload.get("result") or {}
+    db_id=str(result.get("uuid") or "")
+    if result.get("name")!=DB_NAME or not UUID.fullmatch(db_id):
+        raise RuntimeError("D1 creation returned unexpected name or UUID; aborting deployment")
+    return db_id
 
 
 def make_config(database_id: str) -> str:
@@ -56,9 +90,10 @@ def make_config(database_id: str) -> str:
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--dry-run",action="store_true",help="Check and print binding name without deploying")
+    p.add_argument("--create-db",action="store_true",help="Explicit opt-in: create missing commerce D1 in selected Cloudflare account")
     args=p.parse_args()
     try:
-        database_id=find_database_id()
+        database_id=find_database_id(create_missing=args.create_db)
         cfg=make_config(database_id)
         print(f"Verified D1 {DB_NAME}: {database_id[:8]}…")
         if args.dry_run:
