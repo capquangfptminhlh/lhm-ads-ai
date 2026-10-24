@@ -1,0 +1,16 @@
+.lhm-local-insights{margin-top:18px;border-top:1px solid #3d4350;padding-top:15px}
+.lhm-local-insights h4{font-size:15px;margin:12px 0}
+.lhm-local-insights p,.lhm-local-insights small{font-size:12px;line-height:1.55;color:#c6ceda}
+.lhm-local-insights form{display:grid;gap:8px;margin:12px 0;padding:12px;border-radius:12px;background:#151922}
+.lhm-local-insights label{margin:4px 0}
+.lhm-local-insights .lhm-local-check{display:flex;flex-direction:row;align-items:center;gap:9px}
+.lhm-local-insights .lhm-local-check input{width:18px;height:18px;min-height:0}
+.lhm-local-insights code{overflow-wrap:anywhere;font-size:11px}
+.lhm-local-insights .lhm-local-metrics{display:flex;gap:6px;flex-direction:column;padding:12px;background:#131e21;border:1px solid #35534d;border-radius:10px}
+.lhm-local-insights .lhm-local-metrics strong{font-size:16px;color:#a8f2d5}
+.lhm-local-insights #lhm-local-status{min-height:18px;color:#ffc994;font-size:12px;margin:8px 0}
+.lhm-local-insights .lhm-local-alerts{padding:10px;background:#36251e;border-radius:10px;margin-top:10px}
+.lhm-local-insights .lhm-local-alerts p{padding:6px 0;border-bottom:1px solid #7a513d}
+.lhm-local-insights .lhm-local-report{padding:10px 0}
+.lhm-local-insights .lhm-local-report p{padding:6px 0;border-bottom:1px solid #454e58}
+@media(min-width:700px){.lhm-local-insights form{grid-template-columns:1fr 1fr}.lhm-local-insights form>button{grid-column:1/-1}}
