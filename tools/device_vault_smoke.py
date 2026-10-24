@@ -141,8 +141,19 @@ def main():
                 page.evaluate('window.LHMDeviceVault.destroy()')
                 assert page.evaluate('window.LHMDeviceVault.exists()') is False
                 assert not any('/api/' in u and method!='GET' for method,u in api_writes)
+                # The installed app opens a public/static local workspace offline;
+                # it never caches an authenticated server Studio page.
+                page.goto(f'http://127.0.0.1:{server.server_address[1]}/local/',wait_until='domcontentloaded')
+                page.locator('#device-only-vault').wait_for(timeout=10000)
+                page.evaluate("async () => await navigator.serviceWorker.ready")
+                page.wait_for_function("Boolean(navigator.serviceWorker.controller)",timeout=15000)
+                page.context.set_offline(True)
+                page.reload(wait_until='domcontentloaded',timeout=15000)
+                page.locator('#device-only-vault').wait_for(timeout=10000)
+                assert page.locator('#lhm-local-workspace').count()==1
+                page.context.set_offline(False)
                 browser.close()
-                print('PASS: real Chromium 390px PWA encrypted vault, CSV parsing/reporting, local budget alerts, lock/reload/delete and no Ads API writes')
+                print('PASS: real Chromium 390px PWA encrypted vault, CSV parsing/reporting, local budget alerts, lock/reload/delete and offline /local/ shell; no Ads API writes')
         finally:
             server.shutdown()
             server.server_close()
