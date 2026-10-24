@@ -22,7 +22,7 @@ class StaticPagesTests(unittest.TestCase):
             self.assertFalse((out/'.env').exists())
             self.assertFalse((out/'requirements.txt').exists())
             self.assertFalse((out/'docker-compose.yml').exists())
-            studio=(out/'studio/index.html').read_text()
+            studio=(out/'studio/index.html').read_text(encoding='utf-8')
             self.assertIn('id="lhm-static-api-guard"',studio)
             self.assertIn('cloudflare-hosting-gate.js',studio)
             self.assertIn('đăng nhập',studio.lower())
