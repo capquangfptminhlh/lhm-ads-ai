@@ -5,7 +5,7 @@ The admin UI is at `https://ads.lhmcrm.com/admin/` after Workers Builds deployme
 All privileged `/api/admin/*` routes reject requests unless (1) Cloudflare Access
 sends a signed JWT, (2) the Worker verifies the JWT against the Access team's
 JWKS, its audience and expiry, and (3) the email matches `ADMIN_EMAIL`.
-Cloudflare Access must ALSO enforce the route on its edge. No payment gateway
+The Worker now also enforces the signed Access JWT before serving `/admin/`, `/admin/index.html`, or any `/api/admin/*` response; unauthenticated requests return HTTP 401. Cloudflare Access must ALSO enforce those routes at its edge. No payment gateway
 or bank connection is installed, so approval is **manual**, after verifying
 the incoming bank credit outside the app.
 
@@ -72,3 +72,46 @@ of settlement unless the administrator has checked their bank records.
 - Add comprehensive role handling rather than `ADMIN_EMAIL` if staff need access.
 - Ensure Access path policy actually covers `/api/admin/*` and the UI; do not
   rely solely on frontend visibility.
+
+## Current deployment behavior (2026-10-24)
+
+- The public homepage and device-only PWA are independent of Cloudflare D1.
+- The Admin page is no longer a public preview. Before Access is set up, direct
+  `/admin/` access returns **HTTP 401** intentionally. It is NOT a customer login.
+- Admin API requests authenticate the Access JWT **before** checking D1 binding.
+  Unauthorized requests get 401 even if D1 has not been configured.
+- The public `/api/_hosting/status` endpoint exposes only non-secret readiness
+  booleans. Verify `commerce_binding_present`, `commerce_access_configured`
+  and `commerce_schema_ready` are true, but **never** assume this proves
+  the edge Access policy itself was tested.
+
+## One-command authenticated D1 rollout
+
+In a trusted command-line/Workers Builds environment authorized to the correct
+Cloudflare account:
+
+```bash
+python tools/build_github_pages.py --output _site
+python tools/deploy_commerce.py --dry-run
+python tools/deploy_commerce.py
+```
+
+The helper locates **only an existing** D1 database named `lhm-ads-commerce`,
+verifies its actual UUID, applies migrations against it remotely, and deploys
+the Worker with a generated binding. It refuses to deploy if the D1 database
+cannot be found. It does not create a database, set Access policy, or invent
+credentials. The generated config is temporary, not committed to GitHub.
+
+Cloudflare Workers Builds may still use a plain `npx wrangler deploy` command;
+that default does **not** invoke this helper. For Workers Builds production,
+configure the Deploy command to run the helper with a valid D1 setup, or
+supply a permanent verified D1 binding in Wrangler configuration. Do not
+point multiple Cloudflare accounts at the same domain unintentionally.
+
+## Payment review UX and subscription expiry
+
+Admin list distinguishes **Chờ chuyển khoản** from **Chờ đối soát**.
+The Approve button is disabled until a transaction reference exists.
+Approving payment remains a human decision **after checking bank statements**;
+the UI alone never verifies funds. Subscription list offers a seven-day
+expiring-key filter (limited to the most recent 100 licenses returned by API).
