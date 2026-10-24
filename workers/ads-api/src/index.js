@@ -46,6 +46,29 @@ export default {
         message:'Cloudflare control plane and local-only Ads access not yet implemented.'
       });
     }
+    // Public read-only key validation. Never returns customer PII or Ads data.
+    if(path==='/api/license/verify' && request.method==='POST'){
+      if(!env?.COMMERCE_DB)return json({error:'License service not configured'},503);
+      const url=new URL(request.url);
+      const origin=request.headers.get('origin');
+      if(origin && origin!==url.origin)return json({error:'Origin mismatch'},403);
+      if(request.headers.get('content-type')?.split(';')[0]!=='application/json')
+        return json({error:'Expected JSON'},415);
+      const raw=await request.text();
+      if(raw.length>512)return json({error:'Payload too large'},413);
+      let parsed;try{parsed=JSON.parse(raw)}catch{return json({error:'Invalid JSON'},400);}
+      const key=typeof parsed.key==='string'?parsed.key.trim().toUpperCase():'';
+      if(!/^LHM-[A-F0-9]{48}$/.test(key))return json({valid:false});
+      const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key));
+      const hash=Array.from(new Uint8Array(digest),v=>v.toString(16).padStart(2,'0')).join('');
+      try{
+        const license=await env.COMMERCE_DB.prepare(
+          "SELECT status,expires_at FROM licenses WHERE key_hash=?"
+        ).bind(hash).first();
+        const valid=Boolean(license && license.status==='active' && Date.parse(license.expires_at)>Date.now());
+        return json(valid?{valid:true,expires_at:license.expires_at}:{valid:false});
+      }catch{return json({error:'License database unavailable'},503);}
+    }
     if(path.startsWith('/api/admin/'))return adminApi(request,env);
     if(path.startsWith('/api/')){
       return json({
