@@ -70,7 +70,7 @@
     {name:'AES-GCM',length:256},false,['encrypt','decrypt']);
   }
   const verifyPassword=p=>typeof p==='string'&&p.length>=12&&p.length<=512;
-  const empty=()=>({version:VERSION,accounts:[],createdAt:new Date().toISOString()});
+  const empty=()=>({version:VERSION,accounts:[],reports:[],budgetRules:[],createdAt:new Date().toISOString()});
   const aad={name:'AES-GCM',additionalData:CTX,tagLength:128};
   async function encrypt(data,key,salt){
     const iv=crypto.getRandomValues(new Uint8Array(12));
@@ -83,6 +83,10 @@
     const value=JSON.parse(decoder.decode(plaintext));
     if(!value||value.version!==VERSION||!Array.isArray(value.accounts)||value.accounts.length>MAX_ACCOUNTS)
       throw Error('Kho dữ liệu không hợp lệ.');
+    value.reports=Array.isArray(value.reports)?value.reports:[];
+    value.budgetRules=Array.isArray(value.budgetRules)?value.budgetRules:[];
+    if(value.reports.length>2000||value.budgetRules.length>MAX_ACCOUNTS)
+      throw Error('Kho dữ liệu vượt giới hạn an toàn.');
     return value;
   }
   function validateRecord(record){
@@ -117,7 +121,9 @@
   }
   async function persist(next){
     requireUnlocked();
-    if(!next||!Array.isArray(next.accounts)||next.accounts.length>MAX_ACCOUNTS)
+    if(!next||!Array.isArray(next.accounts)||next.accounts.length>MAX_ACCOUNTS||
+       !Array.isArray(next.reports)||next.reports.length>2000||
+       !Array.isArray(next.budgetRules)||next.budgetRules.length>MAX_ACCOUNTS)
       throw Error('Số tài khoản vượt giới hạn kho cục bộ.');
     const old=await read();validateRecord(old);
     const encrypted=await encrypt(next,cryptoKey,unbase64(old.salt));
@@ -145,9 +151,11 @@
       const accessToken=info.accessToken==null?'':sanitize(info.accessToken,8192);
       const refreshToken=info.refreshToken==null?'':sanitize(info.refreshToken,8192);
       const existing=memory.accounts.find(x=>x.platform===info.platform&&x.accountId===id);
+      const currency=info.currency==null?(existing?.currency||'VND'):sanitize(info.currency,3).toUpperCase();
+      if(!/^[A-Z]{3}$/.test(currency))throw Error('Mã tiền tệ phải có 3 chữ cái.');
       const data={...memory,accounts:memory.accounts.map(x=>({...x}))};
       const item={localId:existing?.localId||crypto.randomUUID(),platform:info.platform,
-        accountId:id,label,accessToken,refreshToken,
+        accountId:id,label,currency,accessToken,refreshToken,
         updatedAt:new Date().toISOString()};
       if(existing){
         const index=data.accounts.findIndex(x=>x.localId===existing.localId);
@@ -158,18 +166,93 @@
   }
   function listAccounts(){
     requireUnlocked();
-    return memory.accounts.map(({localId,platform,accountId,label,accessToken,refreshToken,updatedAt})=>({
-      localId,platform,accountId,label,
+    return memory.accounts.map(({localId,platform,accountId,label,currency,accessToken,refreshToken,updatedAt})=>({
+      localId,platform,accountId,label,currency:currency||'VND',
       hasAccessToken:Boolean(accessToken),hasRefreshToken:Boolean(refreshToken),updatedAt
     }));
   }
   function removeAccount(localId){
     return serial(async()=>{
       requireUnlocked();
-      const data={...memory,accounts:memory.accounts.filter(x=>x.localId!==localId)};
+      const data={...memory,accounts:memory.accounts.filter(x=>x.localId!==localId),
+        reports:memory.reports.filter(x=>x.localId!==localId),
+        budgetRules:memory.budgetRules.filter(x=>x.localId!==localId)};
       if(data.accounts.length===memory.accounts.length)throw Error('Không có tài khoản cần xóa.');
       await persist(data);return {removed:true};
     });
+  }
+  // Offline-only imports. These rows are NEVER represented as API-verified live data.
+  function importDailyReport(localId,rows){
+    return serial(async()=>{
+      requireUnlocked();
+      const account=memory.accounts.find(a=>a.localId===localId);
+      if(!account)throw Error('Không tìm thấy tài khoản trên thiết bị.');
+      if(!Array.isArray(rows)||rows.length<1||rows.length>366)
+        throw Error('CSV phải chứa từ 1 đến 366 ngày.');
+      const seen=new Set(),validated=[];
+      for(const raw of rows){
+        if(!raw||typeof raw.date!=='string'||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(raw.date))
+          throw Error('Ngày báo cáo phải theo YYYY-MM-DD.');
+        const dt=new Date(raw.date+'T00:00:00Z');
+        if(!Number.isFinite(dt.getTime())||dt.toISOString().slice(0,10)!==raw.date||seen.has(raw.date))
+          throw Error('CSV có ngày sai hoặc trùng nhau.');
+        seen.add(raw.date);
+        const currency=String(raw.currency||'').toUpperCase();
+        if(currency!==(account.currency||'VND'))throw Error('Sai đơn vị tiền tệ của tài khoản.');
+        const values=['spend','clicks','impressions'].map(k=>Number(raw[k]));
+        if(values.some(n=>!Number.isFinite(n)||n<0||n>1e12))
+          throw Error('Số liệu CSV phải là số không âm và hợp lệ.');
+        if(!Number.isInteger(values[1])||!Number.isInteger(values[2]))
+          throw Error('Clicks và impressions phải là số nguyên.');
+        validated.push({localId,date:raw.date,currency,
+          spend:values[0],clicks:values[1],impressions:values[2],
+          source:'manual_csv',updatedAt:new Date().toISOString()});
+      }
+      const retained=memory.reports.filter(x=>x.localId!==localId);
+      const latest=validated.sort((a,b)=>b.date.localeCompare(a.date));
+      const next={...memory,reports:retained.concat(latest)};
+      if(next.reports.length>2000)throw Error('Đã đạt tối đa 2.000 ngày báo cáo cục bộ.');
+      await persist(next);
+      return {imported:latest.length,source:'manual_csv'};
+    });
+  }
+  function listDailyReports(localId){
+    requireUnlocked();
+    if(localId&&!memory.accounts.some(x=>x.localId===localId))throw Error('Không có tài khoản.');
+    return memory.reports.filter(x=>!localId||x.localId===localId)
+      .map(({localId,date,currency,spend,clicks,impressions,source,updatedAt})=>
+        ({localId,date,currency,spend,clicks,impressions,source,updatedAt}))
+      .sort((a,b)=>b.date.localeCompare(a.date));
+  }
+  function setDailyBudget(localId,threshold,enabled=true){
+    return serial(async()=>{
+      requireUnlocked();
+      if(!memory.accounts.some(x=>x.localId===localId))throw Error('Không có tài khoản.');
+      if(typeof threshold!=='number'||!Number.isFinite(threshold)||threshold<=0||threshold>1e12)
+        throw Error('Ngưỡng ngân sách phải là số dương.');
+      const rules=memory.budgetRules.filter(x=>x.localId!==localId);
+      rules.push({localId,threshold,enabled:Boolean(enabled),updatedAt:new Date().toISOString()});
+      await persist({...memory,budgetRules:rules});
+      return {saved:true};
+    });
+  }
+  function listDailyBudgets(){
+    requireUnlocked();
+    return memory.budgetRules.map(x=>({...x}));
+  }
+  function listLocalAlerts(){
+    requireUnlocked();
+    const accounts=new Map(memory.accounts.map(x=>[x.localId,x]));
+    const rules=new Map(memory.budgetRules.filter(x=>x.enabled).map(x=>[x.localId,x]));
+    return memory.reports.filter(x=>{
+      const rule=rules.get(x.localId);
+      return rule&&x.spend>rule.threshold&&accounts.has(x.localId);
+    }).map(x=>({
+      localId:x.localId,date:x.date,currency:x.currency,spend:x.spend,
+      threshold:rules.get(x.localId).threshold,
+      label:accounts.get(x.localId).label,
+      source:'manual_csv',note:'Phát hiện từ CSV đã nhập, KHÔNG phải cảnh báo realtime.'
+    })).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30);
   }
   async function encryptedBackup(){
     requireUnlocked();
@@ -198,7 +281,8 @@
   Object.defineProperty(window,'LHMDeviceVault',{
     value:Object.freeze({
       exists:async()=>Boolean(await read()),create,unlock,lock,isUnlocked:()=>Boolean(cryptoKey&&memory),
-      listAccounts,upsertAccount,removeAccount,encryptedBackup,importBackup,destroy
+      listAccounts,upsertAccount,removeAccount,importDailyReport,listDailyReports,
+      setDailyBudget,listDailyBudgets,listLocalAlerts,encryptedBackup,importBackup,destroy
     }),writable:false,configurable:false
   });
 })();
