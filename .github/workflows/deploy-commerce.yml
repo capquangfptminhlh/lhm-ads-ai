@@ -13,7 +13,7 @@ on:
         required: true
         default: false
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: lhm-ads-commerce-production
   cancel-in-progress: false
@@ -55,6 +55,16 @@ jobs:
         run: python tools/deploy_commerce.py --provision-only --create-db
       - name: Verify existing commerce D1
         run: python tools/deploy_commerce.py --dry-run
+      - name: Persist verified non-secret D1 binding in source configuration
+        run: |
+          python tools/persist_commerce_binding.py
+          if ! git diff --quiet -- wrangler.toml; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add wrangler.toml
+            git commit -m "chore(cloudflare): persist verified COMMERCE_DB binding"
+            git push origin HEAD:main
+          fi
       - name: Create missing Access app only with explicit approval
         if: ${{ inputs.create_access_app }}
         run: python tools/bootstrap_access.py --create-app
