@@ -14,8 +14,9 @@
 <link rel="stylesheet" href="/static/device-insights.css">
 <link rel="stylesheet" href="/static/device-studio.css">
 <link rel="stylesheet" href="/static/pwa-refresh.css">
+<link rel="stylesheet" href="/static/customer-login.css">
 </head>
-<body id="lhm-local-workspace" class="lhm-pwa pwa-gated">
+<body id="lhm-local-workspace" class="lhm-pwa pwa-gated customer-locked">
 <section id="pwa-access-gate" class="pwa-access-gate" aria-label="Mở khóa không gian PWA cục bộ">
  <header class="pwa-access-header">
   <a class="pwa-access-brand" href="/" aria-label="LHM Ads AI về trang chủ"><span class="pwa-access-logo">✦</span> LHM <b>ADS AI</b></a>
@@ -33,7 +34,23 @@
       <h2>Mở khóa kho dữ liệu trên thiết bị</h2>
       <p>Nhập mật khẩu kho trên thiết bị này. Lần đầu sử dụng, hãy tạo kho mới bằng mật khẩu riêng ít nhất 12 ký tự.</p>
     </div>
-    <div id="pwa-login-portal"></div>
+    <section id="customer-login-box" aria-label="Đăng nhập khách hàng">
+      <h3>Tài khoản khách hàng LHM</h3>
+      <p class="customer-help">Đăng nhập để xác nhận tài khoản và thời hạn bản quyền trên máy chủ. Sau đó mở kho mã hóa riêng trên thiết bị.</p>
+      <form id="customer-form">
+        <label for="customer-mode">Thao tác</label>
+        <select id="customer-mode" style="width:100%;padding:10px;border-radius:9px"><option value="login">Đăng nhập</option><option value="activate">Kích hoạt lần đầu bằng key</option></select>
+        <label for="customer-email">Email tài khoản</label>
+        <input type="email" id="customer-email" autocomplete="username" required>
+        <label for="customer-password">Mật khẩu (tối thiểu 12 ký tự)</label>
+        <input type="password" id="customer-password" autocomplete="current-password" minlength="12" maxlength="128" required>
+        <input type="text" id="customer-activation-key" aria-label="Key kích hoạt LHM" placeholder="LHM-..." autocomplete="off" hidden>
+        <button type="submit" id="customer-submit">Đăng nhập</button>
+        <p id="customer-login-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+    <div id="pwa-login-portal" hidden></div>
+    <button type="button" id="customer-cloud-logout" hidden>Đăng xuất tài khoản LHM</button>
     <p class="pwa-access-explain">Đây là mật khẩu riêng để mở kho dữ liệu trên máy này, <strong>không phải đăng nhập tài khoản LHM Cloud</strong>. Không nhập mật khẩu Google hoặc Facebook tại đây.</p>
   </div>
  </div>
@@ -208,4 +225,5 @@
 <script src="/static/device-mcp.js" defer></script>
 <script src="/static/device-studio.js" defer></script>
 <script src="/static/license-check.js" defer></script>
+<script src="/static/customer-login.js" defer></script>
 </body></html>
