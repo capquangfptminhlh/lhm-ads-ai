@@ -24,22 +24,45 @@ export default {
     if(path==='/admin' || path.startsWith('/admin/')){
       if(request.method!=='GET' && request.method!=='HEAD')
         return json({error:'Method not allowed'},405);
-      const actor=await adminIdentity(request,env);
+      const configured=Boolean(env?.CF_ACCESS_TEAM_DOMAIN && env?.CF_ACCESS_AUD && env?.ADMIN_EMAIL);
+      const actor=configured?await adminIdentity(request,env):null;
       if(!actor){
-        const page='<!doctype html><html lang="vi"><meta charset="utf-8">'+
+        const unavailable=!configured;
+        const heading=unavailable?'Quản trị chưa được kích hoạt':'Cần đăng nhập quản trị';
+        const description=unavailable
+          ?'Cloudflare Access chưa có cấu hình xác thực cho LHM Ads AI. Đây không phải lỗi mật khẩu hoặc trình duyệt.'
+          :'Phiên quản trị chưa được Cloudflare Access xác thực. Chỉ email quản trị được cấp quyền mới mở được dashboard.';
+        const detail=unavailable
+          ?'<strong>Cần hoàn tất:</strong> (1) Tạo ứng dụng Cloudflare Access bảo vệ /admin/* và /api/admin/*; '+
+           '(2) cấu hình CF_ACCESS_TEAM_DOMAIN, CF_ACCESS_AUD, ADMIN_EMAIL; '+
+           '(3) gắn D1 COMMERCE_DB và chạy migrations.'
+          :'<strong>Kiểm tra:</strong> Đăng nhập qua ứng dụng Cloudflare Access đã bảo vệ đường dẫn này. '+
+           'Nếu vẫn quay lại trang này, kiểm tra Access policy, AUD và ADMIN_EMAIL.';
+        const page='<!doctype html><html lang="vi"><head><meta charset="utf-8">'+
           '<meta name="viewport" content="width=device-width,initial-scale=1">'+
           '<meta name="robots" content="noindex,nofollow">'+
-          '<title>LHM Ads AI · Quyền quản trị</title>'+
-          '<style>body{font:16px system-ui;margin:0;min-height:100dvh;display:grid;place-items:center;'+
-          'background:#f3f8ff;color:#24415d}.panel{margin:20px;max-width:520px;padding:36px;'+
-          'background:#fff;border:1px solid #dce8f4;border-radius:20px;'+
-          'box-shadow:0 20px 50px #1d5b891a}a{color:#1978c6}</style>'+
-          '<main class="panel"><h1>Quản trị chưa được xác thực</h1>'+
-          '<p>Chỉ chủ sở hữu đã đăng nhập qua Cloudflare Access mới được vào trang này.</p>'+
-          '<p>Hãy kiểm tra cấu hình Cloudflare Access và email quản trị viên.</p>'+
-          '<a href="/">← Về trang chủ LHM Ads AI</a></main></html>';
+          '<title>LHM Ads AI · '+heading+'</title>'+
+          '<style>*{box-sizing:border-box}body{margin:0;min-height:100dvh;display:grid;place-items:center;'+
+          'font:15px/1.7 system-ui,-apple-system,Segoe UI,sans-serif;background:radial-gradient(circle at 85% 12%,#daecff,transparent 43%),#f3f8ff;'+
+          'color:#294460;padding:20px}.panel{width:min(100%,610px);padding:clamp(23px,4vw,43px);'+
+          'background:#fff;border:1px solid #dce8f4;border-radius:20px;box-shadow:0 24px 58px #265b8b17}'+
+          '.logo{font-weight:850;color:#2a7ecc;letter-spacing:.4px}.tag{display:inline-block;margin-top:23px;padding:5px 11px;'+
+          'border-radius:99px;background:#fff2df;color:#8e651f;font-size:11px;font-weight:800;letter-spacing:.7px}'+
+          'h1{font-size:clamp(24px,4vw,32px);line-height:1.25;color:#243c58;margin:13px 0 10px}'+
+          'p{color:#627f99;margin:10px 0}.notice{margin-top:23px;border-left:3px solid #2d8bd6;'+
+          'background:#eff7ff;padding:15px;border-radius:0 12px 12px 0;color:#456986}'+
+          '.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:25px}a.btn{display:inline-block;border-radius:11px;'+
+          'padding:10px 15px;text-decoration:none;font-weight:750;border:1px solid #d5e6f5;color:#236faa;background:#f2f8ff}'+
+          'a.btn.primary{color:#fff;background:#267fda;border-color:#267fda}</style></head>'+
+          '<body><main class="panel"><div class="logo">✦ LHM ADS AI / ADMIN</div>'+
+          '<div class="tag">'+(unavailable?'CHƯA CẤU HÌNH':'YÊU CẦU XÁC THỰC')+'</div>'+
+          '<h1>'+heading+'</h1><p>'+description+'</p><div class="notice">'+detail+'</div>'+
+          '<div class="actions"><a class="btn primary" href="https://dash.cloudflare.com/">Mở Cloudflare</a>'+
+          '<a class="btn" href="https://github.com/capquangfptminhlh/lhm-ads-ai/blob/main/docs/ADMIN_COMMERCE_SETUP.md">Hướng dẫn kích hoạt</a>'+
+          '<a class="btn" href="/">Trang chủ</a></div>'+
+          '</main></body></html>';
         return new Response(request.method==='HEAD'?null:page,{
-          status:401,headers:{'Content-Type':'text/html; charset=utf-8',
+          status:unavailable?503:401,headers:{'Content-Type':'text/html; charset=utf-8',
           'Cache-Control':'no-store, max-age=0','X-Robots-Tag':'noindex, nofollow',
           'X-Frame-Options':'DENY','X-Content-Type-Options':'nosniff',
           'Referrer-Policy':'no-referrer'}});
