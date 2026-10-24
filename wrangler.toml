@@ -4,6 +4,8 @@ name = "lhm-ads-cloudflare-api"
 main = "workers/ads-api/src/index.js"
 compatibility_date = "2026-10-24"
 workers_dev = false
+# Preserve Admin Access variables configured through Cloudflare Dashboard.
+keep_vars = true
 
 [[routes]]
 pattern = "ads.lhmcrm.com"
