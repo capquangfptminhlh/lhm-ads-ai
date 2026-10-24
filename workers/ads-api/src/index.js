@@ -66,8 +66,18 @@ export default {
           commerce_schema_ready=(rows.results||[]).length===6;
         }catch(_){commerce_schema_ready=false;}
       }
+      let customer_auth_schema_ready=false;
+      if(commerce_binding_present){
+        try{
+          const tables=await env.COMMERCE_DB.prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('customer_auth','customer_sessions')"
+          ).all();
+          customer_auth_schema_ready=(tables.results||[]).length===2;
+        }catch(_){customer_auth_schema_ready=false;}
+      }
       return json({
         service:'lhm-ads-cloudflare',
+        customer_auth_schema_ready,
         auth_ready:false,
         device_only_ready:false,
         ads_api_ready:false,
