@@ -13,6 +13,8 @@ const mockDB={
         if(sql.includes('sqlite_master'))return {results:[
           'customers','orders','licenses','payment_reviews','admin_audit','license_fulfillments'
         ].map(name=>({name}))};
+        if(sql.includes('FROM orders o JOIN customers c') && sql.includes('LEFT JOIN payment_reviews'))
+          return {results:[{id:'order-reviewed',status:'pending',review_reference:'BANK-REFERENCE-001'}]};
         return {results:[]};
       },
       bind(...args){
@@ -121,6 +123,10 @@ test('Cloudflare Access verifies signed JWT, audience and admin email',async()=>
         headers:{'Cf-Access-Jwt-Assertion':jwt}
       }),env);
       assert.equal(res.status,code,JSON.stringify(claim));
+      if(code===200){
+        const overview=await res.json();
+        assert.equal(overview.orders[0]?.review_reference,'BANK-REFERENCE-001');
+      }
       // A valid signed Access JWT may view /admin/; invalid assertions cannot.
       let served=0;
       const assets={fetch:async()=>{
