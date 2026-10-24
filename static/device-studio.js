@@ -15,7 +15,7 @@
   const accountPage=document.querySelector('.pwa-page[data-view="accounts"]');
   const gate=document.getElementById('pwa-access-gate');
   // Moving the SAME vault form preserves all registered event handlers and cryptographic state.
-  // No authentication token/session is stored in Cloudflare or browser localStorage.
+  // No authentication token or session is persisted on Cloudflare or in browser storage.
   function syncAccessGate(){
     const unlocked=isOpen();
     root.classList.toggle('pwa-gated',!unlocked);
