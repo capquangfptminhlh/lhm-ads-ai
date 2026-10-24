@@ -188,8 +188,14 @@
     text('pwa-alert-count',String(data.alerts.length));
   }
   $('pwa-signout').addEventListener('click',()=>{
-    vault.lock();
-    window.dispatchEvent(new Event('lhm:vault-locked'));
+    // Use the vault UI's real lock routine to reset its password fields,
+    // encrypted state and action panel, rather than only hiding the shell.
+    const lockButton=$('lhm-vault-lock');
+    if(lockButton)lockButton.click();
+    else{
+      vault.lock();
+      window.dispatchEvent(new Event('lhm:vault-locked'));
+    }
     refresh();
     window.scrollTo(0,0);
   });
