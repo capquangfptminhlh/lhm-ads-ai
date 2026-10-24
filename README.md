@@ -3,7 +3,7 @@
 **Yêu cầu bảo mật đã chốt: 100% tài khoản, token và báo cáo quảng cáo nằm trên thiết bị khách, Cloudflare không lưu bản sao.** Không thể sử dụng backend FastAPI trên VPS hoặc Cloudflare OAuth token storage để đáp ứng yêu cầu này; client-side Ads integrations cần thiết kế lại và kiểm thử từng nền tảng. Không hứa PWA giám sát khi thiết bị bị hệ điều hành tạm dừng. Xem [docs/DEVICE_ONLY_ADS_DATA.md](docs/DEVICE_ONLY_ADS_DATA.md).
 
 
-**Phương án ưu tiên hiện tại:** GitHub lưu mã nguồn và CI, Cloudflare Workers + Static Assets phát hành PWA tại `https://ads.lhm.com` và sẽ xử lý backend khi được chuyển đổi. **GitHub Pages không được dùng làm hosting thương mại cho SaaS**. Bộ build GitHub Pages và Worker an toàn mặc định nằm trong repo; **đăng nhập Google/Meta, giám sát 24/7 và MCP cloud chưa hoạt động trên hosting tĩnh**. Đừng triển khai cho khách thật khi các API còn trả 503.
+**Phương án ưu tiên hiện tại:** GitHub lưu mã nguồn và CI, Cloudflare Workers + Static Assets phát hành PWA tại `https://ads.lhmcrm.com` và sẽ xử lý backend khi được chuyển đổi. **GitHub Pages không được dùng làm hosting thương mại cho SaaS**. Bộ build GitHub Pages và Worker an toàn mặc định nằm trong repo; **đăng nhập Google/Meta, giám sát 24/7 và MCP cloud chưa hoạt động trên hosting tĩnh**. Đừng triển khai cho khách thật khi các API còn trả 503.
 
 Xem [hướng dẫn Cloudflare Workers không VPS](docs/DEPLOY_CLOUDFLARE_WORKERS.md). Các hướng dẫn Docker/Caddy bên dưới là phương án hosting backend khác, không phải lựa chọn trước mắt.
 
@@ -117,4 +117,4 @@ Read-only stdio MCP integration with revocable admin-issued credentials; and opt
 
 ## Deployment domain for PWA/API
 
-Public production origin: **https://ads.lhm.com** (pending DNS and VPS deployment). The Caddy HTTPS production overlay lives in [compose.ads-lhm-com.yml](compose.ads-lhm-com.yml), with exact Google/Meta callback URLs and step-by-step setup in [docs/DEPLOY_ADS_LHM_COM.md](docs/DEPLOY_ADS_LHM_COM.md). The Windows local app remains separate on localhost. Never assume the GitHub commit means this public domain is already live.
+Public production origin: **https://ads.lhmcrm.com** (pending Cloudflare Workers DNS deployment; the legacy VPS route is optional). The Caddy HTTPS production overlay lives in [compose.ads-lhm-com.yml](compose.ads-lhm-com.yml), with exact Google/Meta callback URLs and step-by-step setup in [docs/DEPLOY_ADS_LHM_COM.md](docs/DEPLOY_ADS_LHM_COM.md). The Windows local app remains separate on localhost. Never assume the GitHub commit means this public domain is already live.
