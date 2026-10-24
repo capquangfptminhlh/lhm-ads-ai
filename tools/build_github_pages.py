@@ -43,10 +43,12 @@ def build(output: Path) -> Path:
         'Đăng nhập và kết nối Ads sẽ chỉ mở khi Cloudflare API đã được kiểm thử.'
         '</div>'
     )
-    studio = studio.replace('</head>', style + '</head>', 1)
+    studio = studio.replace('</head>', '<link rel="stylesheet" href="/static/device-vault.css">' + style + '</head>', 1)
     studio = studio.replace('<form id="login-form">', banner + '<form id="login-form">', 1)
     studio = studio.replace(
-        '</body>', '<script src="/static/cloudflare-hosting-gate.js" defer></script></body>', 1
+        '</body>', ('<script src="/static/cloudflare-hosting-gate.js" defer></script>'
+                   '<script src="/static/device-vault.js" defer></script>'
+                   '<script src="/static/device-vault-ui.js" defer></script></body>'), 1
     )
     page = output / "studio"
     page.mkdir()
