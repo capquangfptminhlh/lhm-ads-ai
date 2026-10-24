@@ -80,7 +80,7 @@ class StaticPagesTests(unittest.TestCase):
         cfg=(ROOT/'wrangler.toml').read_text(encoding='utf-8')
         worker=(ROOT/'workers/ads-api/src/index.js').read_text(encoding='utf-8')
         workflow=(ROOT/'.github/workflows/github-pages-pwa.yml').read_text(encoding='utf-8')
-        assert 'pattern = "ads.lhm.com"' in cfg
+        assert 'pattern = "ads.lhmcrm.com"' in cfg
         assert 'custom_domain = true' in cfg
         assert 'directory = "./_site"' in cfg
         assert 'run_worker_first = ["/api/*"]' in cfg
