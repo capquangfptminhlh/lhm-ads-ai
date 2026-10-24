@@ -12,8 +12,7 @@ PATH = '/api/advisor/growth/readiness'
 
 def test_growth_readiness_requires_authentication():
     client = TestClient(app)
-        if True:
-        response = client.post(PATH, json={'account_id': 1, 'observation': {}})
+    response = client.post(PATH, json={'account_id': 1, 'observation': {}})
     assert response.status_code in (401, 403)
 
 
@@ -38,7 +37,8 @@ def test_growth_readiness_scopes_account_and_never_writes_ads():
              patch('ads_core.advisor.get_account', return_value={
                  'id': 9, 'org_id': 'tenant-a', 'platform': 'google'
              }) as get_account, \
-             TestClient(app) as client:
+             patch('ads_core.advisor.audit'):
+            client = TestClient(app)
             response = client.post(PATH, json={
                 'account_id': 9, 'observation': {'tracking_verified': False}
             })
@@ -57,8 +57,7 @@ def test_growth_readiness_invalid_id_fails_validation():
     app.dependency_overrides[browser_admin] = lambda: {'org_id': 'tenant-a', 'id': 7}
     try:
         client = TestClient(app)
-        if True:
-            response = client.post(PATH, json={'account_id': 0, 'observation': {}})
+        response = client.post(PATH, json={'account_id': 0, 'observation': {}})
         assert response.status_code == 422
     finally:
         app.dependency_overrides.pop(browser_admin, None)
