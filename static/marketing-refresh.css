@@ -79,3 +79,15 @@ a:focus-visible,summary:focus-visible{outline:3px solid #237fd8;outline-offset:3
  .mk-price strong{font-size:35px}
 }
 @media(prefers-reduced-motion:reduce){.mk-preview-wrap{animation:none!important}}
+
+
+.mk-nav{position:relative}
+.mk-mobile-menu{display:none;position:relative}
+.mk-mobile-menu summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px;padding:10px 13px;background:#ebf5ff;border:1px solid #d4e5f4;border-radius:11px;color:#2a6fa9;font-weight:750;font-size:13px;min-height:42px}
+.mk-mobile-menu summary::-webkit-details-marker{display:none}
+.mk-mobile-menu summary:hover{background:#e0f0fd}
+.mk-mobile-menu-panel{position:absolute;right:0;top:calc(100% + 10px);min-width:235px;max-width:calc(100vw - 30px);display:flex;flex-direction:column;background:#fff;border:1px solid #dbe7f3;box-shadow:0 20px 48px #285b8e30;border-radius:15px;padding:8px;z-index:40}
+.mk-mobile-menu-panel a{display:block;padding:10px 12px;font-size:13px;font-weight:700;color:#3d6688;border-radius:9px}
+.mk-mobile-menu-panel a:hover,.mk-mobile-menu-panel a:focus-visible{background:#eef6fe;color:#1f77c7}
+@media(max-width:830px){.mk-mobile-menu{display:block;margin-left:auto}}
+@media(max-width:560px){.mk-nav{gap:8px}.mk-nav-login{display:none}.mk-mobile-menu summary{font-size:12px}.mk-mobile-menu-panel{right:0}}
