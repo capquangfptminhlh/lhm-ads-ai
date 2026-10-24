@@ -22,7 +22,7 @@ jobs:
           node-version: '22'
       - name: Static source syntax checks
         run: |
-          python -m py_compile tools/build_github_pages.py tools/deploy_commerce.py
+          python -m py_compile tools/build_github_pages.py tools/deploy_commerce.py tools/bootstrap_access.py tools/persist_commerce_binding.py
           node --check workers/ads-api/src/admin.js
           node --check workers/ads-api/src/index.js
           node --check workers/ads-api/src/customer-auth.js
@@ -32,6 +32,8 @@ jobs:
           python tools/check_admin_script.py
       - name: Worker request and authorization smoke tests
         run: node --test tests/worker_commerce_smoke.test.mjs tests/customer_auth_smoke.test.mjs
+      - name: Guarded Cloudflare bootstrap regression tests
+        run: python -m unittest discover -s tests -p 'test_bootstrap_cloudflare.py' -v
       - name: Subscription D1 regression tests
         run: python -m unittest discover -s tests -p 'test_admin_d1_sql.py' -v
       - name: Build fail-closed PWA assets
