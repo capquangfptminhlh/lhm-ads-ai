@@ -14,11 +14,34 @@
 <link rel="stylesheet" href="/static/device-insights.css">
 <link rel="stylesheet" href="/static/device-studio.css">
 </head>
-<body id="lhm-local-workspace" class="lhm-pwa">
+<body id="lhm-local-workspace" class="lhm-pwa pwa-gated">
+<section id="pwa-access-gate" class="pwa-access-gate" aria-label="Mở khóa không gian quản trị">
+ <header class="pwa-access-header">
+  <a class="pwa-access-brand" href="/" aria-label="LHM Ads AI về trang chủ"><span class="pwa-access-logo">✦</span> LHM <b>ADS AI</b></a>
+  <a class="pwa-access-back" href="/">← Trang giới thiệu</a>
+ </header>
+ <div class="pwa-access-layout">
+  <div class="pwa-access-feature">
+   <span class="pwa-access-eyebrow">WELCOME TO YOUR WORKSPACE</span>
+   <h1>Không gian quảng cáo.<br><em>Dữ liệu của bạn.</em></h1>
+   <p>Mở khóa để vào Studio, quản lý thông tin tài khoản Ads và xem báo cáo trên chính thiết bị đang sử dụng.</p>
+   <div class="pwa-access-benefits"><span>✓ Giao diện đồng bộ bản PC</span><span>✓ Không cần máy Windows đang mở</span><span>✓ Kho mã hóa riêng cho từng trình duyệt</span></div>
+  </div>
+  <div class="pwa-access-panel">
+    <div class="pwa-access-panel-head"><span class="pwa-access-tag">SECURE DEVICE ACCESS</span>
+      <h2>Đăng nhập không gian quản trị</h2>
+      <p>Nhập mật khẩu kho trên thiết bị này. Lần đầu sử dụng, hãy tạo kho mới bằng mật khẩu riêng ít nhất 12 ký tự.</p>
+    </div>
+    <div id="pwa-login-portal"></div>
+    <p class="pwa-access-explain">Đây là mở khóa dữ liệu cục bộ, <strong>không phải tài khoản Cloud</strong>. Không nhập mật khẩu Google hoặc Facebook tại đây.</p>
+  </div>
+ </div>
+ <footer class="pwa-access-footer">LHM Ads AI · Bảo vệ dữ liệu trên thiết bị · <a href="/">Giới thiệu dịch vụ</a></footer>
+</section>
 <div class="pwa-shell">
   <div class="pwa-overlay" id="pwa-overlay" aria-hidden="true"></div>
   <aside class="pwa-sidebar" id="pwa-sidebar" aria-label="Điều hướng ứng dụng">
-    <a class="pwa-brand" href="/local/" aria-label="LHM Ads AI — Tổng quan">
+    <a class="pwa-brand" href="/" aria-label="LHM Ads AI — Trang giới thiệu">
       <span class="pwa-logo" aria-hidden="true">✦</span>
       <span>LHM <b>ADS AI</b><small>COMMAND CENTER</small></span>
     </a>
@@ -48,6 +71,7 @@
       <div class="pwa-top-right">
         <span class="pwa-offline-tag">🔒 <span id="pwa-session-label">KHO ĐANG KHÓA</span></span>
         <button id="pwa-install-button" class="pwa-install-button" type="button" aria-controls="pwa-install-guide">＋ Cài ứng dụng</button>
+        <button class="pwa-btn" id="pwa-signout" type="button" aria-label="Khóa kho và đăng xuất">Đăng xuất</button>
         <span class="pwa-avatar" aria-label="LHM Ads AI">LH</span>
       </div>
     </header>
