@@ -93,7 +93,7 @@ def main():
                 mobile.wait_for_function("window.LHMDeviceVault.listAccounts().length === 1")
                 mobile.locator('.pwa-mobile-dock [data-go="dashboard"]').click()
                 assert mobile.locator('#pwa-overview-accounts').inner_text()=='1'
-                assert mobile.locator('#pwa-account-preview').get_by_text('Tài khoản minh họa').count()==1
+                mobile.locator('#pwa-account-preview').get_by_text('Tài khoản minh họa').wait_for(timeout=5000)
                 check_no_horizontal_overflow(mobile)
                 mobile.screenshot(path=str(OUTPUT/'lhm-soft-pwa-unlocked-mobile.png'),full_page=True)
                 mobile.locator('.pwa-mobile-dock [data-go="accounts"]').click()
