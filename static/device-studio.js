@@ -158,7 +158,6 @@
     text('pwa-summary-status',active
       ?'Dữ liệu chỉ trên thiết bị này. Báo cáo nhập từ CSV thủ công.'
       :'Dữ liệu được mã hóa. Mở kho trong mục Tài khoản Ads để xem.');
-    $('pwa-no-vault').hidden=active;
     $('pwa-alert-locked').hidden=active;
     $('pwa-report-locked').hidden=active;
     drawAccounts(data.accounts);
