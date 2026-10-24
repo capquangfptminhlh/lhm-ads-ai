@@ -52,7 +52,7 @@ class CloudflareBootstrapTests(unittest.TestCase):
         def handler(method,path,body=None):
             if path=="/access/organizations" and method=="GET":
                 return {"auth_domain":"example.cloudflareaccess.com"}
-            if path=="/access/apps" and method=="GET":
+            if path=="/access/apps?per_page=100" and method=="GET":
                 return [] if existing is None else [existing]
             if path=="/access/apps" and method=="POST":
                 assert body is not None
