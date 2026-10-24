@@ -169,6 +169,16 @@
             <p id="pwa-offline-total" class="pwa-muted">0 tài khoản · 0 ngày CSV</p>
             <button class="pwa-btn primary" type="button" data-go="accounts">Sao lưu / khôi phục / khóa kho →</button>
           </article>
+          <article class="pwa-card"><h2>Kiểm tra key bản quyền</h2>
+            <p class="pwa-muted">Nhập key LHM để xác minh tình trạng và thời hạn trên máy chủ. Key không được lưu trong trình duyệt sau khi kiểm tra.</p>
+            <form id="license-check-form" style="display:flex;gap:10px;flex-wrap:wrap">
+              <input id="license-key" type="password" autocomplete="off" spellcheck="false" required
+                 placeholder="LHM-..." aria-label="Key bản quyền LHM" style="min-width:180px;flex:1;background:#20252e;color:#fff;border:1px solid #465165;border-radius:10px;padding:11px">
+              <button class="pwa-btn primary" type="submit">Kiểm tra key</button>
+            </form>
+            <p id="license-check-result" class="pwa-muted" role="status" aria-live="polite">Cần kết nối Internet để kiểm tra.</p>
+            <p class="pwa-muted">Chức năng này chỉ kiểm tra hiệu lực key. Phân quyền tính năng trả phí chưa được kích hoạt ở bản PWA thử nghiệm.</p>
+          </article>
           <article class="pwa-card"><h2>Ứng dụng cài đặt</h2>
             <p class="pwa-muted">iPhone: Safari → Chia sẻ → Thêm vào Màn hình chính. Android: Chrome → Cài ứng dụng.</p>
             <p>Không cần VPS hay máy Windows đang mở. Nếu thiết bị ngoại tuyến, chỉ các dữ liệu đã có trên máy mới sử dụng được.</p>
@@ -196,4 +206,5 @@
 <script src="/static/device-insights.js" defer></script>
 <script src="/static/device-mcp.js" defer></script>
 <script src="/static/device-studio.js" defer></script>
+<script src="/static/license-check.js" defer></script>
 </body></html>
