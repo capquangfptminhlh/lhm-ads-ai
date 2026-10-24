@@ -141,7 +141,7 @@ class StaticPagesTests(unittest.TestCase):
         assert 'pattern = "ads.lhmcrm.com"' in cfg
         assert 'custom_domain = true' in cfg
         assert 'directory = "./_site"' in cfg
-        assert 'run_worker_first = ["/api/*"]' in cfg
+        assert 'run_worker_first = ["/api/*", "/admin", "/admin/*"]' in cfg
         assert "auth_ready:false" in worker
         assert "device_only_ready:false" in worker
         assert "ads_credential_custody:'device_only'" in worker
