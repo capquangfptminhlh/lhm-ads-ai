@@ -2,7 +2,7 @@
 
 NO Python backend, OAuth token or secret is copied. The hosted Studio login stays
 disabled until a real, server-side Cloudflare API explicitly reports readiness.
-The intended custom-domain origin is https://ads.lhm.com (no project path).
+The intended custom-domain origin is https://ads.lhmcrm.com (no project path).
 """
 from __future__ import annotations
 
