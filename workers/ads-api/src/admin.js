@@ -45,7 +45,7 @@ export async function adminApi(request,env){
     if(path==='/api/admin/overview'&&method==='GET'){
       const [customers,orders,licenses,auditLog,fulfilled]=await Promise.all([
         db.prepare('SELECT id,name,email,phone,status,created_at FROM customers ORDER BY created_at DESC LIMIT 100').all(),
-        db.prepare('SELECT o.*,c.name AS customer_name FROM orders o JOIN customers c ON c.id=o.customer_id ORDER BY o.created_at DESC LIMIT 100').all(),
+        db.prepare('SELECT o.*,c.name AS customer_name, pr.reference AS review_reference, pr.submitted_at AS review_submitted_at FROM orders o JOIN customers c ON c.id=o.customer_id LEFT JOIN payment_reviews pr ON pr.order_id=o.id ORDER BY o.created_at DESC LIMIT 100').all(),
         db.prepare('SELECT l.id,l.customer_id,l.key_hint,l.status,l.expires_at,l.created_at,c.name AS customer_name FROM licenses l JOIN customers c ON c.id=l.customer_id ORDER BY l.created_at DESC LIMIT 100').all(),
         db.prepare('SELECT actor,action,target_id,at FROM admin_audit ORDER BY at DESC LIMIT 30').all(),
         db.prepare('SELECT order_id FROM license_fulfillments ORDER BY created_at DESC LIMIT 500').all()]);
