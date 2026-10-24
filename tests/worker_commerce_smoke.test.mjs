@@ -37,11 +37,23 @@ test('hosting health reports missing commerce dependencies, never claims auth is
 
 test('commercial routes fail closed without database',async()=>{
   const admin=await worker.fetch(new Request(base+'/api/admin/overview'),{});
-  assert.equal(admin.status,503);
+  assert.equal(admin.status,401); // authenticate before checking D1 binding
   const verify=await worker.fetch(new Request(base+'/api/license/verify',{
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})
   }),{});
   assert.equal(verify.status,503);
+});
+
+test('Admin HTML is not served publicly, even with a static asset binding',async()=>{
+  let served=0;
+  const ASSETS={fetch:async()=>{served++;return new Response('secret-admin-ui',{status:200});}};
+  for(const path of ['/admin','/admin/','/admin/index.html']){
+    const res=await worker.fetch(new Request(base+path),{ASSETS});
+    assert.equal(res.status,401);
+    assert.equal(res.headers.get('Cache-Control'),'no-store, max-age=0');
+    assert.doesNotMatch(await res.text(),/secret-admin-ui/);
+  }
+  assert.equal(served,0);
 });
 
 test('admin API rejects non-Access caller even when database exists',async()=>{
@@ -100,13 +112,30 @@ test('Cloudflare Access verifies signed JWT, audience and admin email',async()=>
       [{},200],
       [{aud:'wrong'},401],
       [{email:'somebody-else@example.invalid'},401],
-      [{exp:Math.floor(Date.now()/1000)-60},401]
+      [{exp:Math.floor(Date.now()/1000)-60},401],
+      [{nbf:Math.floor(Date.now()/1000)+3600},401],
+      [{iat:Math.floor(Date.now()/1000)+3600},401]
     ]){
       const jwt=await makeJwt(claim);
       const res=await worker.fetch(new Request(base+'/api/admin/overview',{
         headers:{'Cf-Access-Jwt-Assertion':jwt}
       }),env);
       assert.equal(res.status,code,JSON.stringify(claim));
+      // A valid signed Access JWT may view /admin/; invalid assertions cannot.
+      let served=0;
+      const assets={fetch:async()=>{
+        served++;return new Response('<html>Admin authorized</html>',{
+          headers:{'content-type':'text/html'}});
+      }};
+      const adminPage=await worker.fetch(new Request(base+'/admin/',{
+        headers:{'Cf-Access-Jwt-Assertion':jwt}
+      }),{...env,ASSETS:assets});
+      assert.equal(adminPage.status,code,JSON.stringify(claim));
+      assert.equal(served,code===200?1:0);
+      if(code===200){
+        assert.match(await adminPage.text(),/Admin authorized/);
+        assert.equal(adminPage.headers.get('cache-control'),'no-store, max-age=0');
+      }
     }
   }finally{globalThis.fetch=originalFetch;}
 });
