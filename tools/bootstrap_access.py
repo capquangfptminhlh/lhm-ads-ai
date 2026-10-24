@@ -11,6 +11,8 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
+from deploy_commerce import find_database_id, make_config
 import urllib.request
 import urllib.error
 
@@ -123,9 +125,9 @@ def bootstrap(create=False):
     return {"team_domain":team_domain,"aud":aud,"email":email}
 
 
-def put_secret(name: str, value: str):
-    proc=subprocess.run(["npx","wrangler","secret","put",name],
-                        input=value+"\n",cwd=os.path.dirname(os.path.dirname(__file__)),
+def put_secret(name: str, value: str, config: Path):
+    proc=subprocess.run(["npx","wrangler","secret","put",name,"--config",str(config)],
+                        input=value+"\n",cwd=config.parent,
                         capture_output=True,text=True)
     if proc.returncode:
         # Do not print Wrangler subprocess stderr, which may contain sensitive data.
@@ -142,9 +144,17 @@ def main():
     try:
         result=bootstrap(create=args.create_app)
         if args.apply_worker_secrets:
-            for name,key in (("CF_ACCESS_TEAM_DOMAIN","team_domain"),
-                             ("CF_ACCESS_AUD","aud"),("ADMIN_EMAIL","email")):
-                put_secret(name,result[key])
+            # Wrangler's secret updates must include the verified D1 binding.
+            repo=Path(__file__).resolve().parents[1]
+            db_id=find_database_id()
+            config=repo/"wrangler.commerce.generated.toml"
+            try:
+                config.write_text(make_config(db_id),encoding="utf-8")
+                for name,key in (("CF_ACCESS_TEAM_DOMAIN","team_domain"),
+                                 ("CF_ACCESS_AUD","aud"),("ADMIN_EMAIL","email")):
+                    put_secret(name,result[key],config)
+            finally:
+                config.unlink(missing_ok=True)
         print("Verified LHM Access app (3 protected paths, one audience).")
         print("Worker Access variables:", "written" if args.apply_worker_secrets else "not changed")
         print("Cloudflare Identity Provider and MFA must still be checked in dashboard.")
