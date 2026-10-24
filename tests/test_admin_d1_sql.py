@@ -32,7 +32,7 @@ class AdminCommerceSchemaTests(unittest.TestCase):
             self.db.execute(
                 "INSERT INTO licenses(id,customer_id,key_hash,key_hint,expires_at)"
                 " VALUES(?,?,?,?,?)",
-                (order_id, "customer-a", "hash-" + order_id, "1234ABCD", "2026-11-24T08:00:00.000Z"),
+                (order_id, "customer-a", "hash-" + order_id, "1234ABCD", "2099-11-24T08:00:00.000Z"),
             )
             self.db.execute(
                 "INSERT INTO license_fulfillments(order_id,license_id,action)"
@@ -68,7 +68,7 @@ class AdminCommerceSchemaTests(unittest.TestCase):
         self._renew("order-c", "order-a")
         self.assertEqual(
             self.db.execute("SELECT expires_at FROM licenses WHERE id='order-a'").fetchone()[0],
-            "2027-01-24T08:00:00.000Z"
+            "2100-01-24T08:00:00.000Z"
         )
         with self.assertRaises(sqlite3.IntegrityError):
             self._renew("order-b", "order-a")
