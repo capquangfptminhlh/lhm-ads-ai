@@ -17,6 +17,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Static source syntax checks
+        run: |
+          python -m py_compile tools/build_github_pages.py
+          node --check workers/ads-api/src/admin.js
+          node --check workers/ads-api/src/index.js
+          node --check static/device-studio.js
+          node --check static/sw.js
+          python tools/check_admin_script.py
+      - name: Subscription D1 regression tests
+        run: python -m unittest discover -s tests -p 'test_admin_d1_sql.py' -v
       - name: Build fail-closed PWA assets
         run: python tools/build_github_pages.py --output _site
       - name: Verify bundle contains no backend secrets
