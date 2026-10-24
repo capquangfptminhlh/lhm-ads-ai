@@ -1,19 +1,19 @@
-"""Parse browser-side scripts embedded in the Admin page with real Node parser."""
+"""Parse browser-side script embedded in the Admin page using the Node parser."""
 from pathlib import Path
-import re
 import subprocess
 import tempfile
 
-
 ROOT = Path(__file__).resolve().parents[1]
 html = (ROOT / "static" / "admin.html").read_text(encoding="utf-8")
-scripts = re.findall(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", html, flags=re.I)
-if len(scripts) != 1:
-    raise SystemExit(f"Expected exactly 1 inline admin script, got {len(scripts)}")
-if "api/admin/" not in scripts[0] and "'/api/admin/'" not in scripts[0]:
-    raise SystemExit("Admin is not using the backend API")
+start = html.find("<script>")
+end = html.find("</script>", start)
+if start < 0 or end < 0 or html.find("<script>", end + 9) != -1:
+    raise SystemExit("Expected one inline Admin script")
+script = html[start + len("<script>"):end]
+if "/api/admin/" not in script:
+    raise SystemExit("Admin UI is not connected to its backend")
 with tempfile.TemporaryDirectory() as temp:
     js = Path(temp) / "admin-inline.js"
-    js.write_text(scripts[0], encoding="utf-8")
+    js.write_text(script, encoding="utf-8")
     subprocess.run(["node", "--check", str(js)], check=True)
 print("Admin inline JavaScript syntax PASS")
