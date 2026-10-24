@@ -1,0 +1,251 @@
+/* LHM ADS AI — Soft-depth visual system inspired by the provided login/register reel.
+ * Pure first-party CSS. Applies only to auth, local device PWA and very small
+ * dashboard microinteractions. Preserves all existing app workflows and colors.
+ */
+:root{--soft-blue:#159ce9;--soft-blue-deep:#087ac7;--soft-white:#eef4f9;
+  --soft-raised:12px 12px 25px #c9d5e0,-12px -12px 25px #ffffff;
+  --soft-inset:inset 5px 5px 11px #c8d6e4,inset -5px -5px 11px #ffffff;
+  --soft-ease:cubic-bezier(.22,1,.36,1)}
+@keyframes lhm-soft-appear{from{opacity:0;transform:translateY(22px) scale(.975)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes lhm-soft-drift{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,-15px,0)}}
+@keyframes lhm-soft-glow{0%,100%{box-shadow:0 12px 26px #159ce925}50%{box-shadow:0 15px 34px #159ce950}}
+@keyframes lhm-soft-content{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes lhm-soft-breathe{0%,100%{opacity:.68}50%{opacity:1}}
+
+/* Studio authentication — pale light, sculpted login from the clip. */
+#login.login-layout{
+  min-height:100dvh;background:#e9f1f8!important;
+  color:#1c334b;isolation:isolate;position:relative;overflow:hidden;
+}
+#login .login-feature{
+  background:linear-gradient(145deg,#e9f3fc 0%,#d9e7f4 75%,#d1e1f0 100%)!important;
+  color:#1c334b;isolation:isolate;min-height:100dvh;
+}
+#login .login-feature::before,#login .login-feature::after,
+#login .login-panel::before,#login .login-panel::after{
+  content:"";position:absolute;display:block;pointer-events:none;z-index:-1;
+  background:linear-gradient(140deg,#f8fcff,#d5e3f1);
+  border-radius:50%;
+  box-shadow:10px 12px 22px #b5c8d93d,-11px -11px 24px #ffffffb8;
+}
+#login .login-feature::before{width:158px;height:158px;top:9%;left:7%;animation:lhm-soft-drift 9s ease-in-out infinite}
+#login .login-feature::after{
+  width:268px;height:268px;left:auto;right:-90px;bottom:-75px;border:0;
+  box-shadow:14px 14px 30px #b9cada80,-14px -14px 30px #fff9;
+  animation:lhm-soft-drift 12s ease-in-out infinite reverse;
+}
+#login .login-panel{
+  background:#e9f1f8!important;position:relative;isolation:isolate;
+  display:flex;align-items:center;justify-content:center;padding:32px 20px;
+}
+#login .login-panel::before{width:92px;height:92px;top:10%;right:12%;animation:lhm-soft-drift 10s ease-in-out infinite}
+#login .login-panel::after{width:62px;height:62px;left:7%;bottom:10%;animation:lhm-soft-drift 7s ease-in-out infinite reverse}
+#login .brand.large,#login .brand.large *{color:#23415c!important}
+#login .brand-logo{background:#e8f0f8!important;color:#148fdf!important;
+  box-shadow:6px 7px 14px #bed0df,-6px -6px 14px #fff;border:1px solid #ffffff9c}
+#login .hero-copy{z-index:1;animation:lhm-soft-content 650ms var(--soft-ease) both}
+#login .hero-copy h1{color:#20354e!important;font-size:clamp(32px,3.6vw,56px);line-height:1.1;letter-spacing:-1.7px}
+#login .hero-copy h1 em{font-style:normal;color:#138cdf!important}
+#login .hero-copy p,#login .login-feature .bottom-note{color:#587086!important}
+#login .hero-copy .eyebrow{color:#147fc0!important;letter-spacing:1.6px}
+#login .login-features>*{color:#31526d!important;background:#ecf4fbad;
+  border:1px solid #fff9;border-radius:16px;box-shadow:5px 5px 15px #cbdbe69c,-5px -5px 15px #ffffffa6;
+  padding:10px 14px}
+#login .login-box{
+  width:min(100%,430px);max-width:430px;padding:clamp(24px,3.8vw,42px);
+  background:linear-gradient(155deg,#eff6fc,#e3edf6)!important;
+  border:1px solid #ffffffc9;border-radius:27px!important;
+  box-shadow:16px 18px 36px #c1cfde,-15px -15px 36px #ffffff;
+  color:#223b52;z-index:1;
+  animation:lhm-soft-appear 650ms var(--soft-ease) 70ms both;
+}
+#login .login-box .login-mobile-logo{color:#168cdb!important}
+#login .login-box .pill{
+  color:#107dbe!important;background:#e7f2fd!important;
+  border:1px solid #ffffffd9;box-shadow:4px 4px 10px #c9d9e6,-4px -4px 10px #fff;
+}
+#login .login-box h2{color:#20374e!important;letter-spacing:-.7px;font-size:clamp(23px,2.2vw,29px)}
+#login .login-box .muted,#login .login-box .hint{color:#687e91!important}
+#login .login-box label{display:grid;gap:8px;color:#405a70!important;font-size:13px;font-weight:700}
+#login .login-box input{
+  width:100%;min-height:49px;padding:12px 15px;
+  background:#e9f1f8!important;border:1px solid #ffffff9e!important;
+  border-radius:14px!important;color:#193b5d!important;font-size:16px;
+  box-shadow:var(--soft-inset);transition:box-shadow .25s,border-color .2s,transform .2s;
+}
+#login .login-box input::placeholder{color:#8a9dad!important}
+#login .login-box input:focus{
+  outline:2px solid #38adffbb!important;outline-offset:2px;
+  box-shadow:inset 3px 3px 6px #b4c9dc,inset -3px -3px 6px #fff!important;
+}
+#login #login-error:not(:empty){padding:9px 12px;border-radius:12px;background:#fff0ef;color:#a33535}
+#login .btn.primary,#login .login-box .btn.primary{
+  background:linear-gradient(115deg,#21b7fa,#0b86e8)!important;
+  color:white!important;border:0!important;border-radius:13px!important;
+  min-height:48px;box-shadow:0 10px 23px #119ee752!important;
+  transition:transform .22s var(--soft-ease),box-shadow .22s,filter .22s;
+}
+#login .btn.primary:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 14px 30px #119ee76a!important}
+#login .btn.primary:active{transform:translateY(1px) scale(.99)}
+#login .pwa-install-button,#login .lhm-soft-local-link{
+  background:#eaf2f9!important;color:#25678f!important;border:1px solid #fff!important;
+  border-radius:13px!important;box-shadow:5px 5px 12px #ccd9e6,-5px -5px 12px #fff;
+  min-height:46px;transition:transform .2s,box-shadow .2s;
+}
+#login .pwa-install-button:hover,#login .lhm-soft-local-link:hover{
+  transform:translateY(-2px);box-shadow:6px 8px 15px #c0d2e0,-6px -6px 12px #fff;
+}
+#login .lhm-soft-local-link{display:flex;align-items:center;justify-content:center;gap:9px;
+  text-decoration:none;font-size:13px;font-weight:750;margin-top:13px;padding:11px 14px;text-align:center}
+#login .lhm-soft-local-link span{transition:transform .22s}
+#login .lhm-soft-local-link:hover span{transform:translateX(4px)}
+#login .lhm-soft-password{position:relative}
+#login .lhm-soft-password input{padding-right:51px}
+#login .lhm-soft-eye{position:absolute;top:50%;right:9px;transform:translateY(-50%);
+  border:0!important;background:#eaf1f8!important;color:#467999;
+  width:37px;height:37px;display:grid;place-items:center;border-radius:10px;
+  box-shadow:3px 3px 9px #ccdbe7,-3px -3px 9px #fff;font-size:19px}
+#login .lhm-soft-eye:hover{color:#0879c3}
+#login .lhm-soft-eye:focus-visible{outline:2px solid #149eec;outline-offset:2px}
+
+/* PWA /local/ — the same reference design, but a functional local dashboard. */
+body#lhm-local-workspace{
+  color-scheme:light;background:
+    radial-gradient(circle at 4% 10%,#fff9 0,transparent 23%),
+    radial-gradient(circle at 92% 25%,#dbeefe 0,transparent 25%),#eaf1f8!important;
+  color:#213d57!important;min-height:100dvh;position:relative;isolation:isolate;
+}
+#lhm-local-workspace::before,#lhm-local-workspace::after{
+  content:"";position:fixed;pointer-events:none;border-radius:50%;
+  background:linear-gradient(145deg,#f8fcff,#d6e5f3);
+  box-shadow:12px 12px 25px #bacdddb5,-12px -12px 25px #fff;
+  z-index:-1;animation:lhm-soft-drift 10s ease-in-out infinite;
+}
+#lhm-local-workspace::before{top:140px;right:-52px;width:150px;height:150px}
+#lhm-local-workspace::after{top:53%;left:-45px;width:104px;height:104px;animation-delay:-3s}
+#lhm-local-workspace .local-header{
+  background:#edf5fbc9;border-bottom:1px solid #fff;backdrop-filter:blur(14px);
+  box-shadow:0 6px 24px #afc5d22c;position:relative;z-index:2;
+}
+#lhm-local-workspace .local-header .brand{color:#26445e;font-weight:850;letter-spacing:-.6px}
+#lhm-local-workspace .local-header .brand span{color:#128fd4}
+#lhm-local-workspace .local-header small,#lhm-local-workspace .local-main>p{color:#637b8f}
+#lhm-local-workspace .local-main{max-width:1050px}
+#lhm-local-workspace .local-main>h1{letter-spacing:-.8px;color:#263e56}
+#lhm-local-workspace .local-safe{background:#e6f7f0;color:#207452;border:1px solid #d7f2e6}
+#lhm-local-workspace .local-link,#lhm-local-workspace .pwa-install-button{
+  background:#e9f2fa;color:#27668f;border:1px solid #fff;box-shadow:4px 4px 10px #cedbe8,-4px -4px 10px #fff;
+  transition:transform .2s,box-shadow .2s;min-height:45px;border-radius:13px;
+}
+#lhm-local-workspace .local-link:hover,#lhm-local-workspace .pwa-install-button:hover{
+  transform:translateY(-2px);box-shadow:7px 7px 14px #bdcfdf,-6px -6px 12px #fff}
+#lhm-local-workspace .lhm-vault-panel{
+  background:linear-gradient(145deg,#f0f6fc,#e5eff8)!important;
+  border:1px solid #fff!important;box-shadow:var(--soft-raised)!important;
+  color:#26435d!important;border-radius:24px!important;padding:clamp(18px,3.3vw,32px)!important;
+  animation:lhm-soft-appear 680ms var(--soft-ease) 100ms both;
+}
+#lhm-local-workspace .lhm-vault-head{align-items:center!important}
+#lhm-local-workspace .lhm-vault-mark{display:grid;place-items:center;
+  height:53px;min-width:53px;border-radius:16px;background:#eaf4fc;
+  box-shadow:5px 6px 12px #c8d8e4,-5px -6px 12px #fff}
+#lhm-local-workspace .lhm-vault-panel h3{font-size:clamp(17px,2.4vw,23px);color:#223e58}
+#lhm-local-workspace .lhm-vault-panel h4{font-size:16px;color:#294762}
+#lhm-local-workspace .lhm-vault-panel p,#lhm-local-workspace .lhm-local-insights p{
+  color:#647b90;line-height:1.65;font-size:13px;
+}
+#lhm-local-workspace .lhm-vault-warning{color:#8c5e25!important;background:#fff1dd!important;
+  border:1px solid #f7dfb8;border-radius:13px!important}
+#lhm-local-workspace .lhm-vault-panel label{color:#365771;font-weight:680}
+#lhm-local-workspace .lhm-vault-panel input:not([type=checkbox]):not([type=file]),
+#lhm-local-workspace .lhm-vault-panel select{
+  background:#e9f2f9!important;border:1px solid #fff!important;color:#234763!important;
+  border-radius:12px;min-height:47px;box-shadow:var(--soft-inset);
+  transition:box-shadow .2s,outline-color .2s;
+}
+#lhm-local-workspace .lhm-vault-panel input:focus-visible,#lhm-local-workspace .lhm-vault-panel select:focus-visible{
+  outline:2px solid #229df0!important;outline-offset:2px;
+}
+#lhm-local-workspace .lhm-vault-panel input::placeholder{color:#7e97ab}
+#lhm-local-workspace .lhm-vault-panel .btn{
+  padding:11px 17px;background:#eaf2f9;color:#255574;border:1px solid #fff;
+  border-radius:12px;box-shadow:5px 5px 12px #cedae6,-5px -5px 12px #fff;
+  font-weight:730;transition:transform .22s var(--soft-ease),box-shadow .22s;
+}
+#lhm-local-workspace .lhm-vault-panel .btn.primary,#lhm-local-workspace .lhm-vault-panel button[type=submit]{
+  background:linear-gradient(110deg,#1cb9fa,#087bd9)!important;color:#fff!important;
+  border:0!important;box-shadow:0 10px 22px #199be64a!important;
+}
+#lhm-local-workspace .lhm-vault-panel .btn:hover:not(:disabled){transform:translateY(-2px);
+  box-shadow:6px 9px 17px #c1d1df,-6px -6px 12px #fff}
+#lhm-local-workspace .lhm-vault-panel .btn.primary:hover:not(:disabled),
+#lhm-local-workspace .lhm-vault-panel button[type=submit]:hover:not(:disabled){
+  box-shadow:0 14px 26px #159de869!important}
+#lhm-local-workspace .lhm-vault-panel .btn:active{transform:scale(.98)}
+#lhm-local-workspace #lhm-vault-status,#lhm-local-workspace #lhm-local-status{color:#12679c}
+#lhm-local-workspace .lhm-vault-ok{color:#157b59!important}
+#lhm-local-workspace .lhm-vault-footer{color:#64798a}
+#lhm-local-workspace .lhm-local-insights{
+  margin-top:24px;padding-top:24px;border-top:1px solid #d2dfea;
+  animation:lhm-soft-content 520ms var(--soft-ease) both;
+}
+#lhm-local-workspace .lhm-local-insights form{
+  background:#e8f2fb;border:1px solid #fff;box-shadow:inset 4px 4px 12px #d0deeb,inset -4px -4px 12px #fff;
+  border-radius:16px;padding:16px;
+}
+#lhm-local-workspace .lhm-local-insights .lhm-local-metrics{
+  border:1px solid #fff;background:#eaf3fb;box-shadow:5px 5px 14px #d0dfea,-5px -5px 14px #fff;
+  border-radius:14px;color:#1a5278;
+}
+#lhm-local-workspace .lhm-local-insights .lhm-local-metrics strong{color:#1377b6}
+#lhm-local-workspace .lhm-local-insights .lhm-local-trend{
+  background:#e9f2fa!important;border:1px solid #fff;
+  box-shadow:inset 5px 5px 10px #d0ddea,inset -5px -5px 10px #fff;
+}
+#lhm-local-workspace .lhm-local-insights .lhm-trend-bar{
+  background:linear-gradient(180deg,#27c5fb,#127dcb);
+  box-shadow:0 4px 9px #268ee647;transition:height .5s var(--soft-ease),filter .2s}
+#lhm-local-workspace .lhm-local-insights .lhm-trend-bar:hover{filter:brightness(1.13)}
+#lhm-local-workspace .lhm-local-insights .lhm-trend-day small{color:#56758d}
+#lhm-local-workspace .lhm-local-alerts{background:#fff4e8;border:1px solid #f8e0c2;
+  color:#855b2d;border-radius:14px}
+#lhm-local-workspace .lhm-local-alerts p{border-bottom-color:#ebd0ae}
+#lhm-local-workspace .lhm-local-report p,#lhm-local-workspace .lhm-vault-account{
+  border-bottom-color:#d2dfea!important}
+#lhm-local-workspace .lhm-vault-import{color:#2c678c!important;border-color:#fff!important;
+  background:#e9f2fa}
+#lhm-local-workspace .pwa-install-guide{background:#eaf3fb;color:#26445b;border-color:#fff;
+  box-shadow:14px 14px 35px #b3c4d3}
+#lhm-local-workspace .pwa-install-guide button{background:#1396dd;color:#fff}
+
+/* Quiet dashboard movement, not eye-catching bouncing on production charts. */
+#shell .kpi-card,#shell .fp-op,#shell .panel{transition:box-shadow .25s var(--soft-ease),border-color .25s var(--soft-ease)}
+@media(hover:hover) and (pointer:fine){
+ #shell .kpi-card:hover,#shell .fp-op:hover{box-shadow:0 13px 34px #00000038!important;border-color:#ff985c75}
+}
+
+/* Mobile inputs need 16px to avoid iOS zoom; avoid clipping shadow & touch hitboxes. */
+@media(max-width:900px){
+ #login.login-layout{grid-template-columns:1fr!important;min-height:100dvh}
+ #login .login-feature{display:none!important}
+ #login .login-panel{min-height:100dvh;padding:22px 16px max(28px,env(safe-area-inset-bottom))}
+ #login .login-box{width:min(100%,450px)}
+ #lhm-local-workspace .local-header{padding:16px}
+ #lhm-local-workspace .local-main{padding:22px 16px max(45px,env(safe-area-inset-bottom))}
+}
+@media(max-width:480px){
+ #login .login-box{padding:23px!important;border-radius:22px!important}
+ #login .login-panel::before{right:-17px;top:7%}
+ #login .login-panel::after{left:-20px;bottom:5%}
+ #lhm-local-workspace .lhm-vault-panel{padding:17px!important;border-radius:18px!important}
+ #lhm-local-workspace .lhm-vault-account{gap:10px}
+ #lhm-local-workspace .local-safe{font-size:11px}
+}
+@media(prefers-reduced-motion:reduce){
+ #login .login-feature::before,#login .login-feature::after,#login .login-panel::before,#login .login-panel::after,
+ #lhm-local-workspace::before,#lhm-local-workspace::after{animation:none!important}
+ #login .login-box,#login .hero-copy,#lhm-local-workspace .lhm-vault-panel,
+ #lhm-local-workspace .lhm-local-insights{animation:none!important}
+ #login .btn,#login .lhm-soft-local-link,#lhm-local-workspace .btn,
+ #lhm-local-workspace .lhm-trend-bar{transition:none!important}
+}
