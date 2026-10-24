@@ -36,7 +36,7 @@ class StaticPagesTests(unittest.TestCase):
             self.assertIn('id="pwa-login-portal"',local)
             self.assertIn('id="pwa-signout"',local)
             self.assertIn('href="/"',local)
-            self.assertIn('marketing.css',worker)
+            self.assertIn('marketing.css',(out/'sw.js').read_text(encoding='utf-8'))
             local_ui=(out/'static/device-studio.js').read_text(encoding='utf-8')
             self.assertIn('syncAccessGate',local_ui)
             self.assertIn('pwa-gated',local_ui)
