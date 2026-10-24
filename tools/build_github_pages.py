@@ -36,7 +36,7 @@ def build(output: Path) -> Path:
     pre_cache=[
         "/local/","/static/device-vault.js","/static/device-vault-ui.js",
         "/static/device-insights.js","/static/device-mcp.js","/static/device-vault.css",
-        "/static/device-insights.css","/static/device-local.css"
+        "/static/device-insights.css","/static/device-local.css","/static/soft-motion-ui.css"
     ]
     sw=sw.replace("const SHELL = [","const SHELL = [\n"+
       "".join(f"  '{name}',\n" for name in pre_cache),1)
@@ -60,6 +60,7 @@ def build(output: Path) -> Path:
 <link rel="stylesheet" href="/static/device-local.css">
 <link rel="stylesheet" href="/static/device-vault.css">
 <link rel="stylesheet" href="/static/device-insights.css">
+<link rel="stylesheet" href="/static/soft-motion-ui.css">
 <title>LHM Ads AI — Không gian cục bộ</title></head>
 <body id="lhm-local-workspace">
 <header class="local-header"><div class="local-inner">
