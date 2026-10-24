@@ -55,7 +55,7 @@ class StaticPagesTests(unittest.TestCase):
             worker=(out/'sw.js').read_text(encoding='utf-8')
             self.assertIn("'/local/'",worker)
             self.assertIn("caches.match('/local/')",worker)
-            self.assertIn("lhm-pwa-cloudflare-v6-20261024",worker)
+            self.assertIn("lhm-pwa-cloudflare-v7-20261024",worker)
             self.assertIn("url.pathname.startsWith('/api/')",worker)
             self.assertNotIn("'/studio/'",worker)
 
@@ -74,6 +74,8 @@ class StaticPagesTests(unittest.TestCase):
             self.assertIn('soft-motion-ui.js',studio)
             self.assertIn('device-studio.css',local)
             self.assertIn('device-studio.js',local)
+            self.assertIn('license-check.js',local)
+            self.assertIn('license-check-form',local)
             self.assertIn('data-view="dashboard"',local)
             self.assertIn('data-view="accounts"',local)
             self.assertIn('data-view="reports"',local)
