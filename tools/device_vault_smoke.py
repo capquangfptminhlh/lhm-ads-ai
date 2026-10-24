@@ -71,6 +71,34 @@ def main():
                 entries=page.evaluate('window.LHMDeviceVault.listAccounts()')
                 assert len(entries)==1 and entries[0]['accountId']=='123-456-7890'
                 assert marker not in json.dumps(entries)
+                assert page.locator('#lhm-local-import').count()==1
+                csv='date,spend,clicks,impressions,currency\\n2026-10-23,210000,18,900,VND\\n2026-10-22,120000,10,400,VND'
+                report=page.evaluate("csv => window.LHMOfflineCSV.parseCSV(csv)",csv)
+                assert len(report)==2 and report[0]['spend']==210000
+                invalid=page.evaluate("""() => {
+                    try{window.LHMOfflineCSV.parseCSV('date,spend,clicks,impressions,currency\\n2026-02-30,20,1,2,VND');
+                        return false;}catch(e){return true;}
+                }""")
+                assert invalid
+                page.evaluate("""async rows => {
+                    const id=window.LHMDeviceVault.listAccounts()[0].localId;
+                    await window.LHMDeviceVault.importDailyReport(id,rows);
+                    await window.LHMDeviceVault.setDailyBudget(id,200000,true);
+                    window.dispatchEvent(new Event('lhm:vault-change'));
+                }""",report)
+                assert '210.000' in page.locator('#lhm-local-alert-list').inner_text()
+                assert 'CSV thủ công' in page.locator('#lhm-local-alert-list').inner_text()
+                assert len(page.evaluate('window.LHMDeviceVault.listDailyReports()'))==2
+                assert len(page.evaluate('window.LHMDeviceVault.listLocalAlerts()'))==1
+                saved_again=page.evaluate("""async () => {
+                    const req=indexedDB.open('lhm-ads-device-only-v1');
+                    const db=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=reject;});
+                    const tx=db.transaction('vaults','readonly');
+                    const get=tx.objectStore('vaults').get('default');
+                    const item=await new Promise((resolve,reject)=>{get.onsuccess=()=>resolve(get.result);get.onerror=reject;});
+                    db.close();return JSON.stringify(item);
+                }""")
+                assert '210000' not in saved_again and '200000' not in saved_again
                 encrypted=page.evaluate("window.LHMDeviceVault.encryptedBackup()")
                 assert marker not in encrypted
                 page.evaluate("window.LHMDeviceVault.lock()")
@@ -86,11 +114,13 @@ def main():
                 page.click('#lhm-vault-access-action')
                 page.locator('#lhm-vault-unlocked:not(.hidden)').wait_for(timeout=15000)
                 assert len(page.evaluate('window.LHMDeviceVault.listAccounts()'))==1
+                assert len(page.evaluate('window.LHMDeviceVault.listDailyReports()'))==2
+                assert len(page.evaluate('window.LHMDeviceVault.listLocalAlerts()'))==1
                 page.evaluate('window.LHMDeviceVault.destroy()')
                 assert page.evaluate('window.LHMDeviceVault.exists()') is False
                 assert not any('/api/' in u and method!='GET' for method,u in api_writes)
                 browser.close()
-                print('PASS: real Chromium 390px PWA vault encrypted at rest; lock/reload/delete and no Ads API writes')
+                print('PASS: real Chromium 390px PWA encrypted vault, CSV parsing/reporting, local budget alerts, lock/reload/delete and no Ads API writes')
         finally:
             server.shutdown()
             server.server_close()
