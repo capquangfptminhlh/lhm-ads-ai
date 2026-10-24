@@ -17,6 +17,8 @@ import bootstrap_access
 DB_UUID="12345678-1234-1234-1234-123456789abc"
 AUD="a"*64
 OWNER="owner@example.invalid"
+APP_ID="12345678-1234-1234-1234-123456789abc"
+POLICY_ID="87654321-4321-4321-4321-cba987654321"
 
 
 class CloudflareBootstrapTests(unittest.TestCase):
@@ -73,12 +75,18 @@ class CloudflareBootstrapTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     deploy_commerce.find_database_id()
 
-    def fake_api(self,existing=None):
+    def fake_api(self,existing=None,policy=None):
         def handler(method,path,body=None):
             if path=="/access/organizations" and method=="GET":
                 return {"auth_domain":"example.cloudflareaccess.com"}
             if path=="/access/apps?per_page=100" and method=="GET":
                 return [] if existing is None else [existing]
+            if path==f"/access/apps/{APP_ID}/policies?per_page=100" and method=="GET":
+                return [{"id":POLICY_ID}]
+            if path==f"/access/apps/{APP_ID}/policies/{POLICY_ID}" and method=="GET":
+                return policy if policy is not None else {
+                    "id":POLICY_ID,"decision":"allow","include":[{"email":{"email":OWNER}}]
+                }
             if path=="/access/apps" and method=="POST":
                 assert body is not None
                 self.assertEqual(body["type"],"self_hosted")
@@ -87,7 +95,7 @@ class CloudflareBootstrapTests(unittest.TestCase):
                     bootstrap_access.TARGETS)
                 self.assertEqual(body["policies"][0]["include"],
                                  [{"email":{"email":OWNER}}])
-                return {**body,"aud":AUD}
+                return {**body,"aud":AUD,"id":APP_ID}
             raise AssertionError((method,path))
         return handler
 
@@ -104,11 +112,11 @@ class CloudflareBootstrapTests(unittest.TestCase):
                 self.assertEqual(result["aud"],AUD)
                 self.assertEqual(result["team_domain"],"example.cloudflareaccess.com")
                 self.assertEqual(result["email"],OWNER)
-                self.assertEqual(len(api.mock_calls),3)
+                self.assertEqual(len(api.mock_calls),5)
 
     def test_existing_app_does_not_get_replaced(self):
         existing={
-            "name":bootstrap_access.NAME,"type":"self_hosted",
+            "name":bootstrap_access.NAME,"type":"self_hosted","id":APP_ID,
             "aud":AUD,"destinations":[{"uri":v,"type":"public"} for v in bootstrap_access.TARGETS]
         }
         with patch.dict(os.environ,{"LHM_ADMIN_EMAIL":OWNER}):
@@ -123,6 +131,28 @@ class CloudflareBootstrapTests(unittest.TestCase):
             with patch.object(bootstrap_access,"api",side_effect=self.fake_api(existing)):
                 with self.assertRaises(bootstrap_access.BootstrapError):
                     bootstrap_access.bootstrap(create=True)
+
+    def test_broad_existing_app_overlaps_admin_and_is_blocked(self):
+        for uri in ("ads.lhmcrm.com/*","ads.lhmcrm.com/admin*",
+                    "ads.lhmcrm.com/api/admin/*"):
+            existing={"name":"Other application","domain":uri,
+                      "destinations":[{"uri":uri,"type":"public"}]}
+            with patch.dict(os.environ,{"LHM_ADMIN_EMAIL":OWNER}):
+                with patch.object(bootstrap_access,"api",side_effect=self.fake_api(existing)):
+                    with self.assertRaises(bootstrap_access.BootstrapError):
+                        bootstrap_access.bootstrap(create=True)
+
+    def test_owner_policy_is_verified_from_cloudflare(self):
+        with patch.dict(os.environ,{"LHM_ADMIN_EMAIL":OWNER}):
+            for policy in (
+                {"decision":"allow","include":[{"everyone":{}}]},
+                {"decision":"bypass","include":[{"email":{"email":OWNER}}]},
+                {"decision":"allow","include":[{"email":{"email":"attacker@example.invalid"}}]},
+                {"decision":"allow","include":[{"email":{"email":OWNER}}],"exclude":[{"email":{"email":OWNER}}]},
+            ):
+                with patch.object(bootstrap_access,"api",side_effect=self.fake_api(policy=policy)):
+                    with self.assertRaises(bootstrap_access.BootstrapError):
+                        bootstrap_access.bootstrap(create=True)
 
     def test_missing_owner_email_is_rejected(self):
         with patch.dict(os.environ,{"LHM_ADMIN_EMAIL":""}):
