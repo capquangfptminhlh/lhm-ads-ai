@@ -164,7 +164,11 @@ The workflow then:
    or a repository policy that authorizes this exact push. If a protected
    branch rejects the commit, the workflow fails safely.
 4. Checks or creates the Access app (only with explicit opt-in).
-5. Runs remote D1 migrations and deploys the Worker using the verified D1.
+5. Verifies **actual Cloudflare Access policy** by reading the application's
+   policy list and policy detail. Exactly one Allow policy for the configured
+   owner email is accepted; wildcard accounts, Bypass, overlapping apps, and
+   extra policies block deployment instead of silently widening admin access.
+   Runs remote D1 migrations and deploys the Worker using the verified D1.
 6. Writes `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`, and `ADMIN_EMAIL`
    as Cloudflare Worker secrets. It always uses a Wrangler configuration
    containing the matching D1 binding during these secret writes.
