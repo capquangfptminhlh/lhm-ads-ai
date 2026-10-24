@@ -62,6 +62,8 @@ def main():
                 # Cloudflare /local/ is a FULL independent Studio dashboard,
                 # not a small vault card or a login requiring desktop/backend.
                 pwa=browser.new_page(viewport={'width':1440,'height':900})
+                pwa_errors=[]
+                pwa.on('pageerror',lambda error:pwa_errors.append(str(error)))
                 pwa.goto(origin+'/local/',wait_until='domcontentloaded')
                 pwa.locator('.pwa-sidebar').wait_for()
                 assert pwa.locator('.pwa-page.active[data-view="dashboard"]').count()==1
@@ -69,11 +71,14 @@ def main():
                 assert pwa.locator('link[href="/static/device-studio.css"]').count()==1
                 check_no_horizontal_overflow(pwa)
                 pwa.screenshot(path=str(OUTPUT/'lhm-independent-studio-desktop.png'),full_page=True)
+                assert not pwa_errors,pwa_errors
                 pwa.locator('.pwa-nav [data-go="accounts"]').click()
                 pwa.locator('#device-only-vault').wait_for()
                 pwa.close()
 
                 mobile=browser.new_page(viewport={'width':390,'height':844},device_scale_factor=1)
+                mobile_errors=[]
+                mobile.on('pageerror',lambda error:mobile_errors.append(str(error)))
                 mobile.goto(origin+'/local/',wait_until='domcontentloaded')
                 mobile.locator('.pwa-page.active[data-view="dashboard"]').wait_for()
                 mobile.locator('.pwa-mobile-dock [data-go="accounts"]').wait_for()
@@ -94,6 +99,7 @@ def main():
                 mobile.locator('.pwa-mobile-dock [data-go="dashboard"]').click()
                 assert mobile.locator('#pwa-overview-accounts').inner_text()=='1'
                 mobile.locator('#pwa-account-preview').get_by_text('Tài khoản minh họa').wait_for(timeout=5000)
+                assert not mobile_errors,mobile_errors
                 check_no_horizontal_overflow(mobile)
                 mobile.screenshot(path=str(OUTPUT/'lhm-soft-pwa-unlocked-mobile.png'),full_page=True)
                 mobile.locator('.pwa-mobile-dock [data-go="accounts"]').click()
@@ -101,6 +107,10 @@ def main():
                 mobile.locator('.pwa-mobile-dock [data-go="dashboard"]').click()
                 assert mobile.locator('#pwa-overview-accounts').inner_text()=='0'
                 assert mobile.locator('#pwa-account-preview').get_by_text('Tài khoản minh họa').count()==0
+                mobile.locator('.pwa-mobile-dock [data-go="reports"]').click()
+                assert 'Kho đang khóa' in mobile.locator('#pwa-report-summary').inner_text()
+                mobile.locator('.pwa-mobile-dock [data-go="dashboard"]').click()
+                assert not mobile_errors,mobile_errors
                 mobile.locator('#pwa-menu-toggle').click()
                 assert mobile.locator('#pwa-sidebar').evaluate("el=>el.classList.contains('open')")
                 mobile.locator('#pwa-overlay').click(position={'x':375,'y':400})
