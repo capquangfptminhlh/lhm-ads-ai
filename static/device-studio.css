@@ -272,3 +272,16 @@ body.pwa-gated{background:#eaf1f8!important;color:#233a53!important;min-height:1
  .pwa-access-layout{padding:0 15px}.pwa-access-feature h1{font-size:31px}
  .pwa-access-panel{border-radius:19px;padding:22px}.pwa-access-panel-head h2{font-size:21px}}
 @media(prefers-reduced-motion:reduce){.pwa-access-gate::before,.pwa-access-gate::after{animation:none!important}}
+
+
+/* Public marketing and local-auth entry share branding, never share private app state. */
+[hidden]{display:none!important}
+.pwa-gate{min-height:100dvh;padding:24px;background:radial-gradient(circle at 20% 12%,#30241e,#101115 47%);}
+.pwa-gate-top{max-width:1150px;margin:auto;display:flex;justify-content:space-between;align-items:center}
+.pwa-gate-card{max-width:650px;margin:clamp(25px,7vh,85px) auto 60px;border:1px solid #39363a;background:#191b21;
+ border-radius:25px;padding:clamp(18px,4vw,38px);box-shadow:0 24px 65px #0006}
+.pwa-gate-card h1{font-size:clamp(26px,3.5vw,38px);line-height:1.2;letter-spacing:-1px;margin:12px 0}
+.pwa-gate-card>p{margin-bottom:22px}
+.pwa-gate-card #login .login-box{width:100%;max-width:100%}
+.pwa-gate-card #device-only-vault .lhm-vault-warning{margin:15px 0}
+@media(max-width:540px){.pwa-gate{padding:14px}.pwa-gate-top .pwa-brand{font-size:16px}.pwa-gate-top .pwa-btn{font-size:11px;padding:8px}}
