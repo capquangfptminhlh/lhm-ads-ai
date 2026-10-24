@@ -1,19 +1,20 @@
-"""Parse browser-side script embedded in the Admin page using the Node parser."""
+"""Validate the public Admin UI uses CSP-compliant external JS only."""
 from pathlib import Path
 import subprocess
-import tempfile
 
-ROOT = Path(__file__).resolve().parents[1]
-html = (ROOT / "static" / "admin.html").read_text(encoding="utf-8")
-start = html.find("<script>")
-end = html.find("</script>", start)
-if start < 0 or end < 0 or html.find("<script>", end + 9) != -1:
-    raise SystemExit("Expected one inline Admin script")
-script = html[start + len("<script>"):end]
+ROOT=Path(__file__).resolve().parents[1]
+html=(ROOT/"static/admin.html").read_text(encoding="utf-8")
+js=ROOT/"static/admin.js"
+if "<script>" in html or "<script " not in html:
+    raise SystemExit("Admin inline scripting is blocked by CSP")
+if '<script src="/static/admin.js" defer></script>' not in html:
+    raise SystemExit("Admin external JavaScript not loaded")
+if '<link rel="stylesheet" href="/static/admin-refresh.css">' not in html:
+    raise SystemExit("Admin design stylesheet missing")
+if not js.is_file():
+    raise SystemExit("Admin script file missing")
+script=js.read_text(encoding="utf-8")
 if "/api/admin/" not in script:
-    raise SystemExit("Admin UI is not connected to its backend")
-with tempfile.TemporaryDirectory() as temp:
-    js = Path(temp) / "admin-inline.js"
-    js.write_text(script, encoding="utf-8")
-    subprocess.run(["node", "--check", str(js)], check=True)
-print("Admin inline JavaScript syntax PASS")
+    raise SystemExit("Admin UI does not call the control-plane backend")
+subprocess.run(["node","--check",str(js)],check=True)
+print("Admin CSP-safe JavaScript PASS")
