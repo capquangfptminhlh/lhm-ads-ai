@@ -72,11 +72,11 @@ def main():
                 assert len(entries)==1 and entries[0]['accountId']=='123-456-7890'
                 assert marker not in json.dumps(entries)
                 assert page.locator('#lhm-local-import').count()==1
-                csv='date,spend,clicks,impressions,currency\\n2026-10-23,210000,18,900,VND\\n2026-10-22,120000,10,400,VND'
+                csv='date,spend,clicks,impressions,currency\n2026-10-23,210000,18,900,VND\n2026-10-22,120000,10,400,VND'
                 report=page.evaluate("csv => window.LHMOfflineCSV.parseCSV(csv)",csv)
                 assert len(report)==2 and report[0]['spend']==210000
                 invalid=page.evaluate("""() => {
-                    try{window.LHMOfflineCSV.parseCSV('date,spend,clicks,impressions,currency\\n2026-02-30,20,1,2,VND');
+                    try{window.LHMOfflineCSV.parseCSV('date,spend,clicks,impressions,currency\n2026-02-30,20,1,2,VND');
                         return false;}catch(e){return true;}
                 }""")
                 assert invalid
