@@ -71,6 +71,7 @@ def main():
                 check_no_horizontal_overflow(site)
                 site.screenshot(path=str(OUTPUT/'lhm-public-marketing-desktop.png'),full_page=True)
                 site.locator('.mk-nav-login').click()
+                site.wait_for_url('**/local/', timeout=10000)
                 assert site.url.endswith('/local/')
                 site.locator('#pwa-access-gate').wait_for()
                 site.locator('#lhm-vault-password').wait_for()
