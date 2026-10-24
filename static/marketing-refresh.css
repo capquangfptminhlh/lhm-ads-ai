@@ -1,0 +1,81 @@
+/* LHM Ads AI · light blue visual system, built for real users and responsive navigation. */
+:root{color-scheme:light;color:#243a54;background:#f5f8fd;--brand:#247bd4;--brand-dark:#125ba8;--ink:#223953;--muted:#5f7894;--line:#dce6f2;--surface:#fff}
+body{background:#f5f8fd;color:#223953}
+a:focus-visible,summary:focus-visible{outline:3px solid #237fd8;outline-offset:3px}
+.mk-header{background:#ffffffed;border-bottom:1px solid #e1e8f2;box-shadow:0 4px 25px #1b4b8910}
+.mk-nav-links{color:#60788f}.mk-nav-links a:hover{color:#176fc6}
+.mk-brand{color:#27405c}.mk-brand b{color:#2580d5}.mk-brand small{color:#7490a9}
+.mk-symbol{background:linear-gradient(135deg,#67bcff,#2677d4);box-shadow:0 9px 24px #378eda48}
+.mk-btn{border-radius:13px}
+.mk-btn-primary{background:linear-gradient(125deg,#42a6fa,#206dcb);border-color:#5fb0ed;color:#fff;box-shadow:0 10px 27px #2e86d441}
+.mk-btn-primary:hover{box-shadow:0 13px 31px #247ad458}
+.mk-btn-outline{background:#f0f6fe;border:1px solid #d3e3f4;color:#236baf}
+.mk-btn-outline:hover{background:#e1f0ff}
+.mk-btn-glass{background:#fff;border:1px solid #d8e4f0;color:#295c89}
+.mk-btn-glass:hover{background:#eef6ff}
+.mk-hero{border-bottom:1px solid #dce8f6;background:radial-gradient(ellipse at 85% 30%,#cde7fc,transparent 40%),linear-gradient(137deg,#f9fcff,#eaf3fc 85%)}
+.mk-glow-one{background:#95cbf23b}.mk-glow-two{background:#e3ecff55}
+.mk-eyebrow{color:#2474b9;border-color:#bbd9f3;background:#e9f4ff}
+.mk-live-dot{background:#298add;box-shadow:0 0 0 5px #298add1d}
+.mk-hero h1{color:#243b57;letter-spacing:-2.2px}
+.mk-hero h1 em,.mk-section h2 em,.mk-cta h2 em{color:#237fdb}
+.mk-hero h1 span{color:#243b57}
+.mk-hero-copy>p,.mk-section-head p,.mk-security p{color:#627d96}
+.mk-trust{color:#557b9f;font-weight:620}
+.mk-preview-wrap{transform:none;animation:mk-reveal-light .6s cubic-bezier(.2,.8,.2,1) both}
+@keyframes mk-reveal-light{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+.mk-preview{border-color:#d9e3f0;background:#fff;box-shadow:0 28px 75px #315e8a2b;min-height:395px}
+.mk-preview-sidebar{background:#eaf3fb;border-color:#dce8f4}
+.mk-preview-brand{color:#247acc}.mk-preview-nav{color:#60809e}
+.mk-preview-nav.current{background:#dcecff;color:#256bb7;box-shadow:inset 3px 0 0 #2681dc}
+.mk-preview-device{color:#18764c;background:#d9f3e7}
+.mk-preview-main{background:#fff}
+.mk-preview-top{color:#798aa0}.mk-preview-top b{color:#26405b}
+.mk-preview-title{color:#26405b}.mk-preview-title small{color:#728ba3}
+.mk-preview-stats div,.mk-preview-graph{background:#f1f6fc;border:1px solid #e1eaf4}
+.mk-preview-stats i{color:#348fe2}.mk-preview-stats small,.mk-preview-graph>small{color:#69849f}
+.mk-preview-stats strong{color:#243c56}
+.mk-preview-bars span{background:linear-gradient(#65b8fa,#267dd9)}
+.mk-preview-note{color:#7d95aa}
+.mk-preview-local{color:#197b55;background:#dcf5e8;border-color:#b7e8d0}
+.mk-strip{background:#fff;border-bottom:1px solid #e2eaf3}
+.mk-strip-inner span,.mk-strip-inner small{color:#71889d}
+.mk-strip-inner strong{color:#4b7095}
+.mk-section{background:#f7fafe}
+.mk-section-head h2,.mk-security h2{color:#263f59}
+.mk-card{background:#fff;border:1px solid #dfebf4;box-shadow:0 12px 30px #396a9210}
+.mk-card:hover{border-color:#add4f6;box-shadow:0 17px 42px #3479b627}
+.mk-card-icon{background:#e6f3ff;color:#247dd8}
+.mk-status{color:#21835b}.mk-status.mk-soon{color:#ae732c}
+.mk-card h3,.mk-steps h3{color:#2c425a}.mk-card p,.mk-steps p{color:#637f97}
+.mk-process{background:#eef5fd;border-block:1px solid #dae7f5}
+.mk-steps article{border-color:#acd6f5}.mk-steps b{color:#247cce}
+.mk-security-card{background:linear-gradient(145deg,#fff,#eaf3fc);border-color:#d6e8f8;box-shadow:0 17px 40px #2c679629}
+.mk-lock{color:#2386d8}.mk-security-card strong{color:#2c445d}
+.mk-security-card span{color:#5c7790;border-color:#d9e6f2}
+.mk-security .mk-small{color:#6c859e}
+.mk-faq{background:#fff;border-top-color:#e1eaf4}
+.mk-faq details{border-color:#e0e9f3}.mk-faq summary{color:#274059}
+.mk-faq summary:after{color:#2284dd}.mk-faq details p{color:#637f95}
+.mk-cta{background:radial-gradient(ellipse at 55% 100%,#cdeaff,transparent 65%),#edf6ff}
+.mk-cta h2{color:#273c55}.mk-cta p{color:#68809a}
+.mk-footer{background:#fff;border-top-color:#e0e8f3}
+.mk-footer .wrap,.mk-footer span{color:#2b4864}
+.mk-footer span small,.mk-footer .mk-wrap>div{color:#6a8299}
+.mk-pricing{background:#edf6ff;border-color:#deebf7}
+.mk-price-card,.mk-price-aside{background:#fff;border-color:#d8e7f4;box-shadow:0 15px 40px #2b6d9d17}
+.mk-price-card{border-color:#94c7f1}
+.mk-price-card h3,.mk-price-aside h3{color:#263f58}
+.mk-price-card p,.mk-price-aside p{color:#627d96}
+.mk-price strong{color:#2378cf}.mk-price span,.mk-price-card>small{color:#67829c}
+.mk-price-card ul{color:#35546e}.mk-price-card li::marker{color:#2785d8}
+.mk-price-aside{background:linear-gradient(140deg,#fff,#eef7ff)}
+.mk-tag{color:#267ed1}
+@media(max-width:560px){
+ .mk-hero-grid{gap:31px;padding-top:38px}
+ .mk-hero h1{letter-spacing:-1.1px}
+ .mk-actions{gap:9px}.mk-actions a{min-width:0;white-space:normal;text-align:center}
+ .mk-preview{box-shadow:0 15px 43px #315e8a25}
+ .mk-price strong{font-size:35px}
+}
+@media(prefers-reduced-motion:reduce){.mk-preview-wrap{animation:none!important}}
