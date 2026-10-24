@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0c0e">
+<title>LHM Ads AI — Advertising Command Center PWA</title>
+<meta name="description" content="LHM Ads AI Studio trên trình duyệt — độc lập, bảo vệ dữ liệu quảng cáo trên thiết bị.">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LHM Ads AI">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="/static/fonts.css">
+<link rel="stylesheet" href="/static/device-vault.css">
+<link rel="stylesheet" href="/static/device-insights.css">
+<link rel="stylesheet" href="/static/device-studio.css">
+</head>
+<body id="lhm-local-workspace" class="lhm-pwa">
+<div class="pwa-shell">
+  <div class="pwa-overlay" id="pwa-overlay" aria-hidden="true"></div>
+  <aside class="pwa-sidebar" id="pwa-sidebar" aria-label="Điều hướng ứng dụng">
+    <a class="pwa-brand" href="/local/" aria-label="LHM Ads AI — Tổng quan">
+      <span class="pwa-logo" aria-hidden="true">✦</span>
+      <span>LHM <b>ADS AI</b><small>COMMAND CENTER</small></span>
+    </a>
+    <button type="button" class="pwa-rail-action" data-go="accounts">
+      <span aria-hidden="true">＋</span> Quản lý tài khoản Ads
+    </button>
+    <div class="pwa-nav-caption">WORKSPACE</div>
+    <nav class="pwa-nav" aria-label="Tính năng">
+      <button type="button" class="active" data-go="dashboard" aria-current="page"><span aria-hidden="true">▦</span> Tổng quan</button>
+      <button type="button" data-go="accounts"><span aria-hidden="true">▤</span> Tài khoản Ads</button>
+      <button type="button" data-go="reports"><span aria-hidden="true">▥</span> Báo cáo</button>
+      <button type="button" data-go="alerts"><span aria-hidden="true">♧</span> Cảnh báo <small id="pwa-alert-count" class="pwa-limited">0</small></button>
+      <button type="button" data-go="assistant"><span aria-hidden="true">✧</span> AI Center <small class="pwa-limited">Chưa kết nối</small></button>
+      <button type="button" data-go="settings"><span aria-hidden="true">⚙</span> Cài đặt</button>
+    </nav>
+    <div class="pwa-sidebar-bottom">
+      <span class="pwa-status-dot" aria-hidden="true"></span>
+      <div><b>Device-only workspace</b><small>Không yêu cầu mở máy tính</small></div>
+    </div>
+  </aside>
+  <div class="pwa-main">
+    <header class="pwa-topbar">
+      <div class="pwa-top-left">
+        <button type="button" id="pwa-menu-toggle" class="pwa-menu-toggle" aria-label="Mở hoặc đóng menu" aria-controls="pwa-sidebar" aria-expanded="false">☰</button>
+        <div class="pwa-crumb">Workspace <span class="pwa-divider-mark">/</span> <strong id="pwa-page-title">Tổng quan</strong></div>
+      </div>
+      <div class="pwa-top-right">
+        <span class="pwa-offline-tag">🔒 <span id="pwa-session-label">KHO ĐANG KHÓA</span></span>
+        <button id="pwa-install-button" class="pwa-install-button" type="button" aria-controls="pwa-install-guide">＋ Cài ứng dụng</button>
+        <span class="pwa-avatar" aria-label="LHM Ads AI">LH</span>
+      </div>
+    </header>
+    <main class="pwa-content">
+      <section class="pwa-page active" data-view="dashboard" aria-labelledby="pwa-dashboard-heading">
+        <div class="pwa-heading">
+          <div><span class="pwa-eyebrow">OVERVIEW · DEVICE-ONLY</span>
+            <h1 id="pwa-dashboard-heading">Tổng quan quảng cáo</h1>
+            <p id="pwa-summary-status">Dữ liệu được mã hóa và chỉ lưu trên thiết bị.</p></div>
+          <button class="pwa-btn primary" type="button" data-go="accounts">＋ Quản lý tài khoản</button>
+        </div>
+        <div class="pwa-notice"><span aria-hidden="true">✳</span>
+          <div><strong>Studio PWA độc lập</strong> — giao diện đồng bộ với bản PC, không cần mở Windows.
+            Các chỉ số được nhập bằng CSV, chưa phải báo cáo trực tiếp từ API quảng cáo.</div>
+        </div>
+        <div class="pwa-kpis">
+          <article class="pwa-card pwa-kpi"><span class="pwa-kpi-icon" aria-hidden="true">▤</span>
+            <span class="pwa-kpi-name">Tài khoản đã lưu</span><strong class="pwa-kpi-value" id="pwa-overview-accounts">0</strong>
+            <small class="pwa-kpi-note">Kho mã hóa, chưa đồng nghĩa kết nối API</small></article>
+          <article class="pwa-card pwa-kpi"><span class="pwa-kpi-icon" aria-hidden="true">▥</span>
+            <span class="pwa-kpi-name">Ngày báo cáo CSV</span><strong class="pwa-kpi-value" id="pwa-overview-days">0</strong>
+            <small class="pwa-kpi-note">Dữ liệu thủ công trên thiết bị</small></article>
+          <article class="pwa-card pwa-kpi"><span class="pwa-kpi-icon" aria-hidden="true">♧</span>
+            <span class="pwa-kpi-name">Cảnh báo ngân sách</span><strong class="pwa-kpi-value" id="pwa-overview-alerts">0</strong>
+            <small class="pwa-kpi-note">Tính từ CSV đã nhập</small></article>
+          <article class="pwa-card pwa-kpi"><span class="pwa-kpi-icon" aria-hidden="true">◇</span>
+            <span class="pwa-kpi-name">Kho dữ liệu</span><strong class="pwa-kpi-value" id="pwa-overview-security">Đã khóa</strong>
+            <small class="pwa-kpi-note">AES-GCM trên trình duyệt</small></article>
+        </div>
+        <div class="pwa-dashboard-grid">
+          <article class="pwa-card">
+            <div class="pwa-chart-head"><h2>Chi tiêu theo ngày</h2>
+              <button class="pwa-btn" type="button" data-go="reports">Xem báo cáo →</button></div>
+            <p class="pwa-muted">7 ngày CSV gần nhất của tài khoản được chọn ở mục Báo cáo.</p>
+            <div class="pwa-chart" id="pwa-spend-chart" role="img" aria-label="Biểu đồ chi tiêu CSV"></div>
+          </article>
+          <article class="pwa-card"><div class="pwa-chart-head"><h2>Tài khoản gần đây</h2>
+            <button class="pwa-btn" type="button" data-go="accounts">Mở kho →</button></div>
+            <div id="pwa-account-preview"></div>
+          </article>
+        </div>
+      </section>
+      <section class="pwa-page" data-view="accounts" aria-labelledby="pwa-account-heading" hidden>
+        <div class="pwa-heading"><div><span class="pwa-eyebrow">SECURE DEVICE VAULT</span>
+          <h1 id="pwa-account-heading">Tài khoản Ads</h1>
+          <p id="pwa-account-caption">Mở khóa kho để quản lý tài khoản và nhập báo cáo.</p></div></div>
+        <div id="login"><div class="login-box"></div></div>
+      </section>
+      <section class="pwa-page" data-view="reports" aria-labelledby="pwa-reports-heading" hidden>
+        <div class="pwa-heading"><div><span class="pwa-eyebrow">LOCAL ANALYTICS</span>
+          <h1 id="pwa-reports-heading">Báo cáo quảng cáo</h1>
+          <p>Dữ liệu CSV đã nhập, không tự đồng bộ từ các nền tảng quảng cáo.</p></div>
+          <button class="pwa-btn primary" type="button" data-go="accounts">Nhập CSV / đặt ngân sách →</button>
+        </div>
+        <div class="pwa-notice" id="pwa-report-locked"><span>🔒</span>
+          <span>Để xem số liệu, hãy vào Tài khoản Ads và mở khóa kho trên thiết bị.</span></div>
+        <article class="pwa-card"><div class="pwa-chart-head">
+          <h2>Chi tiết theo tài khoản</h2>
+          <select id="pwa-report-selector" class="pwa-select" aria-label="Chọn tài khoản xem báo cáo" disabled></select>
+        </div><p id="pwa-report-summary" class="pwa-muted">Chưa có báo cáo.</p>
+        <div class="pwa-callout">Đây là báo cáo nhập thủ công; không có số chuyển đổi/ROAS nếu file CSV không chứa dữ liệu đó.</div>
+        <div id="pwa-report-rows" class="pwa-report-list"></div></article>
+      </section>
+      <section class="pwa-page" data-view="alerts" aria-labelledby="pwa-alerts-heading" hidden>
+        <div class="pwa-heading"><div><span class="pwa-eyebrow">LOCAL BUDGET GUARD</span>
+          <h1 id="pwa-alerts-heading">Cảnh báo ngân sách</h1>
+          <p>Đối chiếu chi tiêu CSV với ngưỡng lưu mã hóa trên thiết bị.</p></div>
+          <button class="pwa-btn primary" type="button" data-go="accounts">Thiết lập ngưỡng →</button>
+        </div>
+        <div class="pwa-notice" id="pwa-alert-locked"><span>🔒</span>
+          <span>Kho đang khóa. Mở khóa ở mục Tài khoản Ads để xem cảnh báo.</span></div>
+        <article class="pwa-card"><h2>Các ngày vượt ngưỡng</h2>
+          <div id="pwa-alert-items"></div>
+          <p class="pwa-muted">PWA không thể gửi cảnh báo thời gian thực khi ứng dụng đóng hoặc trình duyệt bị tạm dừng.</p>
+        </article>
+      </section>
+      <section class="pwa-page" data-view="assistant" aria-labelledby="pwa-ai-heading" hidden>
+        <div class="pwa-heading"><div><span class="pwa-eyebrow">AI CENTER</span>
+          <h1 id="pwa-ai-heading">Trung tâm AI</h1>
+          <p>Giao diện thống nhất với bản PC; tính năng AI từ xa chưa được kết nối.</p></div></div>
+        <article class="pwa-card"><h2>Trạng thái tích hợp</h2>
+          <p>Phiên PWA hiện tại không có kết nối OpenRouter, Google Ads API, Meta Ads API hoặc TikTok Ads API.</p>
+          <div class="pwa-callout">Không có tài khoản, token hay dữ liệu khách hàng được gửi tới một AI server. Các chức năng tự chỉnh giá thầu, thay đổi chiến dịch và theo dõi 24/7 chưa bật.</div>
+          <button class="pwa-btn" type="button" data-go="reports">Xem dữ liệu CSV đang có →</button>
+        </article>
+      </section>
+      <section class="pwa-page" data-view="settings" aria-labelledby="pwa-settings-heading" hidden>
+        <div class="pwa-heading"><div><span class="pwa-eyebrow">APP SETTINGS</span>
+          <h1 id="pwa-settings-heading">Cài đặt & bảo mật</h1>
+          <p>PWA độc lập trên trình duyệt, không cần chạy máy PC.</p></div></div>
+        <div class="pwa-dashboard-grid">
+          <article class="pwa-card"><h2>Lưu trữ dữ liệu</h2>
+            <p class="pwa-muted">Tài khoản và báo cáo được mã hóa bằng mật khẩu kho trong IndexedDB của trình duyệt hiện tại.
+              Xóa dữ liệu trình duyệt có thể xóa kho. Hãy xuất bản sao lưu mã hóa định kỳ.</p>
+            <p id="pwa-offline-total" class="pwa-muted">0 tài khoản · 0 ngày CSV</p>
+            <button class="pwa-btn primary" type="button" data-go="accounts">Sao lưu / khôi phục / khóa kho →</button>
+          </article>
+          <article class="pwa-card"><h2>Ứng dụng cài đặt</h2>
+            <p class="pwa-muted">iPhone: Safari → Chia sẻ → Thêm vào Màn hình chính. Android: Chrome → Cài ứng dụng.</p>
+            <p>Không cần VPS hay máy Windows đang mở. Nếu thiết bị ngoại tuyến, chỉ các dữ liệu đã có trên máy mới sử dụng được.</p>
+            <p class="pwa-muted">Phiên này không thay thế bản Windows EXE; mỗi bản có dữ liệu cục bộ riêng.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+<nav class="pwa-mobile-dock" aria-label="Điều hướng nhanh trên điện thoại">
+  <button type="button" class="active" data-go="dashboard" aria-current="page"><span aria-hidden="true">▦</span> Tổng quan</button>
+  <button type="button" data-go="accounts"><span aria-hidden="true">▤</span> Tài khoản</button>
+  <button type="button" data-go="reports"><span aria-hidden="true">▥</span> Báo cáo</button>
+  <button type="button" data-go="settings"><span aria-hidden="true">⚙</span> Cài đặt</button>
+</nav>
+<dialog id="pwa-install-guide" class="pwa-install-guide" aria-labelledby="pwa-install-guide-title">
+  <h2 id="pwa-install-guide-title">Cài LHM Ads AI</h2>
+  <p id="pwa-install-guide-message">iPhone: Safari → Chia sẻ → Thêm vào Màn hình chính. Android: Chrome → Cài ứng dụng.</p>
+  <button type="button" id="pwa-install-guide-close">Đóng</button>
+</dialog>
+<script src="/static/pwa-install.js" defer></script>
+<script src="/static/device-vault.js" defer></script>
+<script src="/static/device-vault-ui.js" defer></script>
+<script src="/static/device-insights.js" defer></script>
+<script src="/static/device-mcp.js" defer></script>
+<script src="/static/device-studio.js" defer></script>
+</body></html>

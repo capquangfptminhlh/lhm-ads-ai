@@ -144,11 +144,13 @@ def main():
                 # The installed app opens a public/static local workspace offline;
                 # it never caches an authenticated server Studio page.
                 page.goto(f'http://127.0.0.1:{server.server_address[1]}/local/',wait_until='domcontentloaded')
+                page.locator('.pwa-mobile-dock [data-go="accounts"]').click()
                 page.locator('#device-only-vault').wait_for(timeout=10000)
                 page.evaluate("async () => await navigator.serviceWorker.ready")
                 page.wait_for_function("Boolean(navigator.serviceWorker.controller)",timeout=15000)
                 page.context.set_offline(True)
                 page.reload(wait_until='domcontentloaded',timeout=15000)
+                page.locator('.pwa-mobile-dock [data-go="accounts"]').click()
                 page.locator('#device-only-vault').wait_for(timeout=10000)
                 assert page.locator('#lhm-local-workspace').count()==1
                 page.context.set_offline(False)

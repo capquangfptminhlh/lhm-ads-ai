@@ -59,13 +59,34 @@ def main():
                 desktop.screenshot(path=str(OUTPUT/'lhm-soft-login-desktop.png'),full_page=True)
                 desktop.close()
 
+                # Cloudflare /local/ is a FULL independent Studio dashboard,
+                # not a small vault card or a login requiring desktop/backend.
+                pwa=browser.new_page(viewport={'width':1440,'height':900})
+                pwa_errors=[]
+                pwa.on('pageerror',lambda error:pwa_errors.append(str(error)))
+                pwa.goto(origin+'/local/',wait_until='domcontentloaded')
+                pwa.locator('.pwa-sidebar').wait_for()
+                assert pwa.locator('.pwa-page.active[data-view="dashboard"]').count()==1
+                assert pwa.locator('.pwa-nav button[data-go="reports"]').count()==1
+                assert pwa.locator('link[href="/static/device-studio.css"]').count()==1
+                check_no_horizontal_overflow(pwa)
+                pwa.screenshot(path=str(OUTPUT/'lhm-independent-studio-desktop.png'),full_page=True)
+                assert not pwa_errors,pwa_errors
+                pwa.locator('.pwa-nav [data-go="accounts"]').click()
+                pwa.locator('#device-only-vault').wait_for()
+                pwa.close()
+
                 mobile=browser.new_page(viewport={'width':390,'height':844},device_scale_factor=1)
+                mobile_errors=[]
+                mobile.on('pageerror',lambda error:mobile_errors.append(str(error)))
                 mobile.goto(origin+'/local/',wait_until='domcontentloaded')
-                mobile.locator('#device-only-vault').wait_for()
-                mobile.wait_for_timeout(750)
-                assert mobile.locator('link[href="/static/soft-motion-ui.css"]').count()==1
-                assert mobile.locator('#lhm-vault-access-action').count()==1
+                mobile.locator('.pwa-page.active[data-view="dashboard"]').wait_for()
+                mobile.locator('.pwa-mobile-dock [data-go="accounts"]').wait_for()
                 check_no_horizontal_overflow(mobile)
+                mobile.screenshot(path=str(OUTPUT/'lhm-studio-pwa-dashboard-mobile.png'),full_page=True)
+                mobile.locator('.pwa-mobile-dock [data-go="accounts"]').click()
+                mobile.locator('#device-only-vault').wait_for()
+                assert mobile.locator('#lhm-vault-access-action').count()==1
                 mobile.screenshot(path=str(OUTPUT/'lhm-soft-pwa-locked-mobile.png'),full_page=True)
                 mobile.locator('#lhm-vault-password').fill('Demo-vault-2026-strong-passphrase!')
                 mobile.locator('#lhm-vault-access-action').click()
@@ -75,16 +96,32 @@ def main():
                 mobile.locator('#lhm-vault-label').fill('Tài khoản minh họa')
                 mobile.locator('#lhm-vault-add button[type="submit"]').click()
                 mobile.wait_for_function("window.LHMDeviceVault.listAccounts().length === 1")
-                mobile.wait_for_timeout(450)
+                mobile.locator('.pwa-mobile-dock [data-go="dashboard"]').click()
+                assert mobile.locator('#pwa-overview-accounts').inner_text()=='1'
+                mobile.locator('#pwa-account-preview').get_by_text('Tài khoản minh họa').wait_for(timeout=5000)
+                assert not mobile_errors,mobile_errors
                 check_no_horizontal_overflow(mobile)
                 mobile.screenshot(path=str(OUTPUT/'lhm-soft-pwa-unlocked-mobile.png'),full_page=True)
+                mobile.locator('.pwa-mobile-dock [data-go="accounts"]').click()
+                mobile.locator('#lhm-vault-lock').click()
+                mobile.locator('.pwa-mobile-dock [data-go="dashboard"]').click()
+                assert mobile.locator('#pwa-overview-accounts').inner_text()=='0'
+                assert mobile.locator('#pwa-account-preview').get_by_text('Tài khoản minh họa').count()==0
+                mobile.locator('.pwa-mobile-dock [data-go="reports"]').click()
+                assert 'Kho đang khóa' in mobile.locator('#pwa-report-summary').inner_text()
+                mobile.locator('.pwa-mobile-dock [data-go="dashboard"]').click()
+                assert not mobile_errors,mobile_errors
+                mobile.locator('#pwa-menu-toggle').click()
+                assert mobile.locator('#pwa-sidebar').evaluate("el=>el.classList.contains('open')")
+                mobile.locator('#pwa-overlay').click(position={'x':375,'y':400})
+                assert not mobile.locator('#pwa-sidebar').evaluate("el=>el.classList.contains('open')")
                 mobile.close()
 
                 reduced=browser.new_page(viewport={'width':390,'height':844},
                   reduced_motion='reduce')
                 reduced.goto(origin+'/local/',wait_until='domcontentloaded')
-                reduced.locator('#device-only-vault').wait_for()
-                anim=reduced.locator('#device-only-vault').evaluate(
+                reduced.locator('.pwa-page.active[data-view="dashboard"]').wait_for()
+                anim=reduced.locator('.pwa-page.active').evaluate(
                   "el=>getComputedStyle(el).animationDuration")
                 assert anim in ('0s','0.00001s','1e-05s'),anim
                 check_no_horizontal_overflow(reduced)
@@ -94,7 +131,7 @@ def main():
             server.shutdown()
             server.server_close()
             os.chdir(old)
-    print("PASS: soft-depth desktop auth & mobile PWA animation, password toggle,"
+    print("PASS: Studio-style standalone dashboard, account nav, encrypted vault locking, responsive screenshots,"
           " reduced motion, responsive overflow; screenshots in artifacts/ui-preview")
 
 if __name__=='__main__': main()
