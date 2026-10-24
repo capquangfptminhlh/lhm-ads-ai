@@ -31,7 +31,7 @@
       <p class="help-notice">LHM không yêu cầu mật khẩu Facebook. Không gửi App Secret, Access Token hoặc mã đăng nhập cho người hỗ trợ.</p>`,
     mcp: `
       <h3>MCP cho trợ lý AI — không phải API trong EXE</h3>
-      <p><strong>Hiện tại LHM Ads AI chưa tích hợp MCP server trực tiếp.</strong> Google/Meta MCP chính thức có thể được cấu hình riêng trong AI client hỗ trợ MCP. Để đọc dữ liệu ngay trong LHM, hãy chọn API Google/Meta ở các tab bên cạnh.</p>
+      <p><strong>LHM Ads AI đã có MCP stdio chỉ đọc, cấp khóa có hạn tại Cài đặt → MCP.</strong> Google/Meta MCP chính thức có thể được cấu hình riêng trong AI client hỗ trợ MCP. Để đọc dữ liệu ngay trong LHM, hãy chọn API Google/Meta ở các tab bên cạnh.</p>
       <ol>
         <li><strong>Google Ads MCP.</strong> Xem <a href="https://developers.google.com/google-ads/api/docs/developer-toolkit/mcp-server" target="_blank" rel="noopener noreferrer">Google Ads MCP chính thức ↗</a>. Chuẩn bị Google Cloud, quyền Ads và xác thực theo tài liệu của Google rồi kết nối trong công cụ AI có hỗ trợ MCP. MCP Google chủ yếu để đọc, không phải đường tắt để đổi ngân sách.</li>
         <li><strong>Meta Ads MCP.</strong> Tham khảo <a href="https://developers.facebook.com/ads-mcp-server" target="_blank" rel="noopener noreferrer">Meta Ads MCP ↗</a> và <a href="https://www.facebook.com/meta-ads-ai-connectors" target="_blank" rel="noopener noreferrer">Meta AI Connectors ↗</a>. Đăng nhập trên trang Meta chính thức, kiểm tra app và các quyền trước khi chấp nhận.</li>

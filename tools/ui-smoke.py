@@ -131,7 +131,7 @@ def main():
                 page.locator('[data-help-tab=meta]').click()
                 expect(page.locator('#customer-help-content')).to_contain_text('Facebook / Meta Ads')
                 page.locator('[data-help-tab=mcp]').click()
-                expect(page.locator('#customer-help-content')).to_contain_text('chưa tích hợp MCP server trực tiếp')
+                expect(page.locator('#customer-help-content')).to_contain_text('MCP stdio chỉ đọc')
                 page.locator('[data-help-tab=errors]').click()
                 expect(page.locator('#customer-help-content')).to_contain_text('access_denied')
                 page.locator('[data-help-tab=google]').click()

@@ -1,0 +1,15 @@
+# Production Cloudflare Worker + Static Assets for ads.lhmcrm.com.
+# Cloudflare Custom Domain uses the existing lhmcrm.com zone; the apex CRM remains untouched.
+name = "lhm-ads-cloudflare-api"
+main = "workers/ads-api/src/index.js"
+compatibility_date = "2026-10-24"
+workers_dev = false
+
+[[routes]]
+pattern = "ads.lhmcrm.com"
+custom_domain = true
+
+[assets]
+directory = "./_site"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]

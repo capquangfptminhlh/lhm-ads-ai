@@ -17,3 +17,6 @@ vendor-public.b64
 /vendor-data/
 /license-exports/
 /vendor-exports/
+
+# VAPID private keys and other runtime secrets
+/secrets/

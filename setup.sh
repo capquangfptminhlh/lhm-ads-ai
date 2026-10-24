@@ -16,4 +16,6 @@ Path('.env').write_text(s)
 PY
 chmod 600 .env
 echo 'Đã tạo file .env với MASTER_KEY và SESSION_SECRET ngẫu nhiên.'
-echo 'Hãy lưu bản sao an toàn của MASTER_KEY. Tiếp theo: docker compose up -d --build'
+echo 'Hãy lưu bản sao an toàn của MASTER_KEY.'
+echo 'Triển khai HTTPS ads.lhm.com sau khi DNS và cổng 80/443 đã sẵn sàng:'
+echo 'docker compose -f docker-compose.yml -f compose.ads-lhm-com.yml up -d --build'

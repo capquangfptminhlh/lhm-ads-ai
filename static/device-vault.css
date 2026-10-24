@@ -1,0 +1,29 @@
+/* Locally encrypted account vault for Cloudflare hosted PWA only. */
+.lhm-vault-panel{margin:24px 0 0;padding:18px;border:1px solid #4c5362;border-radius:16px;
+  background:#20242c;color:#e9edf4;font-size:14px;line-height:1.45}
+.lhm-vault-panel .lhm-vault-head{display:flex;align-items:flex-start;gap:10px}
+.lhm-vault-panel .lhm-vault-mark{font-size:27px}
+.lhm-vault-panel h3{font-size:16px;margin:0 0 6px;font-weight:750}
+.lhm-vault-panel h4{font-size:14px;margin:16px 0 8px}
+.lhm-vault-panel p{font-size:13px;margin:5px 0 12px;line-height:1.5}
+.lhm-vault-panel .lhm-vault-warning{padding:11px;background:#503f272b;color:#f7cfaa;border-radius:9px}
+.lhm-vault-panel .lhm-vault-footer{color:#b4bdc9;margin-top:15px}
+.lhm-vault-panel label{display:grid;gap:7px;margin:12px 0;color:#d8dee6;font-size:13px}
+.lhm-vault-panel input,.lhm-vault-panel select{background:#121923;color:#f3f5f9;border:1px solid #576074;
+  padding:10px;border-radius:9px;width:100%;min-height:44px;font-size:16px}
+.lhm-vault-panel .btn{min-height:44px;padding:10px 14px}
+.lhm-vault-panel .lhm-vault-actions{display:flex;flex-wrap:wrap;gap:6px}
+.lhm-vault-panel .lhm-vault-actions .lhm-vault-import{display:inline-flex;align-items:center;padding:8px;
+  border:1px solid #667085;border-radius:10px;cursor:pointer;margin:0}
+.lhm-vault-panel .lhm-vault-import input{max-width:200px;font-size:12px}
+.lhm-vault-panel .lhm-vault-account{display:flex;align-items:center;justify-content:space-between;
+  gap:10px;overflow-wrap:anywhere;border-bottom:1px solid #444a54;padding:8px 0}
+.lhm-vault-panel .lhm-vault-account>span{font-size:12px}
+.lhm-vault-panel .lhm-vault-ok{color:#8ee1b9}
+.lhm-vault-panel #lhm-vault-status{min-height:20px;color:#f7cfaa;font-size:12px;margin:12px 0}
+.lhm-vault-panel .hidden{display:none!important}
+@media(max-width:620px){
+  .lhm-vault-panel{padding:14px;margin:15px 0 0}
+  .lhm-vault-panel .lhm-vault-actions{display:grid;gap:8px}
+  .lhm-vault-panel .lhm-vault-account{align-items:flex-start}
+}

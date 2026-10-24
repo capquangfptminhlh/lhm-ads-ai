@@ -1,0 +1,16 @@
+.lhm-budget-settings{display:grid;gap:16px;margin:18px 0}
+.lhm-budget-settings .panel{min-width:0}
+.lhm-budget-settings h3{font-size:17px;margin:0 0 10px}
+.lhm-budget-settings form{display:flex;align-items:flex-end;flex-wrap:wrap;gap:12px;margin:16px 0}
+.lhm-budget-settings label{display:grid;gap:6px;font-size:13px;min-width:150px;flex:1}
+.lhm-budget-settings input:not([type="checkbox"]),.lhm-budget-settings select{width:100%;min-height:42px;
+  border:1px solid var(--border,#454a54);border-radius:9px;padding:9px 10px;
+  background:var(--surface,#24282f);color:inherit;font-size:16px}
+.lhm-budget-settings .lhm-budget-check{display:flex;align-items:center;min-height:42px;gap:8px}
+.lhm-budget-settings .lhm-budget-check input{width:18px;height:18px}
+.lhm-budget-settings button{min-height:42px;margin:4px 5px 4px 0}
+.lhm-budget-settings .lhm-mcp-token{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  border-bottom:1px solid #4444;padding:7px 0;font-size:12px}
+.lhm-mcp-once{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin:12px 0}
+.lhm-budget-settings .hidden{display:none!important}
+@media(max-width:650px){.lhm-budget-settings form{display:grid}.lhm-budget-settings button{width:100%}}

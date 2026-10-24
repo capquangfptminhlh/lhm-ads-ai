@@ -128,6 +128,10 @@ async def collect_account(acc, now):
         db.execute('''DELETE FROM monitor_samples WHERE org_id=? AND id NOT IN
            (SELECT id FROM monitor_samples WHERE org_id=? ORDER BY id DESC LIMIT 2000)''',
            (acc['org_id'],acc['org_id']))
+    # Budget notifications are opt-in and never interfere with health collection.
+    if not values[-1]:
+        from .budget_push import check_budget_after_sample
+        await check_budget_after_sample(acc, now)
     if new_alert:
         # Opt-in only (notify_telegram is a no-op until the operator sets
         # TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID); throttled by _alert to at

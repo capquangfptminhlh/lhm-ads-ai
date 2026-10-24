@@ -1,0 +1,29 @@
+/* PWA additions do not change desktop behavior. */
+.pwa-install-button{display:block;margin:17px 0 0;width:100%;min-height:46px;
+  border:1px solid #4e515a;border-radius:12px;color:#e6e7ec;background:#232730;
+  font:inherit;font-size:13px;font-weight:750;cursor:pointer}
+.pwa-install-button[hidden]{display:none!important}
+.pwa-install-button:focus-visible{outline:2px solid #ffa476;outline-offset:3px}
+.pwa-install-guide{width:min(420px,calc(100vw - 32px));max-width:none;
+  border:1px solid #41454d;border-radius:18px;padding:25px;
+  background:#1c1e24;color:#eef1f5;box-shadow:0 24px 75px #0008}
+.pwa-install-guide::backdrop{background:#000b}
+.pwa-install-guide h2{font-size:20px;line-height:1.3}
+.pwa-install-guide p{font-size:14px;line-height:1.7;color:#c4cbd4}
+.pwa-install-guide button{min-height:44px}
+@media(max-width:650px){
+  html,body{width:100%;max-width:100%;overflow-x:clip}
+  #shell .main,#shell .content,#shell .view{min-width:0;max-width:100%}
+  #shell .content{padding-left:max(14px,env(safe-area-inset-left));
+    padding-right:max(14px,env(safe-area-inset-right))}
+  #shell .inline-actions{flex-wrap:wrap;max-width:100%}
+  #shell .inline-actions>*{flex:1 1 auto;min-width:0}
+  #shell .kpi-card strong{font-size:clamp(19px,5vw,24px)}
+  #shell .topbar{padding-left:max(10px,env(safe-area-inset-left));
+    padding-right:max(10px,env(safe-area-inset-right))}
+  #shell .modal-card,#shell .ui-command-dialog{max-width:calc(100vw - 20px)}
+  .login-layout{min-height:100dvh}
+  .login-panel{padding-bottom:max(24px,env(safe-area-inset-bottom))}
+  #shell .ui-mobile-dock{padding-bottom:max(4px,env(safe-area-inset-bottom))}
+  #shell input,#shell select,#shell textarea,.login-panel input{font-size:16px}
+}

@@ -1,0 +1,6 @@
+:root{color-scheme:dark;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#111419;color:#f5f6fa}
+*{box-sizing:border-box}body{min-height:100dvh;margin:0;display:grid;place-items:center;padding:24px}
+main{width:min(420px,100%);text-align:center;padding:30px 22px;background:#1b2027;border:1px solid #363e49;border-radius:22px}
+.logo{display:grid;place-items:center;margin:auto;width:58px;height:58px;border-radius:17px;background:#fa7045;font-size:30px}
+h1{font-size:26px;margin:24px 0 12px}p{font-size:15px;color:#c5cbd5;line-height:1.7}
+button{background:#fa7045;color:#17191f;border:0;border-radius:12px;padding:14px 20px;font-size:15px;font-weight:700;min-height:48px}

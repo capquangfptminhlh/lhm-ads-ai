@@ -1,0 +1,27 @@
+{
+  "name": "LHM Ads AI — Quản lý quảng cáo",
+  "short_name": "LHM Ads AI",
+  "description": "Quản lý tài khoản và hiệu quả quảng cáo trên điện thoại.",
+  "id": "/studio",
+  "start_url": "/studio",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#111419",
+  "theme_color": "#111419",
+  "lang": "vi",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

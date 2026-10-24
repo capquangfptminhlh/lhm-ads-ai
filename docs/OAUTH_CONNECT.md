@@ -1,6 +1,6 @@
 # Kết nối Google Ads / Meta Ads bằng nút OAuth
 
-Bản này **không tích hợp MCP**. Chỉ người dùng `admin` đăng nhập trên website mới có thể bắt đầu OAuth, chọn tài khoản và lưu token mã hóa tại máy chạy ứng dụng.
+Bản này có **MCP stdio nội bộ chỉ đọc**, nhưng OAuth Google/Meta vẫn qua API chính thức, không qua MCP. Chỉ người dùng `admin` đăng nhập trên website mới có thể bắt đầu OAuth, chọn tài khoản và lưu token mã hóa tại máy chạy ứng dụng.
 
 ## Cấu hình một lần ở máy chủ
 
@@ -8,7 +8,7 @@ Chỉnh `.env` hoặc biến môi trường của Windows trước khi chạy EX
 
 ```ini
 # Trên VPS dùng đúng URL HTTPS của ứng dụng, ví dụ:
-PUBLIC_BASE_URL=https://ads.example.com
+PUBLIC_BASE_URL=https://ads.lhmcrm.com
 GOOGLE_OAUTH_CLIENT_ID=...apps.googleusercontent.com
 GOOGLE_OAUTH_CLIENT_SECRET=...
 GOOGLE_ADS_DEVELOPER_TOKEN=...
@@ -20,11 +20,11 @@ META_OAUTH_SCOPES=ads_read
 
 Tạo Google Cloud OAuth **Web application**, bật API Google Ads nếu cần, cấu hình consent screen, thêm Redirect URI chính xác:
 
-`https://ads.example.com/api/oauth/google/callback`
+`https://ads.lhmcrm.com/api/oauth/google/callback`
 
 Tạo Meta developer app, bật Facebook Login (phù hợp app type/cấu hình), quyền `ads_read` và Redirect URI chính xác:
 
-`https://ads.example.com/api/oauth/meta/callback`
+`https://ads.lhmcrm.com/api/oauth/meta/callback`
 
 Cần quyền/app review từ Meta cho người dùng bên ngoài vai trò test/dev. Meta `ads_read` chỉ cho đọc; tính năng tạm dừng Meta yêu cầu quyền `ads_management` riêng, và vẫn phải qua bước admin duyệt. Để yêu cầu cả hai quyền, chỉ khi Meta App đã được phê duyệt, đặt `META_OAUTH_SCOPES=ads_read,ads_management`.
 

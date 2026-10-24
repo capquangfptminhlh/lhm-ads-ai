@@ -23,7 +23,7 @@
 
 ## Quyền và an toàn
 
-- Không có MCP, không mở cổng trên Internet/LAN; chỉ localhost. Không dùng cùng file database giữa các máy, không chép MASTER_KEY chung.
+- Có MCP stdio chỉ đọc và yêu cầu khóa quản trị có hạn, không mở HTTP MCP trên Internet/LAN; ứng dụng web vẫn chỉ localhost. Không dùng cùng file database giữa các máy, không chép MASTER_KEY chung.
 - Các secret ở trạng thái mã hóa bằng khóa ứng dụng trên máy nhưng thiết bị bị chiếm quyền có thể làm lộ khóa. Nên mã hóa ổ đĩa, có mật khẩu Windows và khóa màn hình.
 - OpenRouter *không phải chạy local*: nếu người dùng tự bật và cho phép chia sẻ, câu hỏi và thống kê tổng hợp sẽ được gửi ra dịch vụ OpenRouter. Nếu không bật, phân tích hoạt động theo quy tắc nội bộ.
 - Không có xác thực với account Ads thật trong CI. Test mock không thay thế duyệt quyền/app review của Google hoặc Meta.

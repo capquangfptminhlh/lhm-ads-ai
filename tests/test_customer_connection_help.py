@@ -61,7 +61,7 @@ def test_help_content_does_not_send_secrets_outside_machine():
     js=load('static/customer-help.js')
     for forbidden in ('fetch(', 'XMLHttpRequest(', 'localStorage', 'openrouter.ai', 'api.openai.com'):
         assert forbidden not in js
-    assert 'chưa tích hợp MCP server trực tiếp' in js
+    assert 'MCP stdio chỉ đọc' in js
     assert 'không phải dữ liệu thực' in js
     assert 'Bắt đầu kết nối' in js
     assert "content.innerHTML=sections[section]" in js

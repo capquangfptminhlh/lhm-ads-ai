@@ -26,6 +26,17 @@ def entry():
 def studio():
     return FileResponse(STATIC / 'studio.html')
 
+# Installable PWA routes are deliberately public static resources; API and
+# authenticated Studio pages are never cached by the service worker.
+@app.get('/manifest.webmanifest', include_in_schema=False)
+def pwa_manifest():
+    return FileResponse(STATIC / 'manifest.webmanifest', media_type='application/manifest+json')
+
+@app.get('/sw.js', include_in_schema=False)
+def pwa_service_worker():
+    return FileResponse(STATIC / 'sw.js', media_type='text/javascript',
+                        headers={'Service-Worker-Allowed': '/'})
+
 class ChatInput(BaseModel):
     message: str = Field(min_length=2, max_length=1200)
     period: str = Field(default='last_7d', pattern=r'^(today|yesterday|last_(7|14|30|90)d|this_(week|month|quarter|year)|last_(week|month|quarter|year)|custom)$')
@@ -142,6 +153,10 @@ def change_password(body: PasswordInput, ident=Depends(require('admin','operator
         attempt_succeeded(db, scope)
         db.execute('UPDATE users SET password_hash=? WHERE id=?',(hash_password(body.new_password),ident['id']))
         db.execute('DELETE FROM sessions WHERE user_id=?',(ident['id'],))
+        # A password reset revokes every local MCP key for this user as well.
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='mcp_read_tokens'").fetchone():
+            db.execute('UPDATE mcp_read_tokens SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL',
+                       (int(__import__('time').time()), ident['id']))
         audit(db,ident,'auth.password_changed','Revoked all sessions on password change')
     return {'ok':True,'message':'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.'}
 
@@ -202,3 +217,9 @@ from . import secure_backup, desktop_readiness  # noqa: E402,F401
 
 # Optional per-user TOTP MFA enrolment/management endpoints.
 from . import mfa  # noqa: E402,F401
+
+# Explicit admin-provisioned, read-only MCP stdio access; no public MCP route.
+from . import mcp_bridge  # noqa: E402,F401
+
+# Opt-in daily budget thresholds and encrypted Web Push subscription endpoints.
+from . import budget_push  # noqa: E402,F401
