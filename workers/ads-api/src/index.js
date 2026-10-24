@@ -19,6 +19,17 @@ export default {
   async fetch(request,env){
     const path=new URL(request.url).pathname;
     if(path==='/api/_hosting/status' && request.method==='GET') {
+      const commerce_binding_present=Boolean(env?.COMMERCE_DB);
+      const commerce_access_configured=Boolean(env?.CF_ACCESS_TEAM_DOMAIN && env?.CF_ACCESS_AUD && env?.ADMIN_EMAIL);
+      let commerce_schema_ready=false;
+      if(commerce_binding_present){
+        try{
+          const rows=await env.COMMERCE_DB.prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('customers','orders','licenses','payment_reviews','admin_audit','license_fulfillments')"
+          ).all();
+          commerce_schema_ready=(rows.results||[]).length===6;
+        }catch(_){commerce_schema_ready=false;}
+      }
       return json({
         service:'lhm-ads-cloudflare',
         auth_ready:false,
@@ -26,6 +37,11 @@ export default {
         ads_api_ready:false,
         mcp_ready:false,
         monitoring_ready:false,
+        commerce_binding_present,
+        commerce_access_configured,
+        commerce_schema_ready,
+        commerce_admin_config_ready:commerce_binding_present && commerce_access_configured && commerce_schema_ready,
+        commerce_access_policy_verified:false,
         ads_credential_custody:'device_only',
         message:'Cloudflare control plane and local-only Ads access not yet implemented.'
       });
