@@ -71,7 +71,7 @@ def build(output: Path) -> Path:
         "  Permissions-Policy: camera=(), microphone=(), geolocation=()\\n"
         "  Content-Security-Policy: default-src 'self'; script-src 'self'; "
         "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
-        "font-src 'self'; connect-src 'self'; object-src 'none'; "
+        "font-src 'self' data:; connect-src 'self'; object-src 'none'; "
         "base-uri 'none'; frame-ancestors 'none'; form-action 'self'; "
         "upgrade-insecure-requests\\n",
         encoding="utf-8"
