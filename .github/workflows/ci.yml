@@ -55,7 +55,7 @@ jobs:
             sleep $((attempt * 8))
           done
       - name: Validate local encrypted Ads vault in real Chromium
-        run: python tools/device_vault_smoke.py
+        run: python -m tools.device_vault_smoke
       - name: Test provider selection with real Chromium and capture screenshots
         run: python tools/ui-smoke.py
       - name: Test actual first-run setup on desktop/mobile and redirect to Studio
