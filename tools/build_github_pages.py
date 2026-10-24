@@ -38,14 +38,14 @@ def build(output: Path) -> Path:
         "/static/device-insights.js","/static/device-mcp.js","/static/device-vault.css",
         "/static/device-insights.css","/static/device-local.css"
     ]
-    sw=sw.replace("const SHELL = [","const SHELL = [\\n"+
-      "".join(f"  '{name}',\\n" for name in pre_cache),1)
+    sw=sw.replace("const SHELL = [","const SHELL = [\n"+
+      "".join(f"  '{name}',\n" for name in pre_cache),1)
     sw=sw.replace("lhm-pwa-v1-20261023","lhm-local-vault-v3-20261024",1)
     sw=sw.replace("if (req.mode === 'navigate') {",
-      "if (req.mode === 'navigate') {\\n"+
-      "    if (url.pathname === '/local/' || url.pathname === '/local') {\\n"+
-      "      event.respondWith(fetch(req).catch(async () => (await caches.match('/local/')) || Response.error()));\\n"+
-      "      return;\\n"+
+      "if (req.mode === 'navigate') {\n"+
+      "    if (url.pathname === '/local/' || url.pathname === '/local') {\n"+
+      "      event.respondWith(fetch(req).catch(async () => (await caches.match('/local/')) || Response.error()));\n"+
+      "      return;\n"+
       "    }",1)
     (output / "sw.js").write_text(sw,encoding="utf-8")
     local_html = """<!doctype html>
@@ -132,16 +132,16 @@ def build(output: Path) -> Path:
     # Cloudflare Workers Static Assets: apply a strict same-origin execution policy.
     # The temporary hosted PWA never needs third-party script or API origins.
     (output / "_headers").write_text(
-        "/*\\n"
-        "  X-Content-Type-Options: nosniff\\n"
-        "  Referrer-Policy: no-referrer\\n"
-        "  X-Frame-Options: DENY\\n"
-        "  Permissions-Policy: camera=(), microphone=(), geolocation=()\\n"
+        "/*\n"
+        "  X-Content-Type-Options: nosniff\n"
+        "  Referrer-Policy: no-referrer\n"
+        "  X-Frame-Options: DENY\n"
+        "  Permissions-Policy: camera=(), microphone=(), geolocation=()\n"
         "  Content-Security-Policy: default-src 'self'; script-src 'self'; "
         "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
         "font-src 'self' data:; connect-src 'self'; object-src 'none'; "
         "base-uri 'none'; frame-ancestors 'none'; form-action 'self'; "
-        "upgrade-insecure-requests\\n",
+        "upgrade-insecure-requests\n",
         encoding="utf-8"
     )
     return output
