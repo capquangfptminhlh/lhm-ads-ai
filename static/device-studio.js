@@ -205,10 +205,10 @@
   window.addEventListener('pageshow',refresh);
   // Stay outside the administrative workspace until local vault unlock.
   // A device vault is NOT a hosted user login; never auto-unlock from cookies.
-  const lockScreen=document.getElementById('pwa-entry-gate');
+  const lockScreen=document.getElementById('pwa-access-gate');
   const shell=document.querySelector('.pwa-shell');
   const dock=document.querySelector('.pwa-mobile-dock');
-  const gateHost=document.getElementById('pwa-entry-vault');
+  const gateHost=document.getElementById('pwa-login-portal');
   const accountHost=document.getElementById('pwa-account-vault');
   const loginBox=document.getElementById('login');
   const syncGate=()=>{
@@ -217,6 +217,7 @@
       const target=open?accountHost:gateHost;
       if(loginBox.parentElement!==target)target.append(loginBox);
     }
+    document.body.classList.toggle('pwa-gated',!open);
     if(lockScreen)lockScreen.hidden=open;
     if(shell)shell.hidden=!open;
     if(dock)dock.hidden=!open;
