@@ -51,11 +51,22 @@ test('Admin HTML is not served publicly, even with a static asset binding',async
   const ASSETS={fetch:async()=>{served++;return new Response('secret-admin-ui',{status:200});}};
   for(const path of ['/admin','/admin/','/admin/index.html']){
     const res=await worker.fetch(new Request(base+path),{ASSETS});
-    assert.equal(res.status,401);
+    assert.equal(res.status,503); // setup incomplete, never serves private HTML
     assert.equal(res.headers.get('Cache-Control'),'no-store, max-age=0');
-    assert.doesNotMatch(await res.text(),/secret-admin-ui/);
+    const page=await res.text();
+    assert.match(page,/Quản trị chưa được kích hoạt/);
+    assert.doesNotMatch(page,/secret-admin-ui/);
   }
   assert.equal(served,0);
+});
+
+test('configured Access without a valid session requires login',async()=>{
+  const env={COMMERCE_DB:mockDB,CF_ACCESS_TEAM_DOMAIN:'unit.cloudflareaccess.com',
+    CF_ACCESS_AUD:'test-aud',ADMIN_EMAIL:'owner@example.invalid',
+    ASSETS:{fetch:async()=>new Response('private-admin-html')}};
+  const res=await worker.fetch(new Request(base+'/admin/'),env);
+  assert.equal(res.status,401);
+  assert.match(await res.text(),/Cần đăng nhập quản trị/);
 });
 
 test('admin API rejects non-Access caller even when database exists',async()=>{
