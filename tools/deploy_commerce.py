@@ -23,10 +23,9 @@ UUID=re.compile(r"^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")
 
 def find_database_id(create_missing: bool = False) -> str:
     provided=os.getenv("LHM_COMMERCE_D1_DATABASE_ID","").strip()
-    if provided:
-        if not UUID.fullmatch(provided):
-            raise RuntimeError("LHM_COMMERCE_D1_DATABASE_ID is not a valid D1 UUID")
-        return provided
+    if provided and not UUID.fullmatch(provided):
+        raise RuntimeError("LHM_COMMERCE_D1_DATABASE_ID is not a valid D1 UUID")
+    # Always verify even user-supplied UUID against the correct account's D1 list.
     p=subprocess.run(["npx","wrangler","d1","list","--json"],
         cwd=ROOT,capture_output=True,text=True,check=True)
     try:
@@ -44,6 +43,8 @@ def find_database_id(create_missing: bool = False) -> str:
         db_id=str(matches[0].get("uuid") or matches[0].get("id") or "")
         if not UUID.fullmatch(db_id):
             raise RuntimeError("Invalid database UUID returned by Cloudflare")
+        if provided and provided.lower()!=db_id.lower():
+            raise RuntimeError("Provided D1 UUID does not match the account's named database")
         return db_id
     if not create_missing:
         raise RuntimeError("D1 lhm-ads-commerce missing. Enable explicit --create-db to provision in the selected account.")
