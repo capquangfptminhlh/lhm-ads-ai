@@ -37,11 +37,12 @@ def build(output: Path) -> Path:
         "/local/","/static/device-vault.js","/static/device-vault-ui.js",
         "/static/device-insights.js","/static/device-mcp.js","/static/device-vault.css",
         "/static/device-insights.css","/static/device-local.css","/static/soft-motion-ui.css",
-        "/static/device-studio.css","/static/device-studio.js","/static/fonts.css"
+        "/static/device-studio.css","/static/device-studio.js","/static/fonts.css",
+        "/static/marketing.css"
     ]
     sw=sw.replace("const SHELL = [","const SHELL = [\n"+
       "".join(f"  '{name}',\n" for name in pre_cache),1)
-    sw=sw.replace("lhm-pwa-v1-20261023","lhm-studio-device-v4-20261024",1)
+    sw=sw.replace("lhm-pwa-v1-20261023","lhm-studio-gated-v5-20261024",1)
     sw=sw.replace("if (req.mode === 'navigate') {",
       "if (req.mode === 'navigate') {\n"+
       "    if (url.pathname === '/local/' || url.pathname === '/local') {\n"+
@@ -87,14 +88,12 @@ def build(output: Path) -> Path:
     page = output / "studio"
     page.mkdir()
     (page / "index.html").write_text(studio, encoding="utf-8")
-    (output / "index.html").write_text(
-        '<!doctype html><html lang="vi"><head><meta charset="utf-8">'
-        '<meta http-equiv="refresh" content="0;url=/local/">'
-        '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        '<title>LHM Ads AI</title></head><body>'
-        '<p><a href="/local/">Mở LHM Ads AI</a></p></body></html>',
-        encoding="utf-8"
-    )
+    # Public landing page at /; entry to the cryptographically locked PWA at /local/.
+    # No OAuth/login server is implied or deployed by this static marketing page.
+    marketing=(STATIC / "marketing.html").read_text(encoding="utf-8")
+    assert '<a class="mk-btn mk-btn-primary" href="/local/">' in marketing
+    assert '<link rel="stylesheet" href="/static/marketing.css">' in marketing
+    (output / "index.html").write_text(marketing,encoding="utf-8")
     # Cloudflare Workers Static Assets: apply a strict same-origin execution policy.
     # The temporary hosted PWA never needs third-party script or API origins.
     (output / "_headers").write_text(
