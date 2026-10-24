@@ -33,8 +33,13 @@ function filterTable(kind){
 function filterAll(){for(const kind of ['customer','order','license','audit'])filterTable(kind);}
 let reviewingOrderId='';
 function openPaymentReview(orderId){
+ const order=data.orders.find(x=>x.id===orderId);
+ if(!order||order.status!=='pending')return;
  reviewingOrderId=orderId;
  $('payment-review-form').reset();
+ $('payment-dialog-caption').textContent='Đơn '+order.id.slice(0,8)+' · '+order.customer_name+
+  ' · '+fmt(order.amount_vnd)+'đ. Chỉ nhập mã sau khi kiểm tra giao dịch ngân hàng. Bước này chưa xác nhận đã nhận tiền.';
+ $('payment-reference').value=order.review_reference||'';
  $('payment-dialog').showModal();
  $('payment-reference').focus();
 }
@@ -46,10 +51,31 @@ function render(){
   document.querySelectorAll('.customer-choices').forEach(s=>options(s,data.customers,x=>x.name+' · '+x.email));
   $('order-list').replaceChildren();
   data.orders.forEach(x=>{const tr=cells($('order-list'),[x.id.slice(0,8),x.customer_name,x.months+' tháng',fmt(x.amount_vnd)+'đ',x.status]);const td=el('td','');
- const pill=el('span',x.status==='paid'?'Đã thanh toán':x.status==='pending'?'Chờ duyệt':'Đã hủy');
+ const pill=el('span',x.status==='paid'?'Đã thanh toán':x.status==='pending'
+  ?(x.review_reference?'Chờ đối soát':'Chờ chuyển khoản'):'Đã hủy');
  pill.className='admin-tag '+(x.status==='paid'?'tag-success':x.status==='pending'?'tag-pending':'tag-muted');
  tr.children[4].replaceChildren(pill);
-    if(x.status==='pending'){const a=el('button','Ghi nhận chuyển khoản');a.onclick=async()=>{openPaymentReview(x.id)};const b=el('button','Duyệt đã nhận tiền');b.onclick=async()=>{if(!confirm('Đã đối soát tiền vào ngân hàng? Duyệt đơn '+x.id.slice(0,8)+'?'))return;try{await api('payments/approve',{order_id:x.id});msg('Đã duyệt thanh toán');await refresh()}catch(e){msg(e.message,true)}};td.append(a,b)}
+    if(x.status==='pending'){
+      if(x.review_reference){
+        const detail=el('div','Mã CK: '+x.review_reference);
+        detail.className='payment-review-reference';td.append(detail);
+      }
+      const a=el('button',x.review_reference?'Sửa mã giao dịch':'Ghi mã chuyển khoản');
+      a.onclick=()=>openPaymentReview(x.id);
+      const b=el('button','Xác nhận đã nhận tiền');
+      b.disabled=!x.review_reference;
+      b.title=x.review_reference?'Chỉ duyệt khi đã đối chiếu sao kê ngân hàng':'Ghi mã giao dịch trước khi duyệt';
+      b.onclick=async()=>{
+        if(!x.review_reference)return;
+        const detail='Xác nhận đã đối soát tiền thực nhận?\\nĐơn: '+x.id.slice(0,8)+
+          '\\nKhách: '+x.customer_name+'\\nSố tiền: '+fmt(x.amount_vnd)+'đ'+
+          '\\nMã chuyển khoản: '+x.review_reference;
+        if(!confirm(detail))return;
+        try{await api('payments/approve',{order_id:x.id});msg('Đã duyệt thanh toán');await refresh()}
+        catch(e){msg(e.message,true)}
+      };
+      td.append(a,b);
+    }
     if(x.status==='paid'&&!spent.has(x.id)){const b=el('button','Cấp key');b.onclick=async()=>{if(!confirm('Cấp key từ đơn '+x.id.slice(0,8)+'?'))return;try{const k=await api('licenses/issue',{order_id:x.id});issuedKey=k.key;$('issued-key').textContent=k.key+'\nHết hạn: '+k.expires_at;$('issued').hidden=false;msg('Đã cấp key. Vào tab Bản quyền để lưu key.');document.querySelector('[data-tab="licenses"]').click();await refresh()}catch(e){msg(e.message,true)}};td.append(b)}tr.append(td)});
   options($('license-choice'),data.licenses,x=>x.customer_name+' · '+x.key_hint);
   syncRenewOrders();
@@ -97,6 +123,7 @@ $('payment-review-form').addEventListener('submit',async event=>{
   await api('payments/review',{order_id:reviewingOrderId,reference,note:$('payment-note').value.trim()});
   $('payment-dialog').close();
   msg('Đã ghi nhận mã giao dịch. Chỉ duyệt sau khi đối soát sao kê ngân hàng.');
+  await refresh();
  }catch(err){msg(err.message,true)}
  finally{button.disabled=false}
 });
