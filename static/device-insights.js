@@ -74,6 +74,7 @@
     </form>
     <div id="lhm-local-status" role="status" aria-live="polite"></div>
     <div class="lhm-local-metrics" id="lhm-local-metrics"></div>
+    <div class="lhm-local-trend" id="lhm-local-trend" aria-label="Biểu đồ chi tiêu 7 ngày gần nhất đã nhập"></div>
     <div class="lhm-local-alerts"><h4>Cảnh báo phát hiện từ CSV</h4>
       <div id="lhm-local-alert-list"></div></div>
     <div class="lhm-local-report"><h4>7 ngày báo cáo gần nhất đã nhập</h4>
@@ -107,6 +108,7 @@
     el('lhm-local-rule-enabled').checked=r?.enabled??true;
     const metrics=el('lhm-local-metrics'),alerts=el('lhm-local-alert-list'),table=el('lhm-local-rows');
     metrics.replaceChildren();alerts.replaceChildren();table.replaceChildren();
+    const chart=el('lhm-local-trend');chart.replaceChildren();
     if(!chosenId){setText(metrics,'p','Thêm một tài khoản vào kho trước khi nhập báo cáo.');return;}
     const rows=api.listDailyReports(chosenId);
     if(rows.length){
@@ -115,7 +117,20 @@
       const c=accounts.find(a=>a.localId===chosenId)?.currency||'VND';
       setText(metrics,'strong','Tổng '+rows.length+' ngày đã nhập: '+format(total.spend)+' '+c);
       setText(metrics,'span',format(total.clicks)+' click · '+format(total.impressions)+' hiển thị');
+      const ctr=total.impressions>0?format(total.clicks/total.impressions*100)+'%':'Chưa đủ dữ liệu';
+      const cpc=total.clicks>0?format(total.spend/total.clicks)+' '+c:'Chưa đủ dữ liệu';
+      setText(metrics,'span','CTR '+ctr+' · CPC trung bình '+cpc);
+      setText(metrics,'small','CPA/ROAS chưa xác định vì CSV không có dữ liệu chuyển đổi và doanh thu.');
       setText(metrics,'small','Nguồn: CSV thủ công, không xác minh với Google/Meta/TikTok');
+      const last=rows.slice(0,7).reverse(),max=Math.max(...last.map(x=>x.spend),1);
+      for(const row of last){
+        const item=document.createElement('div');item.className='lhm-trend-day';
+        const bar=document.createElement('div');bar.className='lhm-trend-bar';
+        bar.style.height=(Math.max(3,row.spend/max*76))+'px';
+        bar.setAttribute('aria-label',row.date+': '+format(row.spend)+' '+row.currency);
+        const day=document.createElement('small');day.textContent=row.date.slice(5);
+        item.append(bar,day);chart.append(item);
+      }
       for(const row of rows.slice(0,7))
         setText(table,'p',row.date+' · '+format(row.spend)+' '+row.currency+
           ' · '+format(row.clicks)+' click');
