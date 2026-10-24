@@ -9,7 +9,26 @@
   const pages=[...document.querySelectorAll('.pwa-page[data-view]')];
   const navs=[...document.querySelectorAll('[data-go]')];
   const names={dashboard:'Tổng quan',accounts:'Tài khoản Ads',reports:'Báo cáo',alerts:'Cảnh báo',assistant:'AI Center',settings:'Cài đặt'};
-  let selectedAccount='',page='dashboard';
+  let selectedAccount='',page='dashboard',previousUnlocked=false;
+  const login=document.getElementById('login');
+  const loginPortal=document.getElementById('pwa-login-portal');
+  const accountPage=document.querySelector('.pwa-page[data-view="accounts"]');
+  const gate=document.getElementById('pwa-access-gate');
+  // Moving the SAME vault form preserves all registered event handlers and cryptographic state.
+  // No authentication token/session is stored in Cloudflare or browser localStorage.
+  function syncAccessGate(){
+    const unlocked=isOpen();
+    root.classList.toggle('pwa-gated',!unlocked);
+    gate.hidden=unlocked;
+    if(unlocked){
+      if(login.parentElement!==accountPage)accountPage.append(login);
+      if(!previousUnlocked){previousUnlocked=true;go('dashboard',false);}
+    }else{
+      previousUnlocked=false;
+      if(login.parentElement!==loginPortal)loginPortal.append(login);
+      if(page!=='dashboard')go('dashboard',false);
+    }
+  }
   const dateLabel=x=>String(x||'').slice(5);
   const fmt=(n,opt={})=>new Intl.NumberFormat('vi-VN',{maximumFractionDigits:2,...opt}).format(n);
   const text=(id,value)=>{const n=$(id);if(n)n.textContent=String(value);};
@@ -147,6 +166,7 @@
   function refresh(){
     const active=isOpen(),data=allData();
     if(!active)selectedAccount='';
+    syncAccessGate();
     text('pwa-session-label',active?'KHO ĐÃ MỞ KHÓA':'KHO ĐANG KHÓA');
     text('pwa-overview-accounts',data.accounts.length);
     text('pwa-overview-days',data.days);
@@ -167,6 +187,12 @@
     text('pwa-offline-total',data.accounts.length+' tài khoản · '+data.days+' ngày CSV');
     text('pwa-alert-count',String(data.alerts.length));
   }
+  $('pwa-signout').addEventListener('click',()=>{
+    vault.lock();
+    window.dispatchEvent(new Event('lhm:vault-locked'));
+    refresh();
+    window.scrollTo(0,0);
+  });
   $('pwa-report-selector').addEventListener('change',e=>{selectedAccount=e.target.value;refresh();});
   window.addEventListener('lhm:vault-change',refresh);
   window.addEventListener('lhm:vault-locked',refresh);
