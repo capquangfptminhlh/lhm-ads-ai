@@ -107,3 +107,8 @@ tr[hidden]{display:none!important}
 #payment-dialog .dialog-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:15px;flex-wrap:wrap}
 #payment-dialog .dialog-actions button{flex:1}
 @media(max-width:680px){#payment-dialog{padding:20px}}
+
+
+.payment-review-reference{font-size:11px;font-weight:700;color:#517aa2;background:#eef6ff;padding:6px 9px;border-radius:8px;margin:3px 0 6px;overflow-wrap:anywhere;max-width:210px}
+td button:disabled{background:#f5f7fa;border-color:#e0e5ec;color:#99a8b7;box-shadow:none}
+td button:disabled:hover{background:#f5f7fa}
