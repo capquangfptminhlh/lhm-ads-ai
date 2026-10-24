@@ -106,6 +106,7 @@ def main():
                 check_no_horizontal_overflow(mobile)
                 mobile.screenshot(path=str(OUTPUT/'lhm-public-marketing-mobile.png'),full_page=True)
                 mobile.locator('.mk-nav-login').click()
+                mobile.wait_for_url('**/local/', timeout=10000)
                 mobile.locator('#pwa-access-gate').wait_for()
                 assert not mobile.locator('.pwa-mobile-dock').is_visible()
                 check_no_horizontal_overflow(mobile)
