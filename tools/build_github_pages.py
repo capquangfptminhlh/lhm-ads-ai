@@ -91,7 +91,8 @@ def build(output: Path) -> Path:
     # Cloudflare Access-protected admin page; API independently verifies signed Access JWT.
     admin = output / "admin"
     admin.mkdir()
-    (admin / "index.html").write_text((STATIC / "admin.html").read_text(encoding="utf-8"), encoding="utf-8")\n    # Public landing page at /; entry to the cryptographically locked PWA at /local/.
+    (admin / "index.html").write_text((STATIC / "admin.html").read_text(encoding="utf-8"), encoding="utf-8")
+    # Public landing page at /; entry to the cryptographically locked PWA at /local/.
     # No OAuth/login server is implied or deployed by this static marketing page.
     marketing=(STATIC / "marketing.html").read_text(encoding="utf-8")
     assert '<a class="mk-btn mk-btn-primary" href="/local/">' in marketing
