@@ -62,13 +62,60 @@ def app_destinations(app):
     return dest
 
 
+def overlaps_admin(app):
+    """Fail closed if another Access app could already protect either Admin path."""
+    from fnmatch import fnmatchcase
+    probes=(
+        "ads.lhmcrm.com/admin",
+        "ads.lhmcrm.com/admin/",
+        "ads.lhmcrm.com/admin/index.html",
+        "ads.lhmcrm.com/api/admin/overview",
+    )
+    candidate=set(app_destinations(app))
+    raw=app.get("domain")
+    if isinstance(raw,str):
+        candidate.add(raw.replace("https://","").rstrip("/"))
+    for pattern in candidate:
+        if fnmatchcase(pattern,"*.lhmcrm.com"):
+            return True
+        if any(fnmatchcase(p,pattern) for p in probes):
+            return True
+        if pattern in ("ads.lhmcrm.com","ads.lhmcrm.com/*"):
+            return True
+        if pattern.startswith("ads.lhmcrm.com/"):
+            path=pattern[len("ads.lhmcrm.com/"):]
+            if path.startswith(("admin","api/admin")):
+                return True
+    return False
+
+
+def verify_owner_policy(app_id: str, email: str):
+    """Query actual Access policy, not merely the app name or destinations."""
+    if not re.fullmatch(r"[a-zA-Z0-9-]{20,64}",app_id):
+        raise BootstrapError("Access application ID is missing or invalid")
+    policies=api("GET",f"/access/apps/{app_id}/policies?per_page=100")
+    if not isinstance(policies,list) or len(policies)!=1:
+        raise BootstrapError("Expected exactly one owner-only Access policy")
+    policy=policies[0]
+    policy_id=policy.get("id") if isinstance(policy,dict) else None
+    if not isinstance(policy_id,str) or not re.fullmatch(r"[a-zA-Z0-9-]{20,64}",policy_id):
+        raise BootstrapError("Access policy ID is missing or invalid")
+    full=api("GET",f"/access/apps/{app_id}/policies/{policy_id}")
+    if not isinstance(full,dict) or full.get("decision")!="allow":
+        raise BootstrapError("Access policy does not grant owner-only Allow")
+    expected=[{"email":{"email":email}}]
+    if full.get("include")!=expected or full.get("exclude") or full.get("require"):
+        raise BootstrapError("Access policy is not restricted to the configured owner email")
+    return True
+
+
 def find_application(apps):
     relevant=[]
     for app in apps:
         if not isinstance(app,dict):
             continue
         paths=app_destinations(app)
-        if app.get("name")==NAME or paths & TARGETS:
+        if app.get("name")==NAME or paths & TARGETS or overlaps_admin(app):
             relevant.append(app)
     if len(relevant)>1:
         raise BootstrapError("Multiple possibly matching Access apps; refusing to modify them")
@@ -108,7 +155,7 @@ def bootstrap(create=False):
         payload={
             "name":NAME,
             "type":"self_hosted",
-            "domain":"ads.lhmcrm.com/admin/*",
+            "domain":"ads.lhmcrm.com/admin",
             "destinations":[{"type":"public","uri":uri} for uri in sorted(TARGETS)],
             "session_duration":"8h",
             "app_launcher_visible":False,
@@ -121,6 +168,7 @@ def bootstrap(create=False):
         app=api("POST","/access/apps",payload)
     if not isinstance(app,dict) or app_destinations(app)!=TARGETS:
         raise BootstrapError("Access app response did not confirm all three protected routes")
+    verify_owner_policy(str(app.get("id") or ""),email)
     aud=str(app.get("aud") or "")
     if not re.fullmatch(r"[a-zA-Z0-9_-]{20,128}",aud):
         raise BootstrapError("Access audience is absent; review the app before deploying")
