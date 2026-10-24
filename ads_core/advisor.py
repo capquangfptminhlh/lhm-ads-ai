@@ -369,3 +369,30 @@ def acknowledge(finding_id:int,ident=Depends(browser_admin)):
             raise HTTPException(404,'Cảnh báo không tồn tại hoặc đã được xử lý.')
         audit(db,ident,'advisor.acknowledge',f'finding={finding_id}')
     return {'ok':True}
+
+class GrowthReadinessRequest(BaseModel):
+    """Verified observations supplied by the authenticated local operator."""
+    account_id: int = Field(gt=0)
+    observation: dict = Field(default_factory=dict)
+
+
+@app.post('/api/advisor/growth/readiness')
+def growth_readiness(payload: GrowthReadinessRequest, ident=Depends(browser_admin)):
+    """Read-only decision support. Never treats account metrics as verification."""
+    from .growth_intelligence import assess_change_readiness
+
+    license_required()
+    acc = get_account(payload.account_id, ident['org_id'])
+    if acc['platform'] not in ('google', 'meta'):
+        raise HTTPException(422, 'Chỉ hỗ trợ Google Ads và Meta.')
+    result = assess_change_readiness(payload.observation)
+    # Explicitly disallow API writes, even if future skill versions change.
+    return {
+        'account_id': payload.account_id,
+        'platform': acc['platform'],
+        **result,
+        'requires_human_approval': True,
+        'may_write_ads': False,
+        'source': 'operator_supplied_observation',
+        'note': 'Thông tin đầu vào do người vận hành cung cấp; chưa được API tự xác minh.',
+    }

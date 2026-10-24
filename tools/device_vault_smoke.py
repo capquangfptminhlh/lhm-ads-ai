@@ -35,7 +35,7 @@ def main():
                     route.continue_()
                 page.route('**/*',intercepted)
                 page.goto(f'http://127.0.0.1:{server.server_address[1]}/studio/',wait_until='domcontentloaded')
-                page.locator('#device-only-vault').wait_for(timeout=10000)
+                page.locator('#device-only-vault').wait_for(state='attached',timeout=10000)
                 page.locator('#lhm-vault-access-action').get_attribute('type')
                 assert page.locator('#lhm-static-api-guard').count()==1
                 passphrase='A-vault-test-password-2026!'
@@ -131,7 +131,7 @@ def main():
                 assert wrong
                 assert page.evaluate('window.LHMDeviceVault.isUnlocked()') is False
                 page.reload(wait_until='domcontentloaded')
-                page.locator('#device-only-vault').wait_for(timeout=10000)
+                page.locator('#device-only-vault').wait_for(state='attached',timeout=10000)
                 page.fill('#lhm-vault-password',passphrase)
                 page.click('#lhm-vault-access-action')
                 page.locator('#lhm-vault-unlocked:not(.hidden)').wait_for(timeout=15000)
@@ -145,7 +145,7 @@ def main():
                 # it never caches an authenticated server Studio page.
                 page.goto(f'http://127.0.0.1:{server.server_address[1]}/local/',wait_until='domcontentloaded')
                 page.locator('#pwa-access-gate').wait_for(timeout=10000)
-                page.locator('#device-only-vault').wait_for(timeout=10000)
+                page.locator('#device-only-vault').wait_for(state='attached',timeout=10000)
                 assert page.locator('body.pwa-gated').count()==1
                 assert not page.locator('.pwa-page[data-view="dashboard"]').is_visible()
                 page.evaluate("async () => await navigator.serviceWorker.ready")
@@ -153,7 +153,7 @@ def main():
                 page.context.set_offline(True)
                 page.reload(wait_until='domcontentloaded',timeout=15000)
                 page.locator('#pwa-access-gate').wait_for(timeout=10000)
-                page.locator('#device-only-vault').wait_for(timeout=10000)
+                page.locator('#device-only-vault').wait_for(state='attached',timeout=10000)
                 assert page.locator('body.pwa-gated').count()==1
                 assert page.locator('#lhm-local-workspace').count()==1
                 page.context.set_offline(False)
