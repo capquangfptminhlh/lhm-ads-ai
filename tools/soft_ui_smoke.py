@@ -51,7 +51,7 @@ def main():
                 assert desktop.locator('#login .lhm-soft-local-link').count()==1
                 assert desktop.locator('#login .lhm-soft-eye').count()==1
                 assert desktop.locator('#login #login-pass').get_attribute('type')=='password'
-                desktop.locator('#login .lhm-soft-eye').click(force=True)
+                desktop.locator('#login .lhm-soft-eye').evaluate('(el) => el.click()')
                 assert desktop.locator('#login #login-pass').get_attribute('type')=='text'
                 desktop.locator('#login .lhm-soft-eye').click(force=True)
                 assert desktop.locator('#login #login-pass').get_attribute('type')=='password'
