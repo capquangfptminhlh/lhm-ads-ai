@@ -90,6 +90,24 @@ def main():
                 assert 'CSV thủ công' in page.locator('#lhm-local-alert-list').inner_text()
                 assert len(page.evaluate('window.LHMDeviceVault.listDailyReports()'))==2
                 assert len(page.evaluate('window.LHMDeviceVault.listLocalAlerts()'))==1
+                list_response=page.evaluate("""async () => {
+                    return window.LHMDeviceTools.handle({jsonrpc:'2.0',id:1,method:'tools/list'});
+                }""")
+                assert {x['name'] for x in list_response['result']['tools']}=={
+                  'lhm_accounts','lhm_report','lhm_alerts'}
+                read_response=page.evaluate("""async () => window.LHMDeviceTools.handle({
+                    jsonrpc:'2.0',id:2,method:'tools/call',
+                    params:{name:'lhm_alerts',arguments:{}}
+                })""")
+                assert read_response['result']['isError'] is False
+                assert 'manual_csv' in read_response['result']['content'][0]['text']
+                assert marker not in str(read_response)
+                denied=page.evaluate("""async () => window.LHMDeviceTools.handle({
+                    jsonrpc:'2.0',id:3,method:'tools/call',
+                    params:{name:'pause_campaign',arguments:{}}
+                })""")
+                assert denied['error']['code']==-32602
+
                 saved_again=page.evaluate("""async () => {
                     const req=indexedDB.open('lhm-ads-device-only-v1');
                     const db=await new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=reject;});
@@ -102,6 +120,10 @@ def main():
                 encrypted=page.evaluate("window.LHMDeviceVault.encryptedBackup()")
                 assert marker not in encrypted
                 page.evaluate("window.LHMDeviceVault.lock()")
+                locked=page.evaluate("""async () => window.LHMDeviceTools.handle({
+                    jsonrpc:'2.0',id:4,method:'tools/list'
+                })""")
+                assert locked['error']['code']==-32001
                 wrong=page.evaluate("""async () => {
                     try {await window.LHMDeviceVault.unlock('wrong-vault-password');return false;}
                     catch(e){return true;}
