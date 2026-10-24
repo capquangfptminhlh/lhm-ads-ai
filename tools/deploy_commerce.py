@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tomllib
 import urllib.request
 import urllib.error
 
@@ -76,8 +77,17 @@ def create_database() -> str:
 
 def make_config(database_id: str) -> str:
     base=(ROOT/"wrangler.toml").read_text(encoding="utf-8")
-    if "[[d1_databases]]" in base:
-        raise RuntimeError("wrangler.toml already defines D1 bindings; reconcile manually before deployment")
+    parsed=tomllib.loads(base)
+    configured=parsed.get("d1_databases") or []
+    if configured:
+        if not isinstance(configured,list) or len(configured)!=1:
+            raise RuntimeError("Unexpected D1 bindings in wrangler.toml; inspect manually")
+        item=configured[0]
+        if item.get("binding")!="COMMERCE_DB" or item.get("database_name")!=DB_NAME or item.get("database_id")!=database_id:
+            raise RuntimeError("D1 binding does not match the verified Cloudflare account/database")
+        if item.get("migrations_dir")!="migrations":
+            raise RuntimeError("D1 migrations directory is inconsistent")
+        return base
     return base.rstrip()+(
         "\n\n[[d1_databases]]\n"
         'binding = "COMMERCE_DB"\n'
