@@ -5,6 +5,7 @@ No real network requests, no secrets, no Cloudflare mutations.
 import os
 import sys
 import types
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -47,6 +48,30 @@ class CloudflareBootstrapTests(unittest.TestCase):
         self.assertIn(DB_UUID,rendered)
         self.assertIn('migrations_dir = "migrations"',rendered)
         self.assertIn('keep_vars = true',rendered)
+
+    def test_persisted_d1_config_reused_only_for_matching_uuid(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            (root/"wrangler.toml").write_text(
+                'name = "lhm-ads-cloudflare-api"\n'
+                'keep_vars = true\n'
+                '[[d1_databases]]\n'
+                'binding = "COMMERCE_DB"\n'
+                'database_name = "lhm-ads-commerce"\n'
+                f'database_id = "{DB_UUID}"\n'
+                'migrations_dir = "migrations"\n',encoding="utf-8")
+            with patch.object(deploy_commerce,"ROOT",root):
+                config=deploy_commerce.make_config(DB_UUID)
+                self.assertEqual(config,(root/"wrangler.toml").read_text())
+                with self.assertRaises(RuntimeError):
+                    deploy_commerce.make_config("ffffffff-ffff-ffff-ffff-ffffffffffff")
+
+    def test_external_uuid_cannot_override_d1_name(self):
+        listing=types.SimpleNamespace(stdout='[{"name":"lhm-ads-commerce","uuid":"'+DB_UUID+'"}]')
+        with patch.dict(os.environ,{"LHM_COMMERCE_D1_DATABASE_ID":"ffffffff-ffff-ffff-ffff-ffffffffffff"}):
+            with patch.object(deploy_commerce.subprocess,"run",return_value=listing):
+                with self.assertRaises(RuntimeError):
+                    deploy_commerce.find_database_id()
 
     def fake_api(self,existing=None):
         def handler(method,path,body=None):
