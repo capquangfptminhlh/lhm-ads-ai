@@ -68,3 +68,45 @@ test('invalid and malformed key never return customer data',async()=>{
     assert.deepEqual(await res.json(),{valid:false});
   }
 });
+
+
+test('Cloudflare Access verifies signed JWT, audience and admin email',async()=>{
+  const pair=await crypto.subtle.generateKey(
+    {name:'RSASSA-PKCS1-v1_5',modulusLength:2048,
+      publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},
+    true,['sign','verify']);
+  const jwk=await crypto.subtle.exportKey('jwk',pair.publicKey);
+  jwk.kid='test-key';
+  const encode=obj=>Buffer.from(JSON.stringify(obj)).toString('base64url');
+  async function makeJwt(overrides={}){
+    const header=encode({alg:'RS256',kid:'test-key'});
+    const payload=encode({aud:'test-aud',iss:'https://unit.cloudflareaccess.com',
+      sub:'admin-user',email:'owner@example.invalid',exp:Math.floor(Date.now()/1000)+3600,
+      ...overrides});
+    const data=header+'.'+payload;
+    const signature=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',pair.privateKey,
+      new TextEncoder().encode(data));
+    return data+'.'+Buffer.from(signature).toString('base64url');
+  }
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=async url=>{
+    assert.equal(url,'https://unit.cloudflareaccess.com/cdn-cgi/access/certs');
+    return new Response(JSON.stringify({keys:[jwk]}),{status:200});
+  };
+  try{
+    const env={COMMERCE_DB:mockDB,CF_ACCESS_TEAM_DOMAIN:'unit.cloudflareaccess.com',
+      CF_ACCESS_AUD:'test-aud',ADMIN_EMAIL:'owner@example.invalid'};
+    for(const [claim,code] of [
+      [{},200],
+      [{aud:'wrong'},401],
+      [{email:'somebody-else@example.invalid'},401],
+      [{exp:Math.floor(Date.now()/1000)-60},401]
+    ]){
+      const jwt=await makeJwt(claim);
+      const res=await worker.fetch(new Request(base+'/api/admin/overview',{
+        headers:{'Cf-Access-Jwt-Assertion':jwt}
+      }),env);
+      assert.equal(res.status,code,JSON.stringify(claim));
+    }
+  }finally{globalThis.fetch=originalFetch;}
+});
