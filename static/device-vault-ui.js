@@ -33,6 +33,8 @@
           <option value="meta">Meta Ads</option><option value="tiktok">TikTok Ads</option></select></label>
         <label>ID tài khoản Ads<input id="lhm-vault-account" maxlength="128" required
             autocapitalize="off" autocomplete="off" placeholder="ID tài khoản của bạn"></label>
+        <label>Tiền tệ<input id="lhm-vault-currency" maxlength="3" pattern="[A-Za-z]{3}" value="VND" required
+            autocomplete="off" placeholder="VND hoặc USD"></label>
         <label>Tên gợi nhớ<input id="lhm-vault-label" maxlength="150" required
             autocomplete="off" placeholder="Ví dụ: Cửa hàng 1"></label>
         <button class="btn primary" type="submit">Lưu mã hóa trên thiết bị</button>
@@ -56,10 +58,12 @@
     get('lhm-vault-access').classList.toggle('hidden',api.isUnlocked());
     get('lhm-vault-unlocked').classList.toggle('hidden',!api.isUnlocked());
     if(api.isUnlocked())render();
+    else window.dispatchEvent(new Event('lhm:vault-locked'));
   }
   function render(){
     if(!api.isUnlocked())return;
     const entries=api.listAccounts();
+    window.dispatchEvent(new Event('lhm:vault-change'));
     get('lhm-vault-count').textContent='('+entries.length+'/100)';
     const list=get('lhm-vault-accounts');
     list.replaceChildren();
@@ -104,7 +108,8 @@
       await api.upsertAccount({
         platform:get('lhm-vault-platform').value,
         accountId:get('lhm-vault-account').value,
-        label:get('lhm-vault-label').value
+        label:get('lhm-vault-label').value,
+        currency:get('lhm-vault-currency').value
       });
       get('lhm-vault-add').reset();render();status('Thông tin đã lưu mã hóa cục bộ; chưa đồng nghĩa đã kết nối API.');
     }catch(err){status(err.message);}
