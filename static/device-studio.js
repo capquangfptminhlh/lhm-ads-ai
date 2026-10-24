@@ -208,8 +208,15 @@
   const lockScreen=document.getElementById('pwa-entry-gate');
   const shell=document.querySelector('.pwa-shell');
   const dock=document.querySelector('.pwa-mobile-dock');
+  const gateHost=document.getElementById('pwa-entry-vault');
+  const accountHost=document.getElementById('pwa-account-vault');
+  const loginBox=document.getElementById('login');
   const syncGate=()=>{
     const open=vault.isUnlocked();
+    if(loginBox&&gateHost&&accountHost){
+      const target=open?accountHost:gateHost;
+      if(loginBox.parentElement!==target)target.append(loginBox);
+    }
     if(lockScreen)lockScreen.hidden=open;
     if(shell)shell.hidden=!open;
     if(dock)dock.hidden=!open;
