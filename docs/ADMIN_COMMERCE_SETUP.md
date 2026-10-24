@@ -96,11 +96,11 @@ python tools/deploy_commerce.py --dry-run
 python tools/deploy_commerce.py
 ```
 
-The helper locates **only an existing** D1 database named `lhm-ads-commerce`,
+The helper locates the real account-scoped D1 database named `lhm-ads-commerce`,
 verifies its actual UUID, applies migrations against it remotely, and deploys
-the Worker with a generated binding. It refuses to deploy if the D1 database
-cannot be found. It does not create a database, set Access policy, or invent
-credentials. The generated config is temporary, not committed to GitHub.
+the Worker with a generated binding. By default it refuses to deploy if D1 is missing. An explicit
+`--provision-only --create-db` can create this **one named D1** in the selected
+Cloudflare account, after the owner approves. It does not invent credentials. The generated config is temporary, not committed to GitHub.
 
 Cloudflare Workers Builds may still use a plain `npx wrangler deploy` command;
 that default does **not** invoke this helper. For Workers Builds production,
@@ -117,25 +117,80 @@ the UI alone never verifies funds. Subscription list offers a seven-day
 expiring-key filter (limited to the most recent 100 licenses returned by API).
 
 
-## GitHub Actions deployment (manual only)
+## GitHub Actions deployment — single guarded workflow
 
-Workflow: `.github/workflows/deploy-commerce.yml`, labeled
-**Deploy LHM Ads Commerce (manual, guarded)**. It never runs on a normal push.
-It requires GitHub repository Actions secrets `CLOUDFLARE_API_TOKEN` and
-`CLOUDFLARE_ACCOUNT_ID` authorized for the matching Cloudflare account. The
-token must be permitted to read D1 databases, apply D1 migrations and deploy
-this Worker. Never commit these secrets.
+Workflow: `.github/workflows/deploy-commerce.yml`, named
+**Deploy LHM Ads Commerce (manual, guarded)**. It is never started on push.
 
-When manually dispatched, the workflow builds and verifies the existing
-`lhm-ads-commerce` D1, applies remote migrations, deploys the Worker
-with `COMMERCE_DB`, and executes the read-only HTTPS production smoke gate.
-It fails early rather than pretending that an unconfigured account is ready.
+Store these **three** values in the GitHub repository's **Actions Secrets**
+(do not paste a token, account ID, or private email into chat or source files):
 
-The Worker configuration uses `keep_vars = true` so Cloudflare Dashboard
-runtime variables (`CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`, `ADMIN_EMAIL`)
-are preserved when Wrangler redeploys; see Cloudflare documentation for
-the source-of-truth rules. This **does not** set these values automatically.
+| Secret | Purpose |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Account-scoped token |
+| `CLOUDFLARE_ACCOUNT_ID` | 32-character Cloudflare account identifier |
+| `LHM_ADMIN_EMAIL` | Intended owner email for Access allowlist |
 
-Before treating payments/licenses as production-ready, independently confirm
-Cloudflare Access actually protects both `/admin/*` and `/api/admin/*`,
-and verify the full manual bank reconciliation and issuance lifecycle.
+Cloudflare API token permissions needed: **Workers Scripts Edit**,
+**D1 Edit**, **Access Apps and Policies Edit**, and **Zero Trust Organization Read**,
+scoped to the chosen Cloudflare account. Relevant rights may be named slightly
+differently in the Cloudflare dashboard. Workers routing in a custom domain
+may also require zone-level route permissions. Do not use a Global API Key.
+
+Ensure a Cloudflare Zero Trust organization and an authentication method
+(such as an approved IdP or One-time PIN) are already configured.
+
+Launch GitHub → **Actions** → **Deploy LHM Ads Commerce (manual, guarded)**
+→ **Run workflow** on `main`. The workflow has **two explicit opt-in switches**:
+
+1. **Create missing D1:** create `lhm-ads-commerce` only if absent.
+   By default, require it to exist already.
+2. **Create missing Access app:** create `LHM Ads AI Admin` with precisely
+   these protected public destinations within one Access audience:
+   `ads.lhmcrm.com/admin`, `ads.lhmcrm.com/admin/*`,
+   `ads.lhmcrm.com/api/admin/*`.
+   The new policy permits only `LHM_ADMIN_EMAIL`. If an overlapping
+   application already exists, refuse rather than modify an unknown app.
+
+The workflow then:
+
+1. Runs local tests and validates Cloudflare credentials.
+2. Finds or explicitly provisions the named D1.
+3. **Persists the verified, non-secret D1 UUID in `wrangler.toml`** and
+   commits the change to `main` so normal Cloudflare Workers Builds deploys
+   cannot silently remove `COMMERCE_DB` on the next commit. The GitHub
+   workflow requires **Actions → General → Workflow permissions →
+   Read and write permissions** for its restricted `contents: write` scope,
+   or a repository policy that authorizes this exact push. If a protected
+   branch rejects the commit, the workflow fails safely.
+4. Checks or creates the Access app (only with explicit opt-in).
+5. Runs remote D1 migrations and deploys the Worker using the verified D1.
+6. Writes `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`, and `ADMIN_EMAIL`
+   as Cloudflare Worker secrets. It always uses a Wrangler configuration
+   containing the matching D1 binding during these secret writes.
+7. Performs a **read-only HTTPS production smoke check** requiring D1 schema
+   and Access configuration to be present and anonymous Admin routes denied.
+
+The script deliberately **never** creates the Zero Trust organization,
+changes existing/overlapping Access policies, collects payment credentials,
+or simulates actual bank payments. Authentication and the owner's email must
+be reviewed in Cloudflare Zero Trust. If the app supports MFA through the
+chosen identity provider, enforce it there.
+
+Important: As of the last observed production check,
+`commerce_binding_present=false` and `commerce_access_configured=false`.
+Adding GitHub Secrets alone does not run this manual workflow. A green local
+test does not replace an authenticated browser test of Admin after rollout.
+
+### Repeat deployments
+
+The real D1 UUID is now part of source configuration after successful
+bootstrap, so both Cloudflare Workers Builds and the explicit GitHub deployment
+use the same binding. `keep_vars = true` preserves Worker runtime secrets
+in dashboard-based deploys. **Do not edit the D1 UUID by hand** or silently
+replace the bound database.
+
+Before commercial release, perform real authenticated Admin tests for
+customer creation, pending order, bank reference review, payment approval,
+license issue, renewal and revocation, including negative tests for unauthorized
+users. Account/customer credentials and advertising access are distinct systems.
