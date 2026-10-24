@@ -1,4 +1,4 @@
-import { adminApi } from './admin.js';
+import { adminApi, adminIdentity } from './admin.js';
 /*
  * Cloudflare serves installable PWA assets plus LHM subscription/control-plane API.
  * STRICT device-only advertising credential custody:
@@ -18,6 +18,41 @@ const json=(payload,status=200)=>new Response(JSON.stringify(payload),{
 export default {
   async fetch(request,env){
     const path=new URL(request.url).pathname;
+    // Admin UI is NEVER a publicly downloadable static page.
+    // This requires Worker-first asset routing for /admin and /admin/*.
+    if(path==='/admin' || path.startsWith('/admin/')){
+      if(request.method!=='GET' && request.method!=='HEAD')
+        return json({error:'Method not allowed'},405);
+      const actor=await adminIdentity(request,env);
+      if(!actor){
+        const page='<!doctype html><html lang="vi"><meta charset="utf-8">'+
+          '<meta name="viewport" content="width=device-width,initial-scale=1">'+
+          '<meta name="robots" content="noindex,nofollow">'+
+          '<title>LHM Ads AI · Quyền quản trị</title>'+
+          '<style>body{font:16px system-ui;margin:0;min-height:100dvh;display:grid;place-items:center;'+
+          'background:#f3f8ff;color:#24415d}.panel{margin:20px;max-width:520px;padding:36px;'+
+          'background:#fff;border:1px solid #dce8f4;border-radius:20px;'+
+          'box-shadow:0 20px 50px #1d5b891a}a{color:#1978c6}</style>'+
+          '<main class="panel"><h1>Quản trị chưa được xác thực</h1>'+
+          '<p>Chỉ chủ sở hữu đã đăng nhập qua Cloudflare Access mới được vào trang này.</p>'+
+          '<p>Hãy kiểm tra cấu hình Cloudflare Access và email quản trị viên.</p>'+
+          '<a href="/">← Về trang chủ LHM Ads AI</a></main></html>';
+        return new Response(request.method==='HEAD'?null:page,{
+          status:401,headers:{'Content-Type':'text/html; charset=utf-8',
+          'Cache-Control':'no-store, max-age=0','X-Robots-Tag':'noindex, nofollow',
+          'X-Frame-Options':'DENY','X-Content-Type-Options':'nosniff',
+          'Referrer-Policy':'no-referrer'}});
+      }
+      if(path==='/admin')return Response.redirect(new URL('/admin/',request.url),302);
+      if(!env?.ASSETS)return json({error:'Static assets unavailable'},503);
+      const asset=await env.ASSETS.fetch(request);
+      const headers=new Headers(asset.headers);
+      headers.set('Cache-Control','no-store, max-age=0');
+      headers.set('X-Robots-Tag','noindex, nofollow');
+      return new Response(request.method==='HEAD'?null:asset.body,{
+        status:asset.status,statusText:asset.statusText,headers
+      });
+    }
     if(path==='/api/_hosting/status' && request.method==='GET') {
       const commerce_binding_present=Boolean(env?.COMMERCE_DB);
       const commerce_access_configured=Boolean(env?.CF_ACCESS_TEAM_DOMAIN && env?.CF_ACCESS_AUD && env?.ADMIN_EMAIL);
