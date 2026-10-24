@@ -3,15 +3,18 @@ const reply=(data,status=200)=>new Response(JSON.stringify(data),{status,headers
 const uuid=()=>crypto.randomUUID();
 const hex=async s=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))).map(n=>n.toString(16).padStart(2,'0')).join('');
 const b64=s=>{const t=s.replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(t+'='.repeat((4-t.length%4)%4)),c=>c.charCodeAt(0));};
-async function adminIdentity(req,env){
+export async function adminIdentity(req,env){
   const raw=req.headers.get('Cf-Access-Jwt-Assertion');
-  if(!raw || !env.CF_ACCESS_TEAM_DOMAIN || !env.CF_ACCESS_AUD || !env.ADMIN_EMAIL)return null;
+  if(!raw || !env?.CF_ACCESS_TEAM_DOMAIN || !env?.CF_ACCESS_AUD || !env?.ADMIN_EMAIL)return null;
   const parts=raw.split('.');if(parts.length!==3)return null;
   let hdr,claims;try{hdr=JSON.parse(new TextDecoder().decode(b64(parts[0])));claims=JSON.parse(new TextDecoder().decode(b64(parts[1])));}catch{return null;}
   if(hdr.alg!=='RS256'||!hdr.kid||claims.aud!==env.CF_ACCESS_AUD && !(Array.isArray(claims.aud)&&claims.aud.includes(env.CF_ACCESS_AUD)))return null;
   const domain=String(env.CF_ACCESS_TEAM_DOMAIN).replace(/^https?:\/\//,'').replace(/\/$/,'');
   if(!/^[a-z0-9-]+\.cloudflareaccess\.com$/.test(domain))return null;
-  if(claims.iss!=='https://'+domain || !Number.isFinite(claims.exp)||claims.exp*1000<=Date.now()||!claims.sub)return null;
+  const now=Date.now()/1000;
+  if(claims.iss!=='https://'+domain || !Number.isFinite(claims.exp)||claims.exp<=now||!claims.sub)return null;
+  if(claims.nbf!==undefined && (!Number.isFinite(claims.nbf)||claims.nbf>now+30))return null;
+  if(claims.iat!==undefined && (!Number.isFinite(claims.iat)||claims.iat>now+30))return null;
   const email=String(claims.email||'').toLowerCase();
   if(!email || email!==String(env.ADMIN_EMAIL).trim().toLowerCase())return null;
   try{
@@ -30,9 +33,10 @@ async function body(req){if(Number(req.headers.get('content-length')||0)>10000)t
 const string=(v,max)=>typeof v==='string'?v.trim().slice(0,max):'';
 async function audit(db,actor,action,target){await db.prepare('INSERT INTO admin_audit(id,actor,action,target_id) VALUES(?,?,?,?)').bind(uuid(),actor,action,target).run();}
 export async function adminApi(request,env){
-  if(!env.COMMERCE_DB)return reply({error:'Commerce database not configured'},503);
+  // Authentication must precede configuration checks to avoid exposing internals.
   const actor=await adminIdentity(request,env);
   if(!actor)return reply({error:'Administrator access required'},401);
+  if(!env?.COMMERCE_DB)return reply({error:'Commerce database not configured'},503);
   const url=new URL(request.url);
   if(!permitted(request,url.origin))return reply({error:'Origin mismatch'},403);
   const path=url.pathname,method=request.method,db=env.COMMERCE_DB;
