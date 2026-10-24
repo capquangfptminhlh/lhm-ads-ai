@@ -1,6 +1,8 @@
 'use strict';let data={customers:[],orders:[],licenses:[],audit:[],fulfilled_order_ids:[]},issuedKey='';
 const $=x=>document.getElementById(x),fmt=x=>new Intl.NumberFormat('vi-VN').format(x||0);
 const el=(tag,t)=>{const n=document.createElement(tag);n.textContent=String(t??'');return n;};
+let expiringOnly=false;
+const willExpireSoon=license=>license.status==='active'&&Date.parse(license.expires_at)>Date.now()&&Date.parse(license.expires_at)-Date.now()<=7*86400000;
 function msg(s,error=false){
  const n=$('message');n.textContent=s;n.className='show'+(error?' error':'');
  n.setAttribute('role',error?'alert':'status');
@@ -24,7 +26,10 @@ function filterTable(kind){
  const q=input.value.trim().toLocaleLowerCase('vi');
  let count=0;
  for(const tr of table.querySelectorAll('tr')){
-  const show=tr.textContent.toLocaleLowerCase('vi').includes(q);
+  const expires=Date.parse(tr.dataset.expiresAt||'');
+  const inWindow=Number.isFinite(expires)&&expires>Date.now()&&expires-Date.now()<=7*86400000&&tr.dataset.licenseStatus==='active';
+  const show=tr.textContent.toLocaleLowerCase('vi').includes(q)&&
+    (kind!=='license'||!expiringOnly||inWindow);
   tr.hidden=!show;
   if(show)count++;
  }
@@ -47,6 +52,7 @@ function render(){
   const spent=new Set(data.fulfilled_order_ids||[]);
   $('m-customers').textContent=data.customers.length;$('m-orders').textContent=data.orders.filter(x=>x.status==='pending').length;
   $('m-licenses').textContent=data.licenses.filter(x=>x.status==='active'&&new Date(x.expires_at)>new Date()).length;
+  $('m-expiring').textContent=data.licenses.filter(willExpireSoon).length;
   $('customer-list').replaceChildren();data.customers.forEach(x=>cells($('customer-list'),[x.name,x.email,x.phone||'—',x.status]));
   document.querySelectorAll('.customer-choices').forEach(s=>options(s,data.customers,x=>x.name+' · '+x.email));
   $('order-list').replaceChildren();
@@ -79,7 +85,7 @@ function render(){
     if(x.status==='paid'&&!spent.has(x.id)){const b=el('button','Cấp key');b.onclick=async()=>{if(!confirm('Cấp key từ đơn '+x.id.slice(0,8)+'?'))return;try{const k=await api('licenses/issue',{order_id:x.id});issuedKey=k.key;$('issued-key').textContent=k.key+'\nHết hạn: '+k.expires_at;$('issued').hidden=false;msg('Đã cấp key. Vào tab Bản quyền để lưu key.');document.querySelector('[data-tab="licenses"]').click();await refresh()}catch(e){msg(e.message,true)}};td.append(b)}tr.append(td)});
   options($('license-choice'),data.licenses,x=>x.customer_name+' · '+x.key_hint);
   syncRenewOrders();
-  $('license-list').replaceChildren();data.licenses.forEach(x=>{const tr=cells($('license-list'),[x.customer_name,'•••• '+x.key_hint,new Date(x.expires_at).toLocaleDateString('vi-VN'),x.status]);const td=el('td','');if(x.status==='active'){const b=el('button','Thu hồi');b.onclick=async()=>{if(!confirm('Thu hồi key của '+x.customer_name+'?'))return;try{await api('licenses/revoke',{license_id:x.id});msg('Đã thu hồi');await refresh()}catch(e){msg(e.message,true)}};td.append(b)}tr.append(td)});
+  $('license-list').replaceChildren();data.licenses.forEach(x=>{const tr=cells($('license-list'),[x.customer_name,'•••• '+x.key_hint,new Date(x.expires_at).toLocaleDateString('vi-VN'),x.status]);tr.dataset.expiresAt=x.expires_at;tr.dataset.licenseStatus=x.status;const td=el('td','');if(x.status==='active'){const b=el('button','Thu hồi');b.onclick=async()=>{if(!confirm('Thu hồi key của '+x.customer_name+'?'))return;try{await api('licenses/revoke',{license_id:x.id});msg('Đã thu hồi');await refresh()}catch(e){msg(e.message,true)}};td.append(b)}tr.append(td)});
   $('audit-list').replaceChildren();data.audit.forEach(x=>cells($('audit-list'),[x.at,x.actor,x.action,x.target_id]));
   filterAll();
 }
@@ -111,6 +117,11 @@ for(const kind of ['customer','order','license','audit']){
  $(kind+'-search').addEventListener('input',()=>filterTable(kind));
 }
 $('refresh-admin').addEventListener('click',()=>refresh().catch(e=>msg(e.message,true)));
+$('show-expiring').addEventListener('click',()=>{
+  expiringOnly=!expiringOnly;
+  $('show-expiring').setAttribute('aria-pressed',String(expiringOnly));
+  filterTable('license');
+});
 $('payment-cancel').addEventListener('click',()=>$('payment-dialog').close());
 $('payment-review-form').addEventListener('submit',async event=>{
  event.preventDefault();
