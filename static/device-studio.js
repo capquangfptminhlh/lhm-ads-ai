@@ -111,7 +111,10 @@
   }
   function drawReports(account){
     const mount=$('pwa-report-rows');mount.replaceChildren();
-    if(!account){empty(mount,'Mở kho rồi thêm tài khoản để xem báo cáo.');return;}
+    if(!account){
+      text('pwa-report-summary','Kho đang khóa hoặc chưa có tài khoản để hiển thị báo cáo.');
+      empty(mount,'Mở kho rồi thêm tài khoản để xem báo cáo.');return;
+    }
     const rows=vault.listDailyReports(account.localId);
     const total=rows.reduce((s,r)=>({spend:s.spend+r.spend,clicks:s.clicks+r.clicks,impressions:s.impressions+r.impressions}),
       {spend:0,clicks:0,impressions:0});
@@ -143,6 +146,7 @@
   }
   function refresh(){
     const active=isOpen(),data=allData();
+    if(!active)selectedAccount='';
     text('pwa-session-label',active?'KHO ĐÃ MỞ KHÓA':'KHO ĐANG KHÓA');
     text('pwa-overview-accounts',data.accounts.length);
     text('pwa-overview-days',data.days);
