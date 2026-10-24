@@ -25,6 +25,9 @@ class StaticPagesTests(unittest.TestCase):
             self.assertIn('href="/local/"',landing)
             self.assertIn('id="tinh-nang"',landing)
             self.assertIn('id="bao-mat"',landing)
+            self.assertIn('id="bang-gia"',landing)
+            self.assertIn('499.000đ',landing)
+            self.assertIn('Chưa thu tiền trực tuyến',landing)
             self.assertNotIn('http-equiv="refresh"',landing)
             self.assertNotIn('login-pass',landing)
             self.assertNotIn('accessToken',landing)
@@ -48,6 +51,7 @@ class StaticPagesTests(unittest.TestCase):
             worker=(out/'sw.js').read_text(encoding='utf-8')
             self.assertIn("'/local/'",worker)
             self.assertIn("caches.match('/local/')",worker)
+            self.assertIn("lhm-pwa-cloudflare-v6-20261024",worker)
             self.assertIn("url.pathname.startsWith('/api/')",worker)
             self.assertNotIn("'/studio/'",worker)
 
