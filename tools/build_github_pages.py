@@ -50,7 +50,8 @@ def build(output: Path) -> Path:
         '</body>', ('<script src="/static/cloudflare-hosting-gate.js" defer></script>'
                    '<script src="/static/device-vault.js" defer></script>'
                    '<script src="/static/device-vault-ui.js" defer></script>'
-                   '<script src="/static/device-insights.js" defer></script></body>'), 1
+                   '<script src="/static/device-insights.js" defer></script>'
+                   '<script src="/static/device-mcp.js" defer></script></body>'), 1
     )
     page = output / "studio"
     page.mkdir()
