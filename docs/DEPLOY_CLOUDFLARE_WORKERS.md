@@ -1,6 +1,6 @@
 # Triển khai LHM Ads AI không VPS: GitHub + Cloudflare Workers
 
-**Tên miền thương mại:** https://ads.lhm.com
+**Tên miền thương mại:** https://ads.lhmcrm.com
 
 ## Vì sao KHÔNG dùng GitHub Pages để bán phần mềm?
 
@@ -12,7 +12,7 @@ Quy định chính thức: https://docs.github.com/en/pages/getting-started-with
 
 - `static/`: giao diện PWA hiện có (trình duyệt và mobile).
 - `tools/build_github_pages.py`: bộ xuất giao diện thành `_site/`. Tên file giữ để tương thích với kiểm thử cũ, **nhưng output hiện dùng cho Cloudflare, không xuất bản GitHub Pages thương mại**.
-- `wrangler.toml`: một Worker ở **ads.lhm.com**, `assets.directory = "./_site"`, `run_worker_first = ["/api/*"]`. Cloudflare cấp HTTPS và DNS custom-domain, không cần trỏ CNAME tới GitHub.
+- `wrangler.toml`: một Worker ở **ads.lhmcrm.com**, `assets.directory = "./_site"`, `run_worker_first = ["/api/*"]`. Cloudflare cấp HTTPS và DNS custom-domain, không cần trỏ CNAME tới GitHub.
 - `workers/ads-api/src/index.js`: Worker bản an toàn mặc định, chỉ trả health readiness `/api/_hosting/status` (`auth_ready:false`) và 503 cho API chưa được chuyển đổi. File tĩnh giao cho Cloudflare Assets.
 - `static/cloudflare-hosting-gate.js`: khóa form đăng nhập trong bundle tĩnh cho đến khi API thật tự xác minh sẵn sàng.
 - GitHub Actions chỉ **build + test**; việc nối Cloudflare Git Integration phải được chủ tài khoản Cloudflare cho phép.
@@ -23,8 +23,8 @@ Quy định chính thức: https://docs.github.com/en/pages/getting-started-with
 2. Tạo Worker có **name `lhm-ads-cloudflare-api`**, matching với `wrangler.toml`. Chọn production branch `main` (sau khi PR đã nghiệm thu và merge), repository root `/`.
 3. **Build command:** `python tools/build_github_pages.py --output _site`. Nếu build image chưa có Python thì cấu hình môi trường có Python hoặc thay bằng GH Actions xuất artifact/deploy qua Wrangler.
 4. **Deploy command:** `npx wrangler deploy` (đọc `wrangler.toml` ở gốc repo). Preview builds nên được kiểm tra trước khi cho production.
-5. Khi bật **Custom Domain `ads.lhm.com`**, Cloudflare tự cấu hình DNS/TLS nếu `lhm.com` là zone do Cloudflare quản lý. Kiểm tra xung đột nếu tên miền đang được một project khác sử dụng. Đừng tạo CNAME trỏ tới GitHub Pages.
-6. Trên điện thoại, mở `https://ads.lhm.com/studio/` để xem bản PWA và cài lên màn hình chính. Nếu chưa có backend thực tế, màn hình phải **khóa đăng nhập** và hiển thị thông báo đang triển khai.
+5. Khi bật **Custom Domain `ads.lhmcrm.com`**, Cloudflare tự cấu hình DNS/TLS nếu `lhmcrm.com` là zone do Cloudflare quản lý. Kiểm tra xung đột nếu tên miền đang được một project khác sử dụng. Đừng tạo CNAME trỏ tới GitHub Pages.
+6. Trên điện thoại, mở `https://ads.lhmcrm.com/studio/` để xem bản PWA và cài lên màn hình chính. Nếu chưa có backend thực tế, màn hình phải **khóa đăng nhập** và hiển thị thông báo đang triển khai.
 
 Nguồn Cloudflare Workers Static Assets: https://developers.cloudflare.com/workers/static-assets/
 
@@ -46,7 +46,7 @@ Repo hiện vẫn có FastAPI/Python dùng SQLite, phiên đăng nhập, OAuth, 
 
 1. Cloudflare D1/DO: bảng người dùng, tenant, giấy phép, quyền riêng, phiên đăng nhập; giao dịch/throttling và audit; backup phù hợp.
 2. Secure authentication, CSRF, MFA, mã hóa và quản lý vòng đời token; rà soát lựa chọn người giữ khóa. Chỉ bật một khả năng khi có endpoint thật, được kiểm thử.
-3. Google/Meta OAuth và truy vấn API thực trên Worker, callback `https://ads.lhm.com/api/oauth/google/callback` / `https://ads.lhm.com/api/oauth/meta/callback`.
+3. Google/Meta OAuth và truy vấn API thực trên Worker, callback `https://ads.lhmcrm.com/api/oauth/google/callback` / `https://ads.lhmcrm.com/api/oauth/meta/callback`.
 4. Báo cáo, AI giới hạn theo gói, cảnh báo ngân sách bằng Cron/Queues, Web Push với opt-in, chống báo trùng và giới hạn Cloudflare.
 5. MCP Gateway HTTP có xác thực, tenant isolation và tool read-only mặc định, có audit và thu hồi quyền; không tự động cho agent sửa quảng cáo.
 6. TikTok Ads chỉ tích hợp khi có quyền API/duyệt ứng dụng hợp lệ.
