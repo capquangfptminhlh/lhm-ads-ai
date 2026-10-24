@@ -1,0 +1,10 @@
+/* Customer account gate is separate from the encrypted on-device vault. */
+body.customer-locked .pwa-shell,body.customer-locked .pwa-mobile-dock{display:none!important}
+body.customer-locked #pwa-access-gate{display:block!important}
+#customer-login-box{background:#fff;border:1px solid #dbe5f3;border-radius:16px;padding:18px;margin-bottom:18px;color:#163250}
+#customer-login-box label{display:block;margin:10px 0 5px;font-size:13px;font-weight:650}
+#customer-login-box input{width:100%;box-sizing:border-box;border:1px solid #b8cbe0;border-radius:9px;padding:11px;font-size:15px}
+#customer-login-box button{background:#1377c8;border:0;border-radius:9px;color:#fff;padding:11px 16px;margin-top:12px;cursor:pointer;font-weight:700}
+#customer-login-box button:disabled{opacity:.6}
+#customer-login-box .customer-help{font-size:12px;line-height:1.5;color:#627991}
+#customer-login-box [role=status]{font-size:13px;min-height:1.4em;margin-top:10px}
