@@ -96,9 +96,11 @@ def bootstrap(create=False):
     if not EMAIL_RE.fullmatch(email):
         raise BootstrapError("LHM_ADMIN_EMAIL must be the intended owner's email (configured as a GitHub Secret)")
     team_domain=check_organization()
-    apps=api("GET","/access/apps")
+    apps=api("GET","/access/apps?per_page=100")
     if not isinstance(apps,list):
         raise BootstrapError("Unexpected Access apps response; refusing to create duplicates")
+    if len(apps)>=100:
+        raise BootstrapError("Access app list may be paginated; refusing to create duplicate apps")
     app=find_application(apps)
     if app is None and not create:
         raise BootstrapError("Access app missing. Explicit --create-app is required to provision it.")
