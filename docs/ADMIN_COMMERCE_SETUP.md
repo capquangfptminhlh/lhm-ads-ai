@@ -115,3 +115,27 @@ The Approve button is disabled until a transaction reference exists.
 Approving payment remains a human decision **after checking bank statements**;
 the UI alone never verifies funds. Subscription list offers a seven-day
 expiring-key filter (limited to the most recent 100 licenses returned by API).
+
+
+## GitHub Actions deployment (manual only)
+
+Workflow: `.github/workflows/deploy-commerce.yml`, labeled
+**Deploy LHM Ads Commerce (manual, guarded)**. It never runs on a normal push.
+It requires GitHub repository Actions secrets `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID` authorized for the matching Cloudflare account. The
+token must be permitted to read D1 databases, apply D1 migrations and deploy
+this Worker. Never commit these secrets.
+
+When manually dispatched, the workflow builds and verifies the existing
+`lhm-ads-commerce` D1, applies remote migrations, deploys the Worker
+with `COMMERCE_DB`, and executes the read-only HTTPS production smoke gate.
+It fails early rather than pretending that an unconfigured account is ready.
+
+The Worker configuration uses `keep_vars = true` so Cloudflare Dashboard
+runtime variables (`CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`, `ADMIN_EMAIL`)
+are preserved when Wrangler redeploys; see Cloudflare documentation for
+the source-of-truth rules. This **does not** set these values automatically.
+
+Before treating payments/licenses as production-ready, independently confirm
+Cloudflare Access actually protects both `/admin/*` and `/api/admin/*`,
+and verify the full manual bank reconciliation and issuance lifecycle.
