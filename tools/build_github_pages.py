@@ -34,7 +34,7 @@ def build(output: Path) -> Path:
     sw=(STATIC / "sw.js").read_text(encoding="utf-8")
     assert "const SHELL = [" in sw and "if (req.mode === 'navigate')" in sw
     pre_cache=[
-        "/local/","/static/device-vault.js","/static/device-vault-ui.js",
+        "/local/","/login/","/static/device-vault.js","/static/device-vault-ui.js",
         "/static/device-insights.js","/static/device-mcp.js","/static/device-vault.css",
         "/static/device-insights.css","/static/device-local.css","/static/soft-motion-ui.css",
         "/static/device-studio.css","/static/device-studio.js","/static/fonts.css",
@@ -42,11 +42,11 @@ def build(output: Path) -> Path:
     ]
     sw=sw.replace("const SHELL = [","const SHELL = [\n"+
       "".join(f"  '{name}',\n" for name in pre_cache),1)
-    sw=sw.replace("lhm-pwa-v1-20261023","lhm-studio-gated-v5-20261024",1)
+    sw=sw.replace("lhm-pwa-v1-20261023","lhm-marketing-v6-20261024",1)
     sw=sw.replace("if (req.mode === 'navigate') {",
       "if (req.mode === 'navigate') {\n"+
-      "    if (url.pathname === '/local/' || url.pathname === '/local') {\n"+
-      "      event.respondWith(fetch(req).catch(async () => (await caches.match('/local/')) || Response.error()));\n"+
+      "    if (url.pathname === '/local/' || url.pathname === '/local' || url.pathname === '/login/' || url.pathname === '/login') {\n"+
+      "      event.respondWith(fetch(req).catch(async () => (await caches.match(url.pathname.startsWith('/login') ? '/login/' : '/local/')) || Response.error()));\n"+
       "      return;\n"+
       "    }",1)
     (output / "sw.js").write_text(sw,encoding="utf-8")
@@ -57,6 +57,9 @@ def build(output: Path) -> Path:
     local=output / "local"
     local.mkdir()
     (local / "index.html").write_text(local_html,encoding="utf-8")
+    login=output / "login"
+    login.mkdir()
+    (login / "index.html").write_text(local_html,encoding="utf-8")
     studio = (STATIC / "studio.html").read_text(encoding="utf-8")
     assert '<form id="login-form">' in studio and '</body>' in studio
     # Unlike the FastAPI-hosted Studio, this static bundle cannot authenticate anyone.
@@ -91,7 +94,7 @@ def build(output: Path) -> Path:
     # Public landing page at /; entry to the cryptographically locked PWA at /local/.
     # No OAuth/login server is implied or deployed by this static marketing page.
     marketing=(STATIC / "marketing.html").read_text(encoding="utf-8")
-    assert '<a class="mk-btn mk-btn-primary" href="/local/">' in marketing
+    assert '<a class="mk-btn mk-btn-primary" href="/login/">' in marketing
     assert '<link rel="stylesheet" href="/static/marketing.css">' in marketing
     (output / "index.html").write_text(marketing,encoding="utf-8")
     # Cloudflare Workers Static Assets: apply a strict same-origin execution policy.
