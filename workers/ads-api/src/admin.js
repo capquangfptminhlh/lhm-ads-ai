@@ -39,12 +39,14 @@ export async function adminApi(request,env){
   if(method!=='GET'&&request.headers.get('content-type')?.split(';')[0]!=='application/json')return reply({error:'Expected JSON'},415);
   try{
     if(path==='/api/admin/overview'&&method==='GET'){
-      const [customers,orders,licenses,auditLog]=await Promise.all([
+      const [customers,orders,licenses,auditLog,fulfilled]=await Promise.all([
         db.prepare('SELECT id,name,email,phone,status,created_at FROM customers ORDER BY created_at DESC LIMIT 100').all(),
         db.prepare('SELECT o.*,c.name AS customer_name FROM orders o JOIN customers c ON c.id=o.customer_id ORDER BY o.created_at DESC LIMIT 100').all(),
         db.prepare('SELECT l.id,l.customer_id,l.key_hint,l.status,l.expires_at,l.created_at,c.name AS customer_name FROM licenses l JOIN customers c ON c.id=l.customer_id ORDER BY l.created_at DESC LIMIT 100').all(),
-        db.prepare('SELECT actor,action,target_id,at FROM admin_audit ORDER BY at DESC LIMIT 30').all()]);
-      return reply({actor,customers:customers.results,orders:orders.results,licenses:licenses.results,audit:auditLog.results});
+        db.prepare('SELECT actor,action,target_id,at FROM admin_audit ORDER BY at DESC LIMIT 30').all(),
+        db.prepare('SELECT order_id FROM license_fulfillments ORDER BY created_at DESC LIMIT 500').all()]);
+      return reply({actor,customers:customers.results,orders:orders.results,licenses:licenses.results,audit:auditLog.results,
+        fulfilled_order_ids:fulfilled.results.map(x=>x.order_id)});
     }
     if(path==='/api/admin/customers'&&method==='POST'){
       const x=await body(request),name=string(x.name,120),email=string(x.email,200).toLowerCase(),phone=string(x.phone,40);
@@ -77,27 +79,51 @@ export async function adminApi(request,env){
       return reply({ok:true});
     }
     if(path==='/api/admin/licenses/issue'&&method==='POST'){
-      const x=await body(request),order=await db.prepare("SELECT * FROM orders WHERE id=? AND status='paid'").bind(string(x.order_id,50)).first();
+      const x=await body(request),order=await db.prepare("SELECT * FROM orders WHERE id=? AND status='paid'")
+        .bind(string(x.order_id,50)).first();
       if(!order)return reply({error:'Paid order required'},409);
-      const current=await db.prepare('SELECT id FROM licenses WHERE id=?').bind(order.id).first();
-      if(current)return reply({error:'Order already issued'},409);
+      const spent=await db.prepare('SELECT order_id FROM license_fulfillments WHERE order_id=?')
+        .bind(order.id).first();
+      if(spent)return reply({error:'Order already used for a license'},409);
       const key='LHM-'+Array.from(crypto.getRandomValues(new Uint8Array(24)),v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();
-      const now=new Date(),expires=new Date(now);expires.setUTCMonth(expires.getUTCMonth()+order.months);
-      await db.prepare("INSERT INTO licenses(id,customer_id,key_hash,key_hint,expires_at) VALUES(?,?,?,?,?)").bind(order.id,order.customer_id,await hex(key),key.slice(-8),expires.toISOString()).run();
-      await audit(db,actor,'license_issue',order.id);
+      const expires=new Date();expires.setUTCMonth(expires.getUTCMonth()+order.months);
+      // D1 batch is transactional; a unique order_id prevents duplicate fulfillment.
+      await db.batch([
+        db.prepare('INSERT INTO licenses(id,customer_id,key_hash,key_hint,expires_at) VALUES(?,?,?,?,?)')
+          .bind(order.id,order.customer_id,await hex(key),key.slice(-8),expires.toISOString()),
+        db.prepare("INSERT INTO license_fulfillments(order_id,license_id,action) VALUES(?,?,'issue')")
+          .bind(order.id,order.id),
+        db.prepare('INSERT INTO admin_audit(id,actor,action,target_id) VALUES(?,?,?,?)')
+          .bind(uuid(),actor,'license_issue',order.id)
+      ]);
       return reply({key,expires_at:expires.toISOString(),notice:'Copy now. Raw key is not stored.'},201);
     }
     if(path==='/api/admin/licenses/renew'&&method==='POST'){
-      const x=await body(request),id=string(x.license_id,50),order=await db.prepare("SELECT * FROM orders WHERE id=? AND status='paid'").bind(string(x.order_id,50)).first();
+      const x=await body(request),id=string(x.license_id,50);
+      const order=await db.prepare("SELECT * FROM orders WHERE id=? AND status='paid'")
+        .bind(string(x.order_id,50)).first();
       const lic=await db.prepare('SELECT * FROM licenses WHERE id=?').bind(id).first();
-      if(!order||!lic||order.customer_id!==lic.customer_id)return reply({error:'Matching paid order and license required'},409);
-      const used=await db.prepare("SELECT id FROM admin_audit WHERE action='license_renew' AND target_id=? LIMIT 1").bind(order.id).first();
-      if(used)return reply({error:'Renewal already applied'},409);
-      let base=new Date(lic.expires_at);if(base<new Date())base=new Date();
-      base.setUTCMonth(base.getUTCMonth()+order.months);
-      await db.prepare("UPDATE licenses SET expires_at=?,status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(base.toISOString(),id).run();
-      await audit(db,actor,'license_renew',order.id);
-      return reply({expires_at:base.toISOString()});
+      if(!order||!lic||order.customer_id!==lic.customer_id)
+        return reply({error:'Matching paid order and license required'},409);
+      const spent=await db.prepare('SELECT order_id FROM license_fulfillments WHERE order_id=?')
+        .bind(order.id).first();
+      if(spent)return reply({error:'Order already used for a license'},409);
+      // Compute next expiration *inside SQLite*, so two distinct renewals
+      // cannot overwrite each other's expiry based on stale reads.
+      await db.batch([
+        db.prepare("INSERT INTO license_fulfillments(order_id,license_id,action) VALUES(?,?,'renew')")
+          .bind(order.id,id),
+        db.prepare(`UPDATE licenses SET
+          expires_at=strftime('%Y-%m-%dT%H:%M:%fZ',
+            datetime(CASE WHEN julianday(expires_at)>julianday('now')
+              THEN expires_at ELSE 'now' END, '+' || ? || ' months')),
+          status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+          .bind(order.months,id),
+        db.prepare('INSERT INTO admin_audit(id,actor,action,target_id) VALUES(?,?,?,?)')
+          .bind(uuid(),actor,'license_renew',order.id)
+      ]);
+      const result=await db.prepare('SELECT expires_at FROM licenses WHERE id=?').bind(id).first();
+      return reply({expires_at:result.expires_at});
     }
     if(path==='/api/admin/licenses/revoke'&&method==='POST'){
       const x=await body(request),id=string(x.license_id,50);
