@@ -66,7 +66,7 @@ def main():
                 site.on('pageerror',lambda error:errors.append(str(error)))
                 site.goto(origin+'/',wait_until='domcontentloaded')
                 site.locator('.mk-nav-login').wait_for()
-                assert site.locator('h1').get_by_text('Quản lý quảng cáo',exact=False).count()>=1
+                assert 'Quản lý quảng cáo' in site.locator('h1').first.inner_text()
                 assert 'lhmcrm.com' in site.locator('link[rel="canonical"]').get_attribute('href')
                 check_no_horizontal_overflow(site)
                 site.screenshot(path=str(OUTPUT/'lhm-public-marketing-desktop.png'),full_page=True)
