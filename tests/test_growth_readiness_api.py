@@ -11,7 +11,8 @@ PATH = '/api/advisor/growth/readiness'
 
 
 def test_growth_readiness_requires_authentication():
-    with TestClient(app) as client:
+    client = TestClient(app)
+        if True:
         response = client.post(PATH, json={'account_id': 1, 'observation': {}})
     assert response.status_code in (401, 403)
 
@@ -55,7 +56,8 @@ def test_growth_readiness_scopes_account_and_never_writes_ads():
 def test_growth_readiness_invalid_id_fails_validation():
     app.dependency_overrides[browser_admin] = lambda: {'org_id': 'tenant-a', 'id': 7}
     try:
-        with TestClient(app) as client:
+        client = TestClient(app)
+        if True:
             response = client.post(PATH, json={'account_id': 0, 'observation': {}})
         assert response.status_code == 422
     finally:
