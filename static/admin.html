@@ -29,40 +29,4 @@
 </form></dialog>
 <p class="admin-footer">LHM Ads AI · Quản trị thương mại · Dữ liệu khách hàng chỉ hiển thị sau khi xác thực</p>
 </main>
-<script>
-'use strict';let data={customers:[],orders:[],licenses:[],audit:[],fulfilled_order_ids:[]},issuedKey='';
-const $=x=>document.getElementById(x),fmt=x=>new Intl.NumberFormat('vi-VN').format(x||0);
-const el=(tag,t)=>{const n=document.createElement(tag);n.textContent=String(t??'');return n;};
-function msg(s,error=false){const n=$('message');n.textContent=s;n.className='show'+(error?' error':'');}
-async function api(path,payload){const opts=payload===undefined?{}:{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)};const r=await fetch('/api/admin/'+path,{credentials:'same-origin',cache:'no-store',...opts});let x;try{x=await r.json()}catch{x={error:'Server did not return JSON'}}if(!r.ok)throw Error(x.error||'Có lỗi xảy ra');return x;}
-function options(select,items,label){select.replaceChildren();for(const item of items){const o=el('option',label(item));o.value=item.id;select.append(o);}}
-function cells(tbody,values){const tr=document.createElement('tr');values.forEach(v=>tr.append(el('td',v)));tbody.append(tr);return tr;}
-function syncRenewOrders(){
- const license=data.licenses.find(x=>x.id===$('license-choice').value);
- const spent=new Set(data.fulfilled_order_ids||[]);
- options($('paid-order-choice'),data.orders.filter(x=>x.status==='paid'&&!spent.has(x.id)
-  && license&&x.customer_id===license.customer_id),x=>x.customer_name+' · '+x.id.slice(0,8));
-}
-function render(){
-  const spent=new Set(data.fulfilled_order_ids||[]);
-  $('m-customers').textContent=data.customers.length;$('m-orders').textContent=data.orders.filter(x=>x.status==='pending').length;
-  $('m-licenses').textContent=data.licenses.filter(x=>x.status==='active'&&new Date(x.expires_at)>new Date()).length;
-  $('customer-list').replaceChildren();data.customers.forEach(x=>cells($('customer-list'),[x.name,x.email,x.phone||'—',x.status]));
-  document.querySelectorAll('.customer-choices').forEach(s=>options(s,data.customers,x=>x.name+' · '+x.email));
-  $('order-list').replaceChildren();
-  data.orders.forEach(x=>{const tr=cells($('order-list'),[x.id.slice(0,8),x.customer_name,x.months+' tháng',fmt(x.amount_vnd)+'đ',x.status]);const td=el('td','');
-    if(x.status==='pending'){const a=el('button','Ghi nhận chuyển khoản');a.onclick=async()=>{const reference=prompt('Nhập mã giao dịch ngân hàng đã kiểm tra:');if(!reference)return;try{await api('payments/review',{order_id:x.id,reference});msg('Đã ghi nhận tham chiếu. Chỉ duyệt sau khi đối soát ngân hàng.')}catch(e){msg(e.message,true)}};const b=el('button','Duyệt đã nhận tiền');b.onclick=async()=>{if(!confirm('Đã đối soát tiền vào ngân hàng? Duyệt đơn '+x.id.slice(0,8)+'?'))return;try{await api('payments/approve',{order_id:x.id});msg('Đã duyệt thanh toán');await refresh()}catch(e){msg(e.message,true)}};td.append(a,b)}
-    if(x.status==='paid'&&!spent.has(x.id)){const b=el('button','Cấp key');b.onclick=async()=>{if(!confirm('Cấp key từ đơn '+x.id.slice(0,8)+'?'))return;try{const k=await api('licenses/issue',{order_id:x.id});issuedKey=k.key;$('issued-key').textContent=k.key+'\nHết hạn: '+k.expires_at;$('issued').hidden=false;msg('Đã cấp key. Vào tab Bản quyền để lưu key.');document.querySelector('[data-tab="licenses"]').click();await refresh()}catch(e){msg(e.message,true)}};td.append(b)}tr.append(td)});
-  options($('license-choice'),data.licenses,x=>x.customer_name+' · '+x.key_hint);
-  syncRenewOrders();
-  $('license-list').replaceChildren();data.licenses.forEach(x=>{const tr=cells($('license-list'),[x.customer_name,'•••• '+x.key_hint,new Date(x.expires_at).toLocaleDateString('vi-VN'),x.status]);const td=el('td','');if(x.status==='active'){const b=el('button','Thu hồi');b.onclick=async()=>{if(!confirm('Thu hồi key của '+x.customer_name+'?'))return;try{await api('licenses/revoke',{license_id:x.id});msg('Đã thu hồi');await refresh()}catch(e){msg(e.message,true)}};td.append(b)}tr.append(td)});
-  $('audit-list').replaceChildren();data.audit.forEach(x=>cells($('audit-list'),[x.at,x.actor,x.action,x.target_id]));
-}
-async function refresh(){data=await api('overview');$('unavailable').hidden=true;$('workspace').hidden=false;render();}
-document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('nav button').forEach(n=>n.removeAttribute('aria-current'));b.setAttribute('aria-current','page');document.querySelectorAll('.view').forEach(n=>n.classList.toggle('active',n.id===b.dataset.tab));}));
-async function submit(form,path,transform){form.addEventListener('submit',async e=>{e.preventDefault();const payload=Object.fromEntries(new FormData(form));try{await api(path,transform?transform(payload):payload);msg('Đã lưu thành công');await refresh()}catch(err){msg(err.message,true)}})}
-submit($('customer-form'),'customers');submit($('order-form'),'orders',v=>({...v,months:Number(v.months),amount_vnd:Number(v.amount_vnd)}));submit($('renew-form'),'licenses/renew');
-$('copy-key').onclick=()=>{if(issuedKey)navigator.clipboard.writeText(issuedKey).then(()=>msg('Đã sao chép key')).catch(()=>msg('Không thể sao chép tự động',true))};
-$('license-choice').addEventListener('change',syncRenewOrders);
-refresh().catch(e=>{$('status').textContent=e.message+' — Cần cấu hình Cloudflare Access, D1 migration và quyền ADMIN_EMAIL.'});
-</script></body></html>
+<script src="/static/admin.js" defer></script></body></html>
