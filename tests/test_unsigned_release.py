@@ -124,4 +124,4 @@ def test_package_tampering_and_untrusted_public_are_rejected(parts):
                 if name=='LHM-Ads-AI.exe':data+=b'sneaky'
                 changed.writestr(name,data)
     with pytest.raises(ReleaseGateError,match='SHA256 mismatch'):
-        pack.verify_package(tampered,parts['pub'])
+        pack.verify_package(tampered,parts['pub'],parts['leasepub'])
