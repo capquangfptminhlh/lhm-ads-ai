@@ -87,3 +87,5 @@ jobs:
         run: python tools/bootstrap_access.py --apply-worker-secrets
       - name: Validate live public routes, protected Admin and database readiness
         run: python tools/smoke_production.py --strict
+      - name: Verify LIVE Gmail login, plans, signer, VietQR and Ads OAuth readiness
+        run: python tools/smoke_gmail_production.py
