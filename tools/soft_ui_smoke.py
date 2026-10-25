@@ -91,10 +91,11 @@ def main():
                 mobile_errors=[]
                 mobile.on('pageerror',lambda error:mobile_errors.append(str(error)))
                 mobile.goto(origin+'/',wait_until='domcontentloaded')
-                mobile.locator('.mk-nav-login').wait_for()
+                mobile.locator('.mk-mobile-menu summary').wait_for()
                 check_no_horizontal_overflow(mobile)
                 mobile.screenshot(path=str(OUTPUT/'lhm-public-marketing-mobile.png'),full_page=True)
-                mobile.locator('.mk-nav-login').click()
+                mobile.locator('.mk-mobile-menu summary').click()
+                mobile.locator('.mk-mobile-menu-panel a[href="/local/"]').click()
                 mobile.locator('#pwa-access-gate').wait_for()
                 assert not mobile.locator('.pwa-mobile-dock').is_visible()
                 check_no_horizontal_overflow(mobile)
