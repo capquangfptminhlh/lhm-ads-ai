@@ -22,6 +22,9 @@ OPENER=request.build_opener(NoRedirect)
 
 def call(path, data=None):
     headers={"Accept":"application/json"} if path.startswith("/api/") else {}
+    # Cloudflare's bot protection answers 403 to the default Python-urllib agent,
+    # which would also hide whether Admin is really behind Access.
+    headers["User-Agent"]="LHM-Ads-Smoke/1.0 (+https://github.com/capquangfptminhlh/lhm-ads-ai)"
     if data is not None:
         headers["Content-Type"]="application/json"
     req=request.Request(BASE+path,data=json.dumps(data).encode() if data is not None else None,
