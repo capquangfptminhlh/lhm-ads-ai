@@ -49,8 +49,13 @@ jobs:
           node --check workers/ads-api/src/admin.js
           node --check workers/ads-api/src/google-subscription.js
           node --check workers/ads-api/src/desktop-pair.js
+          node --check workers/ads-api/src/commerce.js
+          node --check workers/ads-api/src/admin.js
           node --test tests/desktop_pairing_contract.test.mjs
           node --test tests/google_subscription_contract.test.mjs
+          # Must validate payment/renewal rollback on real SQLite before touching
+          # production D1 or activating the Worker for paying customers.
+          node --test tests/worker_gmail_plans.test.mjs
           python -m unittest discover -s tests -p 'test_google_seats_migration.py' -v
           python -m unittest discover -s tests -p 'test_bootstrap_cloudflare.py' -v
           python -m unittest discover -s tests -p 'test_admin_d1_sql.py' -v
