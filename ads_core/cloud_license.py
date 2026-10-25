@@ -277,6 +277,7 @@ class CloudLicense:
 SEAT_TTL_SECONDS = 600
 HEARTBEAT_SECONDS = 300
 ROLLBACK_TOLERANCE_SECONDS = 300
+MAX_OFFLINE_LEASE_SECONDS = 72 * 3600
 
 
 def _b64url(value: str) -> bytes:
@@ -334,6 +335,9 @@ def verify_lease(lease: str | None, customer_id: str | None, client_id: str | No
     issued = _parse_time(payload.get("issued_at"))
     if (payload.get("v") != 1 or payload.get("customer_id") != customer_id or payload.get("client_hash") != expected
             or not valid_until or not plan_until or not issued
+            or valid_until <= issued
+            or valid_until - issued > MAX_OFFLINE_LEASE_SECONDS
+            or valid_until > plan_until
             or now + ROLLBACK_TOLERANCE_SECONDS < issued or now >= valid_until or now >= plan_until):
         return None
     return payload
