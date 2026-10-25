@@ -146,6 +146,54 @@ def test_offline_grace_then_hard_lock_on_server_refusal(tmp_path, keys, monkeypa
     assert CloudLicense(tmp_path).active() is False
 
 
+def test_cloudflare_transient_outages_keep_only_an_existing_signed_lease(tmp_path, keys, monkeypatch):
+    native = paired(tmp_path)
+    lease = sign(keys, native.client_id)
+    signed = json.loads(base64.urlsafe_b64decode(lease.split(".")[0] + "=="))
+    good = {"active": True, "account_id": CUSTOMER, "account_email": "owner@gmail.com",
+            "seat_limit": 2, "expires_at": signed["license_expires_at"], "lease": lease}
+    replies = [(200, good), (503, {"code": "TEMPORARY_ERROR"}),
+               (429, {"code": "RATE_LIMITED"}), (408, {}),
+               (502, {"error": "temporary Cloudflare edge failure"}),
+               (403, {"code": "LICENSE_REVOKED"})]
+    monkeypatch.setattr(native, "_request", lambda *args, **kwargs: replies.pop(0))
+    assert native.refresh_lease(mode="attach")["active"] is True
+    for status in (503, 429, 408, 502):
+        result = native.refresh_lease()
+        assert result["active"] is True and result["reason"] == "OFFLINE"
+        assert result["offline_until"]
+        assert native.lease == lease
+        assert CloudLicense(tmp_path).active() is True
+    # A definitive server denial overrides the grace period immediately.
+    assert native.refresh_lease()["reason"] == "LICENSE_REVOKED"
+    assert native.active() is False
+    assert CloudLicense(tmp_path).active() is False
+
+
+def test_no_signed_lease_cannot_unlock_during_transient_outage(tmp_path, keys, monkeypatch):
+    native = paired(tmp_path)
+    replies = [(503, {}), (429, {}), (200, ["malformed-not-json-object"])]
+    monkeypatch.setattr(native, "_request", lambda *args, **kwargs: replies.pop(0))
+    for _ in range(3):
+        result = native.refresh_lease()
+        assert result["active"] is False and result["reason"] == "OFFLINE_LOCKED"
+        assert native.lease is None
+
+
+@pytest.mark.parametrize("raw", [b"", b"not-json", b"[]", b"null", b'"plain-text"'])
+def test_bad_http_200_json_does_not_kill_heartbeat_or_grant_access(tmp_path, monkeypatch, raw):
+    native = paired(tmp_path)
+    class InvalidResponse:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self, max_bytes): return raw
+    monkeypatch.setattr(service, "urlopen", lambda request, timeout: InvalidResponse())
+    with pytest.raises(CloudLicenseError, match="Invalid response"):
+        native._request("/api/desktop/pair/start", {})
+    assert native.refresh_lease()["active"] is False
+
+
 def test_seat_limit_lists_devices_and_takeover_is_explicit(tmp_path, keys, monkeypatch):
     native = paired(tmp_path)
     seat_lease = sign(keys, native.client_id)
