@@ -13,3 +13,5 @@ jobs:
           python-version: '3.12'
       - name: Verify live LHM Ads AI and protected commerce API
         run: python tools/smoke_production.py --strict
+      - name: Verify real Gmail subscription and browser OAuth readiness
+        run: python tools/smoke_gmail_production.py
