@@ -45,7 +45,15 @@ def api(method: str, path: str, body: dict | None = None):
         with urllib.request.urlopen(req,timeout=30) as resp:
             payload=json.load(resp)
     except urllib.error.HTTPError as err:
-        raise BootstrapError(f"Cloudflare API {method} failed with HTTP {err.code}; check Access permissions") from None
+        # Cloudflare's error codes say whether the token lacks a permission or
+        # Zero Trust is not set up; they never contain the token itself.
+        try:
+            details="; ".join(f"{e.get('code')}: {e.get('message')}"
+                              for e in json.load(err).get("errors") or [])
+        except Exception:
+            details=""
+        raise BootstrapError(f"Cloudflare API {method} {path.split('?')[0]} failed with HTTP {err.code}"
+                             f"{' ('+details+')' if details else ''}; check Access permissions") from None
     except urllib.error.URLError:
         raise BootstrapError("Cloudflare API unavailable") from None
     if not payload.get("success"):
