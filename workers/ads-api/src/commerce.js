@@ -86,22 +86,33 @@ export function paymentInstructions(env,order){
  return {...base,configured:true,bank_bin:bin,account_no:account,account_name:holder,qr_url:qr};
 }
 
-/* Mark a pending order paid and grant or extend the customer's single active
- * license. The conditional UPDATE is the idempotency gate; the remaining
- * writes run in one D1 batch (transactional). */
+/* Mark payment AND issue/renewal in one atomic D1 batch.
+ * Never leave status='paid' without a license if a later SQL statement fails.
+ * The order_id unique fulfillment constraint also rejects concurrent approvals. */
 export async function fulfillPaidOrder(db,orderId,actor,{reference,note,action='payment_activate'}={}){
- const changed=await db.prepare("UPDATE orders SET status='paid',paid_at=CURRENT_TIMESTAMP,approved_by=?,reference=? WHERE id=? AND status='pending'")
-   .bind(actor,reference||null,orderId).run();
- if(changed.meta.changes!==1)return {ok:false,error:'Order already processed or missing'};
- const order=await db.prepare('SELECT * FROM orders WHERE id=?').bind(orderId).first();
- return grantFromOrder(db,order,actor,{reference,note,action});
+ const order=await db.prepare("SELECT * FROM orders WHERE id=? AND status='pending'")
+   .bind(orderId).first();
+ if(!order)return {ok:false,error:'Order already processed or missing'};
+ return grantFromOrder(db,order,actor,{reference,note,action,markPendingPaid:true});
 }
 
-export async function grantFromOrder(db,order,actor,{reference,note,action}={}){
+/* All effects of an order fulfillment are transactional, including creating a
+ * directly granted paid order and transitioning a pending bank payment. */
+export async function grantFromOrder(db,order,actor,{reference,note,action,
+    markPendingPaid=false,createPaidOrder=false}={}){
  const step=order.days?'+'+Number(order.days)+' days':'+'+Number(order.months)+' months';
  const current=await db.prepare("SELECT id FROM licenses WHERE customer_id=? AND status='active' ORDER BY expires_at DESC LIMIT 1")
    .bind(order.customer_id).first();
  const writes=[];
+ if(createPaidOrder){
+   writes.push(db.prepare("INSERT INTO orders(id,customer_id,months,days,seat_limit,amount_vnd,status,plan_code,source,reference,paid_at,approved_by) VALUES(?,?,?,?,?,?,'paid',?,?,?,CURRENT_TIMESTAMP,?)")
+     .bind(order.id,order.customer_id,order.months,order.days||null,order.seat_limit,
+       order.amount_vnd,order.plan_code||null,order.source||'admin_grant',reference||null,actor));
+ }
+ if(markPendingPaid){
+   writes.push(db.prepare("UPDATE orders SET status='paid',paid_at=CURRENT_TIMESTAMP,approved_by=?,reference=? WHERE id=? AND status='pending'")
+     .bind(actor,reference||null,order.id));
+ }
  if(reference)writes.push(db.prepare('INSERT INTO payment_reviews(order_id,reference,note) VALUES(?,?,?) ON CONFLICT(order_id) DO UPDATE SET reference=excluded.reference,note=excluded.note,submitted_at=CURRENT_TIMESTAMP')
    .bind(order.id,reference,note||null));
  let licenseId;
