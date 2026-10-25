@@ -31,12 +31,19 @@ def test_build_pins_only_valid_public_key_in_isolated_copy(tmp_path):
     lic.write_text("PUBLIC_KEY_B64 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='\n",encoding='utf-8')
     info=tmp_path/'release_info.py'
     info.write_text("EDITION = 'pilot'\n",encoding='utf-8')
+    lease=public_b64(Ed25519PrivateKey.generate())
+    original=lic.read_text()
     with pytest.raises(ValueError):
-        prepare_commercial('not-a-key',lic,info)
+        prepare_commercial('not-a-key',lic,info,lease_public_b64=lease)
+    with pytest.raises(ValueError,match="Missing LHM_LEASE_PUBLIC_KEY_B64"):
+        prepare_commercial(pub,lic,info)
+    assert lic.read_text()==original, "Failed commercial setup must not mutate issuer pin"
     assert info.read_text()=="EDITION = 'pilot'\n"
-    prepare_commercial(pub,lic,info)
+    prepare_commercial(pub,lic,info,lease_public_b64=lease)
     assert f"PUBLIC_KEY_B64 = '{pub}'" in lic.read_text()
-    assert info.read_text()=="EDITION = 'commercial'\n"
+    assert info.read_text()==("EDITION = 'commercial'\n"
+                              f"LEASE_PUBLIC_KEY_B64 = '{lease}'\n"
+                              "CLOUD_LICENSE_MODE = 'required'\n")
 
 
 def test_build_with_lease_key_turns_on_gmail_mode(tmp_path):
@@ -44,8 +51,11 @@ def test_build_with_lease_key_turns_on_gmail_mode(tmp_path):
     lic=tmp_path/'licensing.py'
     lic.write_text("PUBLIC_KEY_B64 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='\n",encoding='utf-8')
     info=tmp_path/'release_info.py'
+    original=lic.read_text()
     with pytest.raises(ValueError):
         prepare_commercial(public_b64(sk),lic,info,lease_public_b64='not-a-key')
+    assert lic.read_text()==original, "Invalid lease key must not partially mutate issuer pin"
+    assert not info.exists(), "Invalid lease key must not write a commercial edition"
     lease=public_b64(Ed25519PrivateKey.generate())
     prepare_commercial(public_b64(sk),lic,info,lease_public_b64=lease)
     namespace={}
