@@ -153,5 +153,6 @@
     if(api.isUnlocked()&&Date.now()-lastActive>15*60*1000)
       lock('Kho tự khóa sau 15 phút không thao tác.');
   },60000);
+  window.addEventListener('lhm:customer-ready',()=>refreshAccess().catch(err=>status(err.message)));
   refreshAccess().catch(err=>status(err.message));
 })();
