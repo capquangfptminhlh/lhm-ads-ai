@@ -12,6 +12,16 @@ import threading
 import time
 import urllib.request
 
+# Nuitka builds (commercial EXE) must behave exactly like the PyInstaller EXE:
+# the frozen flag gates the windowed logs, autostart and the online updater, and
+# in onefile mode sys.executable is the unpacked copy in a temp folder, while
+# autostart, the background agent and updates need the real LHM-Ads-AI.exe.
+if '__compiled__' in globals() and not getattr(sys, 'frozen', False):
+    sys.frozen = True
+    _onefile = os.path.abspath(sys.argv[0]) if sys.argv and sys.argv[0] else ''
+    if _onefile.lower().endswith('.exe') and os.path.isfile(_onefile):
+        sys.executable = _onefile
+
 if not getattr(sys, 'frozen', False):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 

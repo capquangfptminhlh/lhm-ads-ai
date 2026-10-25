@@ -37,12 +37,34 @@ def verify_exe(exe: Path) -> dict:
     return {'safe': True, 'modules_inspected': len(modules)}
 
 
+def verify_nuitka_report(report: Path) -> dict:
+    """Nuitka compiles modules to C, so audit its compilation report instead:
+    every module that went into the EXE is listed there."""
+    import xml.etree.ElementTree as ET
+    if not Path(report).is_file():
+        raise BundleAuditError('Nuitka compilation report does not exist')
+    root = ET.parse(report).getroot()
+    modules = {el.get('name') for el in root.iter('module') if el.get('name')}
+    if not modules:
+        raise BundleAuditError('Nuitka report lists no modules')
+    leaked = sorted(name for name in modules if any(
+        name == prefix or name.startswith(prefix + '.') for prefix in SELLER_ONLY))
+    if leaked:
+        raise BundleAuditError('Seller-only code included in customer EXE: ' + ', '.join(leaked))
+    missing = sorted(set(REQUIRED) - modules)
+    if missing:
+        raise BundleAuditError('Required customer desktop modules missing: ' + ', '.join(missing))
+    return {'safe': True, 'modules_inspected': len(modules)}
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description='Inspect real customer EXE bundle')
-    p.add_argument('--exe', type=Path, required=True)
+    group = p.add_mutually_exclusive_group(required=True)
+    group.add_argument('--exe', type=Path, help='PyInstaller EXE')
+    group.add_argument('--nuitka-report', type=Path, help='Nuitka --report XML of the EXE build')
     args = p.parse_args(argv)
     try:
-        found = verify_exe(args.exe)
+        found = verify_exe(args.exe) if args.exe else verify_nuitka_report(args.nuitka_report)
     except (BundleAuditError, OSError, ValueError) as exc:
         p.error(str(exc))
     print('PASS: no vendor-only modules in customer EXE; ' +
