@@ -91,6 +91,9 @@ def create_package(*,exe:Path,checksum:Path,manifest:Path,public_file:Path,
         'executable':'LHM-Ads-AI.exe',
         'sha256':candidate['sha256'],
         'license_public_key_sha256':candidate['license_public_key_sha256'],
+        'lease_public_key_sha256':candidate['lease_public_key_sha256'],
+        'license_mode':candidate['license_mode'],
+        'builder':candidate['builder'],
         'authenticode':'UNSIGNED',
         'distribution':'OWNER_APPROVED_UNSIGNED',
         'manifest_signature_algorithm':'Ed25519 domain-separated LHM release v1',
@@ -151,6 +154,10 @@ def verify_package(package:Path,trusted_public:Path)->dict:
             raise ReleaseGateError('Unsigned commercial edition markers are required')
         if data.get('distribution')!='OWNER_APPROVED_UNSIGNED':
             raise ReleaseGateError('Distribution approval missing')
+        if data.get('builder')!='nuitka' or data.get('license_mode')!='google-only':
+            raise ReleaseGateError('Commercial release must be Nuitka with verified Gmail-only licensing')
+        if not isinstance(data.get('lease_public_key_sha256'),str) or not re.fullmatch(r'[0-9a-f]{64}',data['lease_public_key_sha256']):
+            raise ReleaseGateError('Missing signed Gmail lease public key fingerprint')
         if data.get('license_public_key_sha256')!=hashlib.sha256(trusted).hexdigest():
             raise ReleaseGateError('Untrusted vendor key fingerprint')
         try:
