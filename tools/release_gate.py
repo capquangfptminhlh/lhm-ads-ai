@@ -2,7 +2,7 @@
 
 This tool NEVER signs executables, acquires private keys or auto-approves live
 Ads tests. The signing workstation uses it to verify exact candidate provenance,
-vendor PUBLIC key fingerprint and a human-signed acceptance checklist before
+vendor and Worker lease PUBLIC key fingerprints and a human-approved checklist before
 a locally installed code-signing certificate can be used.
 """
 from __future__ import annotations
@@ -78,7 +78,8 @@ def fingerprint_from_source(root:Path) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def verify_candidate(exe:Path, checksum:Path, manifest:Path, public_file:Path) -> dict:
+def verify_candidate(exe:Path, checksum:Path, manifest:Path, public_file:Path,
+                     lease_public_file:Path) -> dict:
     info=read_json(manifest)
     expected={
         'edition':'commercial-candidate',
@@ -107,6 +108,9 @@ def verify_candidate(exe:Path, checksum:Path, manifest:Path, public_file:Path) -
     lease_fingerprint=info.get('lease_public_key_sha256')
     if not isinstance(lease_fingerprint,str) or not HEX64.fullmatch(lease_fingerprint):
         raise ReleaseGateError('Missing verified Gmail lease public key fingerprint')
+    # Manifest metadata is NOT proof of the trust anchor by itself.
+    if lease_fingerprint!=verify_public_file(lease_public_file):
+        raise ReleaseGateError('Gmail lease signing key does not match trusted Worker public key')
     if fingerprint!=verify_public_file(public_file):
         raise ReleaseGateError('Commercial EXE public key fingerprint does not match vendor key')
     if not exe.is_file() or not 0<exe.stat().st_size<=MAX_EXE or exe.name!='LHM-Ads-AI.exe':
@@ -161,26 +165,27 @@ def main(argv=None) -> int:
     key=sub.add_parser('fingerprint-from-source',help='Public key hash only, safe in CI')
     key.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1])
     inspect=sub.add_parser('inspect-candidate',help='Verify exact CI candidate WITHOUT approving distribution')
-    for flag in ('exe','checksum','manifest','vendor-public'):
+    for flag in ('exe','checksum','manifest','vendor-public','lease-public'):
         inspect.add_argument('--'+flag,required=True,type=Path)
     check=sub.add_parser('verify-candidate',help='Verify unsigned candidate, owner public key and acceptance')
     check.add_argument('--exe',type=Path,required=True)
     check.add_argument('--checksum',type=Path,required=True)
     check.add_argument('--manifest',type=Path,required=True)
     check.add_argument('--vendor-public',type=Path,required=True)
+    check.add_argument('--lease-public',type=Path,required=True)
     check.add_argument('--acceptance',type=Path,required=True)
     args=parser.parse_args(argv)
     try:
         if args.cmd=='fingerprint-from-source':
             print(fingerprint_from_source(args.root))
         elif args.cmd=='inspect-candidate':
-            info=verify_candidate(args.exe,args.checksum,args.manifest,args.vendor_public)
+            info=verify_candidate(args.exe,args.checksum,args.manifest,args.vendor_public,args.lease_public)
             print('PASS: unsigned Commercial Candidate verified for '+info['source_commit'])
             print('Version: '+info['product_version'])
             print('Vendor public key SHA256: '+info['license_public_key_sha256'])
             print('NOT_APPROVED_FOR_SALE: owner live acceptance/signoff still required')
         else:
-            manifest=verify_candidate(args.exe,args.checksum,args.manifest,args.vendor_public)
+            manifest=verify_candidate(args.exe,args.checksum,args.manifest,args.vendor_public,args.lease_public)
             verify_approval(args.acceptance,manifest)
             print('PASS: candidate hash, version, source commit, vendor public key and manual acceptance match')
     except (OSError,ReleaseGateError) as exc:
