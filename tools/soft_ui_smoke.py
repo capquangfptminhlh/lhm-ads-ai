@@ -70,15 +70,24 @@ def main():
                 assert 'lhmcrm.com' in site.locator('link[rel="canonical"]').get_attribute('href')
                 check_no_horizontal_overflow(site)
                 site.screenshot(path=str(OUTPUT/'lhm-public-marketing-desktop.png'),full_page=True)
-                site.locator('.mk-nav-login').click()
+                # The header button is the admin entry; the hero CTA opens the PWA.
+                assert site.locator('.mk-nav-login').get_attribute('href')=='/admin/'
+                site.locator('.mk-actions .mk-btn-primary').click()
                 assert site.url.endswith('/local/')
                 site.locator('#pwa-access-gate').wait_for()
-                site.locator('#lhm-vault-password').wait_for()
+                # Without a customer session the account gate hides the device vault.
+                site.locator('#customer-login-box').wait_for()
+                assert not site.locator('#lhm-vault-password').is_visible()
                 assert site.locator('body.pwa-gated').count()==1
                 assert not site.locator('.pwa-sidebar').is_visible()
                 assert not site.locator('.pwa-page[data-view="dashboard"]').is_visible()
-                assert site.locator('#pwa-access-gate').get_by_text('không phải tài khoản Cloud',exact=False).count()>=1
                 site.screenshot(path=str(OUTPUT/'lhm-pwa-login-desktop.png'),full_page=True)
+                # Simulate a signed-in customer; the vault is still unlocked locally.
+                site.route('**/api/customer/session',lambda route:route.fulfill(
+                    status=200,content_type='application/json',body='{"authenticated":true}'))
+                site.reload(wait_until='domcontentloaded')
+                site.locator('#lhm-vault-password').wait_for()
+                assert not site.locator('#customer-login-box').is_visible()
                 password='Demo-vault-2026-strong-passphrase!'
                 site.locator('#lhm-vault-password').fill(password)
                 site.locator('#lhm-vault-access-action').click()
@@ -100,12 +109,15 @@ def main():
                 mobile=browser.new_page(viewport={'width':390,'height':844},device_scale_factor=1)
                 mobile_errors=[]
                 mobile.on('pageerror',lambda error:mobile_errors.append(str(error)))
+                mobile.route('**/api/customer/session',lambda route:route.fulfill(
+                    status=200,content_type='application/json',body='{"authenticated":true}'))
                 mobile.goto(origin+'/',wait_until='domcontentloaded')
-                mobile.locator('.mk-nav-login').wait_for()
+                mobile.locator('.mk-actions .mk-btn-primary').wait_for()
                 check_no_horizontal_overflow(mobile)
                 mobile.screenshot(path=str(OUTPUT/'lhm-public-marketing-mobile.png'),full_page=True)
-                mobile.locator('.mk-nav-login').click()
+                mobile.locator('.mk-actions .mk-btn-primary').click()
                 mobile.locator('#pwa-access-gate').wait_for()
+                mobile.locator('#lhm-vault-password').wait_for()
                 assert not mobile.locator('.pwa-mobile-dock').is_visible()
                 check_no_horizontal_overflow(mobile)
                 mobile.screenshot(path=str(OUTPUT/'lhm-pwa-login-mobile.png'),full_page=True)
