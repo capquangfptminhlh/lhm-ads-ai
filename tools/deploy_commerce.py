@@ -132,6 +132,11 @@ def main():
         return 0
     except (RuntimeError,subprocess.CalledProcessError) as e:
         print("DEPLOY BLOCKED:",str(e),file=sys.stderr)
+        # Wrangler explains permission/account errors on its own output; captured
+        # output would otherwise be lost. It never echoes the API token.
+        for stream in (getattr(e,"stdout",None),getattr(e,"stderr",None)):
+            if stream:
+                print(stream[-4000:],file=sys.stderr)
         return 1
 
 
