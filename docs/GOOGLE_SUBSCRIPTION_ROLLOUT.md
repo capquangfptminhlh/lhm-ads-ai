@@ -30,7 +30,7 @@ Status: **feature branch for review, NOT deployed or production verified**.
 
 ## Windows app — code added to feature branch, NOT yet customer-ready
 The current Windows desktop is **Python/pywebview/WebView2**, not Electron.
-This branch now contains a native CloudLicense client and a WebView2 licence overlay,
+This branch now contains a native CloudLicense client and a Google-only WebView2 sign-in overlay,
 but all Windows cloud licensing must remain **staging only** until tested with
 real Cloudflare Google OAuth credentials and an actual signed/packaged Windows EXE.
 
@@ -41,7 +41,7 @@ real Cloudflare Google OAuth credentials and an actual signed/packaged Windows E
 - On Windows the bearer is saved via DPAPI and used only for `/api/auth/seat` heartbeats; no Ads tokens, report values, Google/Meta ad-account IDs or client credentials pass to Cloudflare.
 - Windows local API gate in `ads_core/desktop_cloud_license.py` returns HTTP 402 before Ads reads/writes if the cloud seat lease is absent/expired. Local login and pairing control endpoints remain accessible to resolve the issue.
 - Launch this branch for staging with `LHM_CLOUD_LICENSE_MODE=required`. Default PC builds retain the legacy license path and **are not protected** by the new cloud subscription mechanism, pending acceptance.
-- **Still missing for the one-Gmail-only customer UX:** removing the separate initial/local admin password flow while preserving local encryption and safe session binding; test actual browser-to-Windows approval, renewals, forced eviction, offline and revoked access on real Windows. This work must finish before commercial production release.
+- **Google-only Windows flow is now implemented in source:** the native WebView2 receives a per-process proof, displays Google sign-in, issues a local tenant-scoped session after a verified active lease, and blocks old password/first-run enrollment when `LHM_CLOUD_LICENSE_MODE=required`. Switching Google accounts cannot open the prior customer's local Ads records. Integration tests run in CI, but physical-device sign-in, renewals, eviction, offline and revocation **still require real-cloud acceptance before commercial release**.
 - Do not enable required mode until the customer account/seat and Google OAuth settings have passed end-to-end staging QA.
 
 ## Known limitations / to verify
@@ -50,3 +50,9 @@ real Cloudflare Google OAuth credentials and an actual signed/packaged Windows E
 - The default local IndexedDB vault created by pre-migration demo releases is not silently assigned to a Google identity; users should export existing encrypted backups before migration.
 - Payment is **manual verified** in current Admin; do not promise automatic provisioning, refunds or card collection.
 - Old password/customer endpoints still exist for backwards compatibility and require a separate migration/deprecation policy.
+
+## Local database safety during migration
+- The Windows Google-only mode stores Ads tokens **on this PC** in SQLite and encrypts secrets with the existing local master key. Each Google customer's data is partitioned by `org_id=google:<verified-cloud-customer-uuid>`; FastAPI checks license customer identity on every authenticated request.
+- Legacy data is not silently copied to a new Google account. If an old local admin already uses the same email, the server returns a 409 conflict to protect the existing encrypted accounts until a deliberate, reviewed migration is performed.
+- The secure native proof exists only in memory of the packaged WebView2/Windows process, not in the Cloudflare database, license file, query string or GitHub.
+- Cloudflare's seat response now includes the verified account UUID/email. Windows rejects mismatched identities even if an apparently valid bearer is present.
