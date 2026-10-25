@@ -37,11 +37,16 @@ def keys(monkeypatch):
 
 
 def sign(private, client_id: str, *, valid_until=None, plan_until=None, customer=CUSTOMER, issued=None):
+    # Derive both timestamps from one clock read; independent iso() calls can
+    # yield a fixture that accidentally exceeds 72h by a few microseconds.
+    issued_at = issued or iso(timedelta(0))
+    expiry_at = valid_until or (datetime.fromisoformat(issued_at.replace("Z", "+00:00")) +
+                                timedelta(hours=72)).isoformat().replace("+00:00", "Z")
     payload = {"v": 1, "customer_id": customer, "email": "owner@gmail.com", "license_id": LICENSE,
                "client_hash": hashlib.sha256(f"{LICENSE}:{client_id}".encode()).hexdigest(),
                "plan_code": "personal-1m", "seat_limit": 2,
                "license_expires_at": plan_until or iso(timedelta(days=20)),
-               "issued_at": issued or iso(timedelta(0)), "valid_until": valid_until or iso(timedelta(hours=72))}
+               "issued_at": issued_at, "valid_until": expiry_at}
     b64 = lambda raw: base64.urlsafe_b64encode(raw).decode().rstrip("=")
     body = b64(json.dumps(payload).encode())
     return body + "." + b64(private.sign(body.encode()))
@@ -80,6 +85,23 @@ def test_lease_rejects_tampering_other_pc_other_gmail_expiry_and_rollback(keys):
     # Clock turned back a day: the PC has seen later trustworthy time.
     assert verify_lease(good, CUSTOMER, client_id, max_seen=time.time() + 86400) is None
     assert verify_lease(good, CUSTOMER, client_id, max_seen=time.time() + 60)
+
+
+def test_even_validly_signed_lease_must_respect_72h_cap_and_subscription_end(keys):
+    pc = str(uuid.uuid4())
+    issued_at = datetime.now(timezone.utc)
+    stamp = lambda instant: instant.isoformat().replace("+00:00", "Z")
+    issued = stamp(issued_at)
+    good = sign(keys, pc, issued=issued, valid_until=stamp(issued_at+timedelta(hours=72)))
+    assert verify_lease(good, CUSTOMER, pc) is not None
+    # Signature alone cannot override product policy (both checks run locally).
+    overlong = sign(keys, pc, issued=issued, valid_until=stamp(issued_at+timedelta(hours=73)))
+    assert verify_lease(overlong, CUSTOMER, pc) is None
+    after_plan = sign(keys, pc, issued=issued, plan_until=stamp(issued_at+timedelta(days=1)),
+                      valid_until=stamp(issued_at+timedelta(days=2)))
+    assert verify_lease(after_plan, CUSTOMER, pc) is None
+    before_issue = sign(keys, pc, issued=issued, valid_until=stamp(issued_at-timedelta(minutes=2)))
+    assert verify_lease(before_issue, CUSTOMER, pc) is None
 
 
 def test_no_public_key_means_no_offline_grace(tmp_path, monkeypatch):
