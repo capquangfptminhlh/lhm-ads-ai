@@ -126,8 +126,12 @@ class CloudLicense:
             # HTTP status is useful; response must NOT include credentials.
             try:
                 reply = json.loads(exc.read(4096).decode("utf8"))
+                if not isinstance(reply, dict):
+                    reply = {}
             except (ValueError, UnicodeError):
                 reply = {}
+            # Preserve the HTTP refusal status even if the error payload is
+            # malformed. A 401/403 must never become an offline grace event.
             return exc.code, reply
         except (URLError, TimeoutError, OSError) as exc:
             raise CloudLicenseError("Cannot contact LHM licensing over HTTPS") from exc
@@ -192,8 +196,12 @@ class CloudLicense:
             # Keep only the already verified Ed25519 offline lease, capped at
             # 72 hours and the paid plan expiry. Explicit 401/402/403/409
             # still clear it below, even if it has time remaining.
-            if code in (408, 429) or code >= 500 or not isinstance(data, dict):
+            if code in (408, 429) or code >= 500:
                 return self._temporary_cloud_failure()
+            if not isinstance(data, dict):
+                # A malformed response cannot grant access, and cannot turn
+                # an explicit HTTP refusal into "offline" grace.
+                data = {}
             if code == 200 and data.get("active") is True:
                 # The cloud must confirm the same Google account on EVERY lease.
                 # Do not trust an edited local identifier, even with a valid token.
