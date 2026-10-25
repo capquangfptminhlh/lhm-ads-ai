@@ -99,6 +99,8 @@ def test_cloud_gate_blocks_ads_api_before_local_auth(tmp_path, monkeypatch):
         assert client.get("/api/me").status_code == 401
         assert client.get("/api/cloud-license/status").status_code == 404  # Native-only endpoint unavailable outside Windows mode
         native.token = "d"*64
+        native.customer_id = "e02ab0e4-c2b0-4a23-99a1-acd430b37fea"
+        native.email = "owner@gmail.com"
         native.last_seen = time.monotonic()
         native.expires_at = (datetime.now(timezone.utc)+timedelta(days=1)).isoformat()
         # After valid lease check, old local-user auth still applies.
