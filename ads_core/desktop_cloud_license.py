@@ -38,6 +38,7 @@ LOCK_MESSAGES = {
     "SEAT_LIMIT": "Gmail này đang dùng trên đủ số máy của gói",
     "SEAT_REPLACED": "Gmail này vừa được dùng trên máy khác",
     "OFFLINE_LOCKED": "Đã quá thời gian dùng offline. Kết nối Internet để tiếp tục",
+    "LEASE_INVALID": "Máy chủ chưa cấp được giấy phép hợp lệ. Kiểm tra cấu hình bản quyền hoặc liên hệ hỗ trợ",
 }
 
 def set_native_proof(proof: str | None):
