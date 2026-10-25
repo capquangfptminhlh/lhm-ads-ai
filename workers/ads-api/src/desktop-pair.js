@@ -105,7 +105,7 @@ export async function desktopPair(req,env){
    const actor=await db.prepare('SELECT email FROM customers WHERE id=?').bind(p.customer_id).first();
    await db.prepare('INSERT INTO desktop_sessions(token_hash,customer_id,expires_at) VALUES(?,?,?)')
      .bind(await digest(session),p.customer_id,later(30*86400000)).run();
-   return reply({status:'authorized',desktop_token:session,email:actor?.email||'',expires_in_seconds:30*86400});
+   return reply({status:'authorized',desktop_token:session,customer_id:p.customer_id,email:actor?.email||'',expires_in_seconds:30*86400});
  }
  if(path==='/api/desktop/session/logout'&&method==='POST'){
    if(!originOk(req))return reply({error:'Origin mismatch'},403);
