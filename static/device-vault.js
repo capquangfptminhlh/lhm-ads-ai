@@ -83,12 +83,23 @@
       // The key is NON-EXTRACTABLE, never sent to Cloudflare. A separate recovery
       // password is only requested when exporting/importing a backup.
       const key=await crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);
-      await new Promise((resolve,reject)=>{
-        const tx=db.transaction(KEYRING,'readwrite');
-        tx.objectStore(KEYRING).put({id:KEY,key});
-        tx.oncomplete=resolve;tx.onerror=()=>reject(Error('Không lưu được khóa thiết bị.'));
-      });
-      return key;
+      try{
+        await new Promise((resolve,reject)=>{
+          const tx=db.transaction(KEYRING,'readwrite');
+          tx.objectStore(KEYRING).add({id:KEY,key}); // add, NEVER overwrite another tab's key
+          tx.oncomplete=resolve;
+          tx.onabort=()=>reject(tx.error||Error('Không lưu được khóa thiết bị.'));
+        });
+        return key;
+      }catch(e){
+        if(e?.name!=='ConstraintError')throw e;
+        // Another tab won the race; read its established key instead.
+        return await new Promise((resolve,reject)=>{
+          const req=db.transaction(KEYRING,'readonly').objectStore(KEYRING).get(KEY);
+          req.onsuccess=()=>req.result?.key?resolve(req.result.key):reject(Error('Mất khóa thiết bị.'));
+          req.onerror=()=>reject(Error('Không đọc được khóa thiết bị.'));
+        });
+      }
     }finally{db.close();}
   }
   async function autoUnlock(){
