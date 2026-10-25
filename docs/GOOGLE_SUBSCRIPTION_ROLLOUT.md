@@ -56,3 +56,11 @@ real Cloudflare Google OAuth credentials and an actual signed/packaged Windows E
 - Legacy data is not silently copied to a new Google account. If an old local admin already uses the same email, the server returns a 409 conflict to protect the existing encrypted accounts until a deliberate, reviewed migration is performed.
 - The secure native proof exists only in memory of the packaged WebView2/Windows process, not in the Cloudflare database, license file, query string or GitHub.
 - Cloudflare's seat response now includes the verified account UUID/email. Windows rejects mismatched identities even if an apparently valid bearer is present.
+
+## Google-only PWA vault without daily password
+- Once Google authentication and the subscription seat are verified, a new PWA workspace automatically creates a **non-extractable** AES-256-GCM browser key in IndexedDB. Customers do not have a second LHM password or key step in normal daily use.
+- Encrypted Ads records stay under the verified Cloudflare customer UUID in IndexedDB. Changing Gmail switches namespaces and clears the in-memory decrypt key.
+- The non-extractable key is **device-local** and not synchronized. Clearing browser data loses the key and vault. To move data, the user explicitly exports a portable PBKDF2/AES-GCM backup with a **separate 12+-character recovery password** and enters that recovery password once on the new device.
+- This protects against raw offline storage copying, **not** an already compromised browser, injected same-origin JavaScript or device malware. Do not advertise hardware-grade protection for a browser PWA.
+- The previous email/password customer API responds HTTP 410 in the new Google-only release; migrate existing accounts deliberately, never automatically copy old passwords or Ads records into new Google tenants.
+- A real Chromium smoke test simulates switching between two verified Gmail identities on the same device; it must pass before deployment.
