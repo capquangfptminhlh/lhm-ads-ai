@@ -25,7 +25,9 @@ def kit(tmp_path):
     checksum.write_text(f'{sha}  LHM-Ads-AI.exe\n',encoding='ascii')
     manifest=tmp_path/'release-manifest.json'
     payload={'product':'LHM Ads AI','source_commit':'a'*40,'product_version':'0.3.0',
-        'edition':'commercial-candidate','executable':exe.name,'sha256':sha,
+        'edition':'commercial-candidate','builder':'nuitka','license_mode':'google-only',
+        'lease_public_key_sha256':hashlib.sha256(b'synthetic-ed25519-lease-public-key').hexdigest(),
+        'executable':exe.name,'sha256':sha,
         'authenticode':'UNSIGNED','distribution':'NOT_APPROVED_FOR_SALE',
         'license_public_key_sha256':fingerprint}
     manifest.write_text(json.dumps(payload),encoding='utf-8')
@@ -113,3 +115,19 @@ def test_candidate_inspection_never_claims_sale_approved(kit,capsys):
     output=capsys.readouterr().out
     assert 'PASS: unsigned Commercial Candidate verified' in output
     assert 'NOT_APPROVED_FOR_SALE' in output
+
+@pytest.mark.parametrize('field,bad,reason',[
+    ('builder','pyinstaller','builder'),
+    ('builder',None,'builder'),
+    ('license_mode','legacy-pilot','license_mode'),
+    ('license_mode',None,'license_mode'),
+    ('lease_public_key_sha256','','lease public key'),
+    ('lease_public_key_sha256',None,'lease public key'),
+])
+def test_commercial_gate_rejects_non_nuitka_non_gmail_or_missing_lease_proof(kit,field,bad,reason):
+    exe,checksum,manifest,pubfile,acceptance=kit
+    data=gate.read_json(manifest)
+    data[field]=bad
+    manifest.write_text(json.dumps(data))
+    with pytest.raises(gate.ReleaseGateError,match=reason):
+        gate.verify_candidate(exe,checksum,manifest,pubfile)
