@@ -41,7 +41,8 @@ def main():
                         route.fulfill(status=200,content_type="application/json",body=json.dumps({
                             "authenticated":True,"account_id":current[0],
                             "email":("a" if current[0]==A else "b")+"@gmail.com",
-                            "subscribed":True,"plan":{"seat_limit":3,"expires_at":"2030-01-01T00:00:00Z"}
+                            "state":"active","subscribed":True,"heartbeat_seconds":300,
+                            "plan":{"seat_limit":3,"expires_at":"2030-01-01T00:00:00Z","days_left":1000,"expiring_soon":False}
                         }))
                     elif path=="auth/seat":
                         route.fulfill(status=200,content_type="application/json",body=json.dumps({
