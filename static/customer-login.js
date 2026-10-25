@@ -80,6 +80,13 @@
    authenticated=true;subscribed=state.subscribed;
    login.hidden=true;account.hidden=false;
    account.textContent='Đã đăng nhập: '+state.email;
+   const planLabel=document.getElementById('lhm-my-plan');
+   if(planLabel){
+     planLabel.textContent=state.plan
+       ?'Gmail: '+state.email+' · '+state.plan.seat_limit+' phiên đồng thời · Hết hạn: '+
+          new Date(state.plan.expires_at).toLocaleDateString('vi-VN')
+       :'Gmail: '+state.email+' · Chưa chọn gói dịch vụ.';
+   }
    if(window.LHMDeviceVault?.setNamespace)window.LHMDeviceVault.setNamespace(state.account_id);
    if(!subscribed){
      purchase.hidden=false;
