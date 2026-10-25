@@ -140,6 +140,16 @@ def trusted_clock(now: int | None = None) -> tuple[bool,str | None]:
 
 
 def read_license() -> dict:
+    from .cloud_license import licensing_required, entitlement
+    if licensing_required():
+        # Gmail mode: every feature gate follows the Gmail plan and its signed lease.
+        state=entitlement()
+        status={'active':state['active'],'device':device_id(),'edition':EDITION,'mode':'gmail',
+                'plan':state.get('plan') or 'gmail','expires_at':state.get('expires_at') or '',
+                'offline_until':state.get('offline_until') or ''}
+        if not state['active']:
+            status['reason']=state.get('reason') or 'SUBSCRIPTION_REQUIRED'
+        return status
     path=license_folder()/'license.json'
     if not path.is_file():
         return {'active':False,'reason':'missing','device':device_id(),'edition':EDITION}

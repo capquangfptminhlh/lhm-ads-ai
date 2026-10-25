@@ -6,6 +6,7 @@ The bearer grant is protected with DPAPI on Windows, separate from Ads token vau
 """
 from __future__ import annotations
 
+import base64
 import json
 import os
 from pathlib import Path
@@ -44,6 +45,9 @@ class CloudLicense:
         self.display_code = None
         self.last_seen = 0.0
         self.expires_at = ""
+        self.lease = None
+        self.max_seen = 0.0
+        self.reason = ""
         self._load()
 
     def _load(self):
@@ -72,13 +76,16 @@ class CloudLicense:
                 if self.token and not self.customer_id:
                     # Older grants were not bound to a verified Google tenant.
                     self.token = None; self.email = ""
+                lease = values.get("lease")
+                self.lease = lease if isinstance(lease, str) and len(lease) < 4096 else None
+                self.max_seen = float(values.get("max_seen") or 0.0)
             except (KeyError, TypeError, ValueError, json.JSONDecodeError, OSError) as exc:
                 raise CloudLicenseError("Desktop license file corrupt. Do not reset without approval") from exc
 
     def _save(self):
         self.folder.mkdir(parents=True, exist_ok=True)
         values = {"client_id": self.client_id, "desktop_token": self.token, "email": self.email,
-                  "customer_id": self.customer_id}
+                  "customer_id": self.customer_id, "lease": self.lease, "max_seen": self.max_seen}
         if os.name == "nt":
             payload = {"format": "windows-dpapi-v1",
                        "ciphertext": dpapi_encrypt(json.dumps(values).encode("utf8"))}
@@ -157,39 +164,83 @@ class CloudLicense:
             self._save()
             return {"status": "authorized", "email": self.email}
 
-    def refresh_lease(self, *, heartbeat: bool = True) -> dict:
+    def refresh_lease(self, *, heartbeat: bool = True, mode: str | None = None) -> dict:
+        """Ask the cloud for this PC's seat. mode: attach, heartbeat or takeover
+        (takeover signs the least recently active device out; the user confirmed it)."""
+        mode = mode or ("heartbeat" if heartbeat else "attach")
+        if mode not in ("attach", "heartbeat", "takeover"):
+            raise ValueError("Unknown seat mode")
         with self.lock:
             if not self.token:
-                return {"active": False, "reason": "signin_required"}
+                self.reason = "SIGNIN_REQUIRED"
+                return {"active": False, "reason": self.reason}
             try:
                 code, data = self._request("/api/auth/seat",
-                    {"client_id": self.client_id, "mode": "heartbeat" if heartbeat else "attach"},
+                    {"client_id": self.client_id, "mode": mode, "device_label": "Máy tính Windows"},
                     authenticated=True)
             except CloudLicenseError:
-                return {"active": self.active(), "reason": "offline"}
+                # Offline: a valid signed lease keeps the PC usable until valid_until.
+                self.reason = "OFFLINE" if self.active() else "OFFLINE_LOCKED"
+                return {"active": self.active(), "reason": self.reason, "offline_until": self.offline_until()}
             if code == 200 and data.get("active") is True:
                 # The cloud must confirm the same Google account on EVERY lease.
                 # Do not trust an edited local identifier, even with a valid token.
                 if (data.get("account_id") != self.customer_id or
                         str(data.get("account_email") or "").lower() != self.email.lower()):
-                    self.last_seen = 0
-                    return {"active": False, "reason": "google_account_mismatch"}
+                    self._drop_lease("GOOGLE_ACCOUNT_MISMATCH")
+                    return {"active": False, "reason": self.reason}
                 self.last_seen = time.monotonic()
                 self.expires_at = str(data.get("expires_at") or "")
+                lease = data.get("lease")
+                if isinstance(lease, str) and verify_lease(lease, self.customer_id, self.client_id,
+                                                           max_seen=self.max_seen) is not None:
+                    self.lease = lease
+                self._observe_time(_lease_issued_at(self.lease))
+                self.reason = ""
+                self._save()
                 return {"active": True, "expires_at": self.expires_at,
-                        "seat_limit": int(data.get("seat_limit") or 1)}
-            self.last_seen = 0
+                        "seat_limit": int(data.get("seat_limit") or 1),
+                        "offline_until": self.offline_until()}
+            code_name = str(data.get("code") or "SUBSCRIPTION_INACTIVE")
             if code == 401:
                 self.token = None
                 self.email = ""
                 self.customer_id = None
-                self._save()
-            return {"active": False, "reason": str(data.get("code") or "subscription_inactive")}
+                code_name = "SIGNIN_REQUIRED"
+            # Any refusal from the server ends offline grace immediately (hard lock).
+            self._drop_lease(code_name)
+            result = {"active": False, "reason": code_name}
+            if code_name == "SEAT_LIMIT":
+                result["devices"] = [
+                    {"label": str(d.get("label") or "")[:60], "last_seen_at": str(d.get("last_seen_at") or "")[:40]}
+                    for d in (data.get("devices") or [])[:20] if isinstance(d, dict)]
+            return result
+
+    def _drop_lease(self, reason: str):
+        self.last_seen = 0
+        self.lease = None
+        self.reason = reason
+        self._save()
+
+    def _observe_time(self, extra: float | None = None):
+        """Remember the latest trustworthy time seen so a rolled-back clock cannot
+        stretch the offline grace period."""
+        latest = max(time.time(), extra or 0)
+        if latest > self.max_seen + 60:
+            self.max_seen = latest
+
+    def offline_until(self) -> str:
+        payload = verify_lease(self.lease, self.customer_id, self.client_id, max_seen=self.max_seen) if self.lease else None
+        return str(payload["valid_until"]) if payload else ""
 
     def active(self) -> bool:
         with self.lock:
-            return bool(self.token and self.customer_id and self.last_seen and time.monotonic() - self.last_seen < 120
-                        and self.expires_at and self._expires_ok())
+            if not (self.token and self.customer_id):
+                return False
+            if self.last_seen and time.monotonic() - self.last_seen < SEAT_TTL_SECONDS and self.expires_at and self._expires_ok():
+                return True
+            return bool(self.lease and verify_lease(self.lease, self.customer_id, self.client_id,
+                                                    max_seen=self.max_seen) is not None)
 
     def _expires_ok(self):
         from datetime import datetime, timezone
@@ -202,7 +253,8 @@ class CloudLicense:
     def state(self) -> dict:
         return {"active": self.active(), "paired": bool(self.token and self.customer_id),
                 "customer_id": self.customer_id, "email": self.email,
-                "expires_at": self.expires_at, "pairing": bool(self.pair_id)}
+                "expires_at": self.expires_at, "pairing": bool(self.pair_id),
+                "reason": self.reason, "offline_until": self.offline_until()}
 
     def logout(self):
         with self.lock:
@@ -216,30 +268,140 @@ class CloudLicense:
             self.customer_id = None
             self.last_seen = 0
             self.expires_at = ""
+            self.lease = None
+            self.reason = "SIGNIN_REQUIRED"
             self.pair_id = self.pair_verifier = self.display_code = None
             self._save()
 
-def init_cloud_license(folder: Path) -> CloudLicense:
-    global _session
+
+SEAT_TTL_SECONDS = 600
+HEARTBEAT_SECONDS = 300
+ROLLBACK_TOLERANCE_SECONDS = 300
+
+
+def _b64url(value: str) -> bytes:
+    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+
+
+def _lease_public_key():
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    from . import release_info
+    raw = (getattr(release_info, "LEASE_PUBLIC_KEY_B64", "") or os.environ.get("LHM_LEASE_PUBLIC_KEY_B64", "")).strip()
+    if not raw:
+        return None
+    try:
+        return Ed25519PublicKey.from_public_bytes(base64.b64decode(raw, validate=True))
+    except (ValueError, TypeError):
+        return None
+
+
+def _parse_time(value) -> float | None:
+    from datetime import datetime
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
+def _lease_issued_at(lease: str | None) -> float | None:
+    if not lease or "." not in lease:
+        return None
+    try:
+        return _parse_time(json.loads(_b64url(lease.split(".", 1)[0]))["issued_at"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def verify_lease(lease: str | None, customer_id: str | None, client_id: str | None, *,
+                 max_seen: float = 0.0, now: float | None = None) -> dict | None:
+    """Return the lease payload if the Ed25519 signature, Gmail binding, this PC's
+    seat, the plan expiry and the clock all check out; otherwise None."""
+    key = _lease_public_key()
+    if not key or not lease or not customer_id or not client_id or lease.count(".") != 1:
+        return None
+    body, signature = lease.split(".")
+    try:
+        key.verify(_b64url(signature), body.encode("ascii"))
+        payload = json.loads(_b64url(body))
+    except Exception:
+        return None
+    now = time.time() if now is None else now
+    if now + ROLLBACK_TOLERANCE_SECONDS < max_seen:
+        return None  # The clock was turned back.
+    expected = hashlib.sha256((str(payload.get("license_id")) + ":" + client_id).encode()).hexdigest()
+    valid_until = _parse_time(payload.get("valid_until"))
+    plan_until = _parse_time(payload.get("license_expires_at"))
+    issued = _parse_time(payload.get("issued_at"))
+    if (payload.get("v") != 1 or payload.get("customer_id") != customer_id or payload.get("client_hash") != expected
+            or not valid_until or not plan_until or not issued
+            or now + ROLLBACK_TOLERANCE_SECONDS < issued or now >= valid_until or now >= plan_until):
+        return None
+    return payload
+
+
+_live = True
+
+def init_cloud_license(folder: Path, *, live: bool = True) -> CloudLicense:
+    """live=True for the window process that talks to the cloud; live=False for the
+    background agent, which re-reads the lease the window process keeps current."""
+    global _session, _live
     if _session is None:
         _session = CloudLicense(folder)
+    _live = live
     return _session
 
 def current_cloud_license():
     return _session
 
 def licensing_required() -> bool:
+    from . import release_info
+    if getattr(release_info, "CLOUD_LICENSE_MODE", "") == "required":
+        return True
     return os.environ.get("LHM_CLOUD_LICENSE_MODE", "").strip().lower() == "required"
 
 def cloud_access_ok() -> bool:
     if not licensing_required():
         return True
-    return bool(_session is not None and _session.active())
+    return entitlement()["active"]
+
+
+def entitlement(folder: Path | None = None) -> dict:
+    """Gmail-plan status for any process. The UI process uses its live session; a
+    separate process (background agent, MCP) checks the signed lease on disk."""
+    session = _session
+    if session is not None and not _live:
+        try:
+            with session.lock:
+                session._load()
+        except CloudLicenseError:
+            return {"active": False, "reason": "LICENSE_STATE_UNREADABLE"}
+    if session is None:
+        try:
+            from .licensing import license_folder
+            session = CloudLicense(folder or license_folder())
+        except (CloudLicenseError, OSError):
+            return {"active": False, "reason": "LICENSE_STATE_UNREADABLE"}
+    with session.lock:
+        active = session.active()
+        return {"active": active, "reason": "" if active else (session.reason or "SUBSCRIPTION_REQUIRED"),
+                "expires_at": session.expires_at or _lease_field(session, "license_expires_at"),
+                "plan": _lease_field(session, "plan_code") or "gmail", "email": session.email,
+                "offline_until": session.offline_until()}
+
+
+def _lease_field(session: CloudLicense, field: str) -> str:
+    payload = verify_lease(session.lease, session.customer_id, session.client_id, max_seen=session.max_seen) if session.lease else None
+    return str(payload.get(field) or "") if payload else ""
+
 
 def heartbeat_loop(stop: threading.Event):
     while not stop.is_set():
         session = current_cloud_license()
         if session and session.token:
-            session.refresh_lease(heartbeat=bool(session.last_seen))
-        if stop.wait(55):
+            result = session.refresh_lease(heartbeat=bool(session.last_seen))
+            # A seat that simply timed out (PC slept) is re-attached when there is room;
+            # SEAT_LIMIT still waits for the user to choose "Dùng trên máy này".
+            if result.get("reason") == "SEAT_REPLACED":
+                session.refresh_lease(mode="attach")
+        if stop.wait(HEARTBEAT_SECONDS):
             break

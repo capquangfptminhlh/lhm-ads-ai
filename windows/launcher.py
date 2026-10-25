@@ -102,13 +102,18 @@ def main():
     os.environ['PUBLIC_BASE_URL'] = f'http://localhost:{args.port}'
     folder = configure_local_storage()
     configure_windowed_logs(folder)
-    # Staging-only switch. Production rollout must explicitly enable required mode
-    # after Google OAuth + Cloudflare D1 have been verified end-to-end.
-    if os.environ.get('LHM_CLOUD_LICENSE_MODE') == 'required':
+    # Gmail mode: on in commercial builds whose release_info pins a lease key, or
+    # with LHM_CLOUD_LICENSE_MODE=required for staging.
+    from ads_core.cloud_license import licensing_required
+    gmail_mode = licensing_required()
+    if gmail_mode:
         from ads_core.cloud_license import init_cloud_license, heartbeat_loop
-        init_cloud_license(folder)
-        threading.Thread(target=heartbeat_loop, args=(threading.Event(),),
-                         name='lhm-cloud-license-heartbeat', daemon=True).start()
+        # Only the window process talks to the cloud; the background agent reads
+        # the signed lease it keeps current, so both lock at the same moment.
+        init_cloud_license(folder, live=not args.agent_only)
+        if not args.agent_only:
+            threading.Thread(target=heartbeat_loop, args=(threading.Event(),),
+                             name='lhm-cloud-license-heartbeat', daemon=True).start()
     if args.agent_only:
         if sys.platform == 'win32':
             import ctypes
@@ -130,7 +135,7 @@ def main():
     # One ephemeral secret authorizes only the *native* WebView2 to request a
     # local session AFTER its Google subscription was independently verified.
     native_proof = None
-    if os.environ.get('LHM_CLOUD_LICENSE_MODE') == 'required':
+    if gmail_mode:
         from ads_core.desktop_cloud_license import set_native_proof
         native_proof = secrets.token_urlsafe(48)
         set_native_proof(native_proof)

@@ -39,6 +39,22 @@ def test_build_pins_only_valid_public_key_in_isolated_copy(tmp_path):
     assert info.read_text()=="EDITION = 'commercial'\n"
 
 
+def test_build_with_lease_key_turns_on_gmail_mode(tmp_path):
+    sk=Ed25519PrivateKey.generate()
+    lic=tmp_path/'licensing.py'
+    lic.write_text("PUBLIC_KEY_B64 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='\n",encoding='utf-8')
+    info=tmp_path/'release_info.py'
+    with pytest.raises(ValueError):
+        prepare_commercial(public_b64(sk),lic,info,lease_public_b64='not-a-key')
+    lease=public_b64(Ed25519PrivateKey.generate())
+    prepare_commercial(public_b64(sk),lic,info,lease_public_b64=lease)
+    namespace={}
+    exec(info.read_text(),namespace)
+    assert namespace['EDITION']=='commercial'
+    assert namespace['LEASE_PUBLIC_KEY_B64']==lease
+    assert namespace['CLOUD_LICENSE_MODE']=='required'
+
+
 def test_license_clock_anchor_detects_rollback_and_tampering(tmp_path,monkeypatch):
     monkeypatch.setenv('DB_PATH',str(tmp_path/'ads.db'))
     monkeypatch.setenv('MASTER_KEY',base64.b64encode(b'k'*32).decode())

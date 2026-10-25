@@ -159,7 +159,7 @@ export async function signLease(env,{customer,license,clientHash}){
  const graceHours=Math.min(168,Math.max(1,Number(env?.LEASE_GRACE_HOURS)||72));
  const now=Date.now();
  const validUntil=Math.min(now+graceHours*3600000,Date.parse(license.expires_at));
- const payload={v:1,customer_id:customer.id,email:customer.email,client_hash:clientHash,
+ const payload={v:1,customer_id:customer.id,email:customer.email,license_id:license.id,client_hash:clientHash,
    plan_code:license.plan_code||null,seat_limit:license.seat_limit,
    license_expires_at:license.expires_at,issued_at:iso(now),valid_until:iso(validUntil)};
  const body=b64url(enc.encode(JSON.stringify(payload)));

@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
 from .app import app
+from .cloud_license import licensing_required
 from .db import connection, init_db
 from .security import hash_password, hash_secret, make_secret
 
@@ -41,7 +42,7 @@ def prepare_first_run():
     """Called only by the Windows launcher, never by a remote request."""
     global TOKEN, TOKEN_EXPIRES_AT
     init_db()
-    if os.environ.get('LHM_CLOUD_LICENSE_MODE') == 'required':
+    if licensing_required():
         TOKEN = None
         TOKEN_EXPIRES_AT = 0
         return None
@@ -57,7 +58,7 @@ def prepare_first_run():
 @app.get('/setup', include_in_schema=False)
 def setup_page(request: Request):
     desktop_only(request)
-    if os.environ.get('LHM_CLOUD_LICENSE_MODE') == 'required':
+    if licensing_required():
         return RedirectResponse('/studio', status_code=303)
     if users_exist():
         return RedirectResponse('/studio', status_code=303)

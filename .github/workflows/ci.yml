@@ -76,6 +76,8 @@ jobs:
         run: python -m tools.pwa_plans_smoke
       - name: End-to-end PWA order and Admin activation on the real Worker + SQLite
         run: python -m tools.e2e_gmail_flow
+      - name: Windows Gmail gate in Chromium (expired, device limit, offline)
+        run: python -m tools.pc_gate_smoke
       - name: Test provider selection with real Chromium and capture screenshots
         run: python tools/ui-smoke.py
       - name: Test actual first-run setup on desktop/mobile and redirect to Studio

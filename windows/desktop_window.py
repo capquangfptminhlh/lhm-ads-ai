@@ -105,9 +105,12 @@ class DesktopBridge:
         return self.native_license_proof or ''
 
     def open_license_url(self, url: str) -> bool:
-        """Open ONLY the first-party short-lived pairing page, never remote scripts."""
+        """Open ONLY the first-party short-lived pairing page or the plan/renewal
+        page, never remote scripts."""
         from urllib.parse import urlsplit, parse_qs
         from uuid import UUID
+        if url == 'https://ads.lhmcrm.com/local/':
+            return bool(webbrowser.open(url, new=1))
         try:
             parsed = urlsplit(url)
             if parsed.scheme != 'https' or parsed.netloc != 'ads.lhmcrm.com' or parsed.path != '/desktop/pair/':

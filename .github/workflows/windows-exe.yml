@@ -67,6 +67,8 @@ jobs:
         shell: pwsh
         env:
           LHM_COMMERCIAL_PUBLIC_KEY_B64: ${{ secrets.LHM_COMMERCIAL_PUBLIC_KEY_B64 }}
+          # Public half of the Worker's LEASE_SIGNING_KEY. Set => Gmail sign-in build.
+          LHM_LEASE_PUBLIC_KEY_B64: ${{ vars.LHM_LEASE_PUBLIC_KEY_B64 }}
         run: |
           python tools/prepare_commercial_build.py --commercial
           if ($LASTEXITCODE -ne 0) { throw 'Commercial key provisioning failed, EXE must not be shipped' }

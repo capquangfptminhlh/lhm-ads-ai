@@ -15,7 +15,7 @@ from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from .app import app
-from .cloud_license import current_cloud_license, licensing_required, cloud_access_ok, CloudLicenseError
+from .cloud_license import current_cloud_license, licensing_required, cloud_access_ok, entitlement, CloudLicenseError
 from .db import connection
 from .security import hash_password, hash_secret, make_secret
 
@@ -29,6 +29,16 @@ UNLICENSED_ENDPOINTS = frozenset({
     "/api/logout", "/api/me", "/api/studio/me", "/api/license",
 })
 CLIENTS = frozenset({"localhost", "127.0.0.1"})
+LOCK_MESSAGES = {
+    "SUBSCRIPTION_REQUIRED": "Đăng nhập Google và mua gói còn hạn để dùng phần mềm",
+    "PAYMENT_PENDING": "Đơn hàng đang chờ xác nhận thanh toán",
+    "SUBSCRIPTION_EXPIRED": "Gói đã hết hạn. Gia hạn để tiếp tục; dữ liệu trên máy vẫn còn",
+    "LICENSE_REVOKED": "Gói đã bị thu hồi. Liên hệ hỗ trợ",
+    "ACCOUNT_BLOCKED": "Tài khoản đang bị tạm khoá. Liên hệ hỗ trợ",
+    "SEAT_LIMIT": "Gmail này đang dùng trên đủ số máy của gói",
+    "SEAT_REPLACED": "Gmail này vừa được dùng trên máy khác",
+    "OFFLINE_LOCKED": "Đã quá thời gian dùng offline. Kết nối Internet để tiếp tục",
+}
 
 def set_native_proof(proof: str | None):
     """Launcher sets a *per-process* random proof, never stored in DB or served in HTML."""
@@ -69,9 +79,13 @@ async def require_online_subscription(request: Request, call_next):
     if path.startswith("/api/cloud-license/") or path in UNLICENSED_ENDPOINTS:
         return await call_next(request)
     if not cloud_access_ok():
-        return JSONResponse({"code": "SUBSCRIPTION_REQUIRED",
-                             "error": "Đăng nhập Google và mua gói còn hạn để thêm tài khoản Ads"},
-                            status_code=402, headers={"Cache-Control": "no-store"})
+        # Hard lock: everything outside the sign-in/renewal allowlist is refused here,
+        # whatever the UI shows. The code tells the window which screen to show.
+        reason = entitlement().get("reason") or "SUBSCRIPTION_REQUIRED"
+        message = LOCK_MESSAGES.get(reason, LOCK_MESSAGES["SUBSCRIPTION_REQUIRED"])
+        return JSONResponse({"code": reason, "error": message},
+                            status_code=403 if reason in ("LICENSE_REVOKED", "ACCOUNT_BLOCKED") else 402,
+                            headers={"Cache-Control": "no-store"})
     return await call_next(request)
 
 @app.get("/api/cloud-license/status")
@@ -100,9 +114,15 @@ def cloud_license_poll(request: Request):
         raise HTTPException(409, "Phiên xác thực PC đã hết hạn hoặc chưa được phê duyệt") from None
 
 @app.post("/api/cloud-license/attach")
-def cloud_license_attach(request: Request):
+async def cloud_license_attach(request: Request):
     verified_native_request(request)
-    return client().refresh_lease(heartbeat=False)
+    try:
+        body = await request.json()
+    except ValueError:
+        body = {}
+    # "takeover" only after the user chose "Dùng trên máy này" on the device-limit screen.
+    mode = "takeover" if isinstance(body, dict) and body.get("mode") == "takeover" else "attach"
+    return client().refresh_lease(mode=mode)
 
 @app.post("/api/cloud-license/logout")
 def cloud_license_logout(request: Request):
