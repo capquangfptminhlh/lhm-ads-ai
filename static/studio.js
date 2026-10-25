@@ -415,3 +415,7 @@ window.addEventListener('online', () => { if (session) checkInternet(); });
 window.addEventListener('offline', () => {
   if (session) { networkWasOnline = false; renderNetworkStatus(false); }
 });
+
+window.addEventListener('lhm:cloud-license-active',()=>{
+  if(session){if(current==='accounts')loadAccounts();else loadDashboard();}
+});
