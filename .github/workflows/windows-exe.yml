@@ -15,6 +15,7 @@ on:
       - 'tools/release_gate.py'
       - 'tools/package_unsigned_release.py'
       - 'tools/check_customer_bundle.py'
+      - 'tools/check_commercial_legal.py'
       - 'windows/vendor-start.ps1'
       - 'windows/package-commercial-release.ps1'
       - 'tools/vendor_ledger.py'
@@ -69,6 +70,12 @@ jobs:
           node --check static/customer-help.js
           node --check static/openrouter-diagnostics.js
           node --check static/report-date-ranges.js
+      - name: Block commercial build when legal terms are draft
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.commercial }}
+        shell: pwsh
+        run: |
+          python tools/check_commercial_legal.py
+          if ($LASTEXITCODE -ne 0) { throw 'Legal/privacy publication preflight failed; commercial candidate blocked' }
       - name: Pin vendor public key for manual COMMERCIAL build only
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.commercial }}
         shell: pwsh
