@@ -243,12 +243,13 @@ class CloudLicense:
 
     def active(self) -> bool:
         with self.lock:
-            if not (self.token and self.customer_id):
+            # Every local unlock requires a *verifiable* signed entitlement.
+            # The 600-second heartbeat is server seat liveness, not an alternate
+            # license proof. An unsigned 200/active response must never unlock.
+            if not (self.token and self.customer_id and self.lease):
                 return False
-            if self.last_seen and time.monotonic() - self.last_seen < SEAT_TTL_SECONDS and self.expires_at and self._expires_ok():
-                return True
-            return bool(self.lease and verify_lease(self.lease, self.customer_id, self.client_id,
-                                                    max_seen=self.max_seen) is not None)
+            return verify_lease(self.lease, self.customer_id, self.client_id,
+                                max_seen=self.max_seen) is not None
 
     def _expires_ok(self):
         from datetime import datetime, timezone
