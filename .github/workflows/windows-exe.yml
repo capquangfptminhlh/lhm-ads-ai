@@ -156,6 +156,16 @@ jobs:
       - name: Launch actual Windows EXE and check onboarding
         shell: pwsh
         run: ./windows/smoke-test.ps1
+      - name: Smoke-test EXE in mandatory Gmail-only mode (staging)
+        # Reuse the EXACT built binary with the supported staging flag so CI
+        # tests the Google-only security path without embedding fake public
+        # keys into a customer-distributable artifact. Real commercial builds
+        # already exercise Gmail-only through their pinned release_info.
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.commercial }}
+        shell: pwsh
+        env:
+          LHM_CLOUD_LICENSE_MODE: required
+        run: ./windows/smoke-test.ps1
       - name: Validate native WebView2 desktop dependencies
         shell: pwsh
         run: python -c "import webview, clr; print('WebView2 bridge dependencies available')"
