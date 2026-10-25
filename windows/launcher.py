@@ -102,6 +102,13 @@ def main():
     os.environ['PUBLIC_BASE_URL'] = f'http://localhost:{args.port}'
     folder = configure_local_storage()
     configure_windowed_logs(folder)
+    # Staging-only switch. Production rollout must explicitly enable required mode
+    # after Google OAuth + Cloudflare D1 have been verified end-to-end.
+    if os.environ.get('LHM_CLOUD_LICENSE_MODE') == 'required':
+        from ads_core.cloud_license import init_cloud_license, heartbeat_loop
+        init_cloud_license(folder)
+        threading.Thread(target=heartbeat_loop, args=(threading.Event(),),
+                         name='lhm-cloud-license-heartbeat', daemon=True).start()
     if args.agent_only:
         if sys.platform == 'win32':
             import ctypes
