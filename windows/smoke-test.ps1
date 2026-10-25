@@ -12,7 +12,9 @@ $folderLabel = if ($gmailOnly) { 'lhm-ads-ai-gmail-locked-smoke' } else { 'lhm-a
 $env:LHM_DATA_DIR = Join-Path $env:RUNNER_TEMP $folderLabel
 if ($gmailOnly) { Write-Host 'Smoke mode: Google-only without a paid signed lease (HTTP 402 expected)' }
 else { Write-Host 'Smoke mode: PILOT legacy first-run onboarding' }
-$port = 18765
+# Each mode gets a distinct port: Windows can keep the previous listener
+# briefly alive after Stop-Process and cause a false PASS/FAIL from stale HTTP.
+$port = if ($gmailOnly) { 18767 } else { 18765 }
 $proc = Start-Process -FilePath $exe -ArgumentList @('--headless', '--port', "$port") -PassThru
 try {
     $healthy = $false
