@@ -1,5 +1,8 @@
 """Local Windows Google license client, origin lock, DPAPI boundary, and API gate."""
 from datetime import datetime, timedelta, timezone
+import base64
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives import serialization
 from pathlib import Path
 import hashlib
 import json
@@ -15,8 +18,27 @@ from ads_core.extended import app
 from windows.desktop_window import DesktopBridge
 
 
+def signed_lease(native, signer, subscription_until, *, seat_limit=3):
+    issued=datetime.now(timezone.utc)
+    license_id="5b2f6a4e-1d0c-4b7e-9a3d-2f8e7c6b5a49"
+    expiry=lambda d:d.isoformat().replace("+00:00","Z")
+    claims={"v":1,"customer_id":native.customer_id,"email":native.email,
+            "license_id":license_id,
+            "client_hash":hashlib.sha256(f"{license_id}:{native.client_id}".encode()).hexdigest(),
+            "plan_code":"personal-1m","seat_limit":seat_limit,
+            "license_expires_at":subscription_until,"issued_at":expiry(issued),
+            "valid_until":expiry(min(issued+timedelta(hours=72),
+                                     datetime.fromisoformat(subscription_until.replace("Z","+00:00"))))}
+    body=base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
+    return body+"."+base64.urlsafe_b64encode(signer.sign(body.encode())).decode().rstrip("=")
+
+
 def test_native_google_login_pair_and_lease(tmp_path, monkeypatch):
     native = CloudLicense(tmp_path)
+    signer=Ed25519PrivateKey.generate()
+    pub=signer.public_key().public_bytes(serialization.Encoding.Raw,serialization.PublicFormat.Raw)
+    monkeypatch.setenv("LHM_LEASE_PUBLIC_KEY_B64",base64.b64encode(pub).decode())
+    expiry=(datetime.now(timezone.utc)+timedelta(days=5)).isoformat().replace("+00:00","Z")
     assert native.state()["active"] is False
     seen = []
     def fake(path, payload, authenticated=False):
@@ -32,7 +54,7 @@ def test_native_google_login_pair_and_lease(tmp_path, monkeypatch):
         if path.endswith("/seat"):
             assert authenticated is True
             return 200, {"active": True, "account_id": "e02ab0e4-c2b0-4a23-99a1-acd430b37fea", "account_email": "owner@gmail.com", "seat_limit": 3,
-                         "expires_at": (datetime.now(timezone.utc)+timedelta(days=5)).isoformat()}
+                         "expires_at": expiry, "lease": signed_lease(native,signer,expiry)}
         return 200, {"ok": True}
     monkeypatch.setattr(native, "_request", fake)
     x = native.start_pairing()
@@ -48,8 +70,11 @@ def test_native_google_login_pair_and_lease(tmp_path, monkeypatch):
     else:
         assert 'a'*64 not in native.path.read_text(encoding='utf8')
     assert CloudLicense(tmp_path).state()["paired"]
-    # Seats live SEAT_TTL_SECONDS (heartbeat every 5 min); no signed lease here.
+    # Expired seat heartbeat does NOT defeat a still-valid signed offline lease.
     native.last_seen = time.monotonic()-(service.SEAT_TTL_SECONDS+10)
+    assert native.active() is True
+    # An unsigned local heartbeat is never a separate proof of subscription.
+    native.lease = None
     assert native.active() is False
     native.logout()
     assert not native.state()["paired"]
@@ -104,5 +129,5 @@ def test_cloud_gate_blocks_ads_api_before_local_auth(tmp_path, monkeypatch):
         native.email = "owner@gmail.com"
         native.last_seen = time.monotonic()
         native.expires_at = (datetime.now(timezone.utc)+timedelta(days=1)).isoformat()
-        # After valid lease check, old local-user auth still applies.
-        assert client.get("/api/accounts").status_code == 401
+        # Spoofed local seat timestamps alone cannot bypass signed-lease gating.
+        assert client.get("/api/accounts").status_code == 402
