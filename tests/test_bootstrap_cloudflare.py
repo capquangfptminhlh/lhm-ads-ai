@@ -45,7 +45,14 @@ class CloudflareBootstrapTests(unittest.TestCase):
                 deploy_commerce.find_database_id()
 
     def test_d1_config_only_uses_verified_binding(self):
-        rendered=deploy_commerce.make_config(DB_UUID)
+        # Fresh config without a binding; the repo's wrangler.toml now carries the real one.
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            (root/"wrangler.toml").write_text(
+                'name = "lhm-ads-cloudflare-api"\n'
+                'keep_vars = true\n',encoding="utf-8")
+            with patch.object(deploy_commerce,"ROOT",root):
+                rendered=deploy_commerce.make_config(DB_UUID)
         self.assertIn('binding = "COMMERCE_DB"',rendered)
         self.assertIn(DB_UUID,rendered)
         self.assertIn('migrations_dir = "migrations"',rendered)
