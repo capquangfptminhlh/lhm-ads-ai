@@ -113,7 +113,15 @@ class CloudLicense:
         try:
             with urlopen(request, timeout=8) as response:
                 data = response.read(4096)
-                return response.status, json.loads(data.decode("utf8"))
+                try:
+                    reply = json.loads(data.decode("utf8"))
+                    if not isinstance(reply, dict):
+                        raise ValueError("Non-object license response")
+                except (ValueError, UnicodeError) as exc:
+                    # Cloud errors or a broken response must never terminate
+                    # the heartbeat worker or silently create an entitlement.
+                    raise CloudLicenseError("Invalid response from LHM licensing server") from exc
+                return response.status, reply
         except HTTPError as exc:
             # HTTP status is useful; response must NOT include credentials.
             try:
@@ -179,9 +187,13 @@ class CloudLicense:
                     {"client_id": self.client_id, "mode": mode, "device_label": "Máy tính Windows"},
                     authenticated=True)
             except CloudLicenseError:
-                # Offline: a valid signed lease keeps the PC usable until valid_until.
-                self.reason = "OFFLINE" if self.active() else "OFFLINE_LOCKED"
-                return {"active": self.active(), "reason": self.reason, "offline_until": self.offline_until()}
+                return self._temporary_cloud_failure()
+            # HTTP 429/408/5xx is NOT a revocation or subscription denial.
+            # Keep only the already verified Ed25519 offline lease, capped at
+            # 72 hours and the paid plan expiry. Explicit 401/402/403/409
+            # still clear it below, even if it has time remaining.
+            if code in (408, 429) or code >= 500 or not isinstance(data, dict):
+                return self._temporary_cloud_failure()
             if code == 200 and data.get("active") is True:
                 # The cloud must confirm the same Google account on EVERY lease.
                 # Do not trust an edited local identifier, even with a valid token.
@@ -223,6 +235,14 @@ class CloudLicense:
                     {"label": str(d.get("label") or "")[:60], "last_seen_at": str(d.get("last_seen_at") or "")[:40]}
                     for d in (data.get("devices") or [])[:20] if isinstance(d, dict)]
             return result
+
+    def _temporary_cloud_failure(self) -> dict:
+        # A transient outage cannot extend, mint, or renew an entitlement:
+        # the client may use only its locally validated, time-limited lease.
+        active = self.active()
+        self.reason = "OFFLINE" if active else "OFFLINE_LOCKED"
+        return {"active": active, "reason": self.reason,
+                "offline_until": self.offline_until() if active else ""}
 
     def _drop_lease(self, reason: str):
         self.last_seen = 0
