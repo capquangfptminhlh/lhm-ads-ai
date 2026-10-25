@@ -1,12 +1,10 @@
 /* Run with node --test tests/google_subscription_contract.test.mjs */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 
 globalThis.crypto ??= webcrypto;
-const source=await readFile(new URL('../workers/ads-api/src/google-subscription.js',import.meta.url),'utf8');
-const {googleSubscription}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const {googleSubscription}=await import('../workers/ads-api/src/google-subscription.js');
 const base='https://ads.lhmcrm.com';
 const env={COMMERCE_DB:{},GOOGLE_CLIENT_ID:'unit-test.apps.googleusercontent.com',GOOGLE_CLIENT_SECRET:'not-real'};
 const request=(p,options)=>new Request(base+p,options);
@@ -32,7 +30,7 @@ test('Subscription, plans and seat API require authenticated Google identity',as
  for(const [p,opts] of [
    ['/api/auth/session',undefined],['/api/auth/plans',undefined],
    ['/api/auth/seat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:crypto.randomUUID()})}],
-   ['/api/auth/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"seats":3}'}]
+   ['/api/auth/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"plan_code":"personal-1m"}'}]
  ]){
    const r=await googleSubscription(request(p,opts),env);
    assert.equal(r.status,401,p);

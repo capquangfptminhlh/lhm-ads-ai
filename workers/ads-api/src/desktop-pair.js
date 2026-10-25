@@ -34,7 +34,8 @@ const jsonBody=async req=>{
   try{return JSON.parse(raw);}catch{return null;}
 };
 const originOk=req=>!req.headers.get('origin')||req.headers.get('origin')===new URL(req.url).origin;
-const activeLicense=async(db,id)=>db.prepare("SELECT id FROM licenses WHERE customer_id=? AND status='active' AND expires_at>? ORDER BY expires_at DESC LIMIT 1").bind(id,now()).first();
+// Blocked customers never get a PC session, even with a paid plan.
+const activeLicense=async(db,id)=>db.prepare("SELECT l.id FROM licenses l JOIN customers c ON c.id=l.customer_id WHERE l.customer_id=? AND c.status='active' AND l.status='active' AND l.expires_at>? ORDER BY l.expires_at DESC LIMIT 1").bind(id,now()).first();
 const bearer=req=>(req.headers.get('Authorization')||'').match(/^Bearer ([a-f0-9]{64})$/)?.[1]||null;
 export async function desktopPair(req,env){
  const u=new URL(req.url),path=u.pathname,method=req.method,db=env.COMMERCE_DB;

@@ -21,3 +21,7 @@ binding = "COMMERCE_DB"
 database_name = "lhm-ads-commerce"
 database_id = "6f706d72-e94a-47d7-83e4-86c112c122b6"
 migrations_dir = "migrations"
+
+# Daily cleanup of expired orders, sessions and seats (workers/ads-api/src/index.js).
+[triggers]
+crons = ["17 20 * * *"]

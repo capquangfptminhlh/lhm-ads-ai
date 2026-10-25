@@ -114,11 +114,23 @@ export default {
           desktop_pairing_schema_ready=have.has('desktop_pairings')&&have.has('desktop_sessions');
         }catch(_){google_seats_schema_ready=false;desktop_pairing_schema_ready=false;}
       }
+      let gmail_plans_schema_ready=false;
+      if(commerce_binding_present){
+        try{
+          const check=await env.COMMERCE_DB.prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('plans','customer_notes')"
+          ).all();
+          gmail_plans_schema_ready=(check.results||[]).length===2;
+        }catch(_){gmail_plans_schema_ready=false;}
+      }
       return json({
         service:'lhm-ads-cloudflare',
         google_login_configured:Boolean(env?.GOOGLE_CLIENT_ID && env?.GOOGLE_CLIENT_SECRET),
         google_seats_schema_ready,
         desktop_pairing_schema_ready,
+        gmail_plans_schema_ready,
+        payment_instructions_configured:Boolean(env?.BANK_BIN && env?.BANK_ACCOUNT_NO && env?.BANK_ACCOUNT_NAME),
+        desktop_lease_signing_configured:Boolean(env?.LEASE_SIGNING_KEY),
         customer_auth_schema_ready,
         auth_ready:false,
         device_only_ready:false,
@@ -171,5 +183,21 @@ export default {
     }
     if(env && env.ASSETS) return env.ASSETS.fetch(request);
     return json({detail:'Static asset binding unavailable'},503);
+  },
+  // Daily housekeeping (wrangler.toml [triggers]). Subscription metadata only.
+  async scheduled(_event,env,ctx){
+    if(!env?.COMMERCE_DB)return;
+    ctx.waitUntil(cleanup(env.COMMERCE_DB));
   }
 };
+
+export async function cleanup(db,now=new Date()){
+  const at=now.toISOString(),dayAgo=new Date(now.getTime()-86400000).toISOString();
+  await db.batch([
+    db.prepare("UPDATE orders SET status='cancelled' WHERE status='pending' AND expires_at IS NOT NULL AND expires_at<=?").bind(at),
+    db.prepare('DELETE FROM customer_sessions WHERE expires_at<=?').bind(at),
+    db.prepare('DELETE FROM desktop_sessions WHERE expires_at<=?').bind(at),
+    db.prepare('DELETE FROM desktop_pairings WHERE expires_at<=?').bind(at),
+    db.prepare('DELETE FROM license_seats WHERE last_seen_at<?').bind(dayAgo)
+  ]);
+}

@@ -27,7 +27,7 @@ const env=()=>{
        if(pair?.id!==args[0]||pair.verifier_hash!==args[1]||pair.expires_at<=args[2])return null;
        return{customer_id:pair.customer_id};
      }
-     if(sql.startsWith('SELECT id FROM licenses'))return args[0]==='user-1'?{id:'license-1'}:null;
+     if(sql.startsWith('SELECT l.id FROM licenses l JOIN customers'))return args[0]==='user-1'?{id:'license-1'}:null;
      if(sql.startsWith('SELECT email FROM customers'))return{email:'owner@example.com'};
      if(sql.startsWith('SELECT display_code,customer_id,expires_at FROM desktop_pairings'))
        return pair?{display_code:pair.display_code,customer_id:pair.customer_id,expires_at:pair.expires_at}:null;
