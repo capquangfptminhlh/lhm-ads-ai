@@ -59,9 +59,9 @@ export async function adminApi(request,env){
       return reply({id},201);
     }
     if(path==='/api/admin/orders'&&method==='POST'){
-      const x=await body(request),months=Number(x.months),amount=Number(x.amount_vnd),customer=string(x.customer_id,50);
-      if(!customer||!Number.isInteger(months)||months<1||months>36||!Number.isSafeInteger(amount)||amount<0||amount>1000000000)return reply({error:'Invalid order'},400);
-      const id=uuid();await db.prepare('INSERT INTO orders(id,customer_id,months,amount_vnd) VALUES(?,?,?,?)').bind(id,customer,months,amount).run();await audit(db,actor,'order_create',id);
+      const x=await body(request),months=Number(x.months),amount=Number(x.amount_vnd),customer=string(x.customer_id,50),seats=Number(x.seat_limit||1);
+      if(!customer||!Number.isInteger(months)||months<1||months>36||!Number.isSafeInteger(amount)||amount<0||amount>1000000000||![1,3,5].includes(seats))return reply({error:'Invalid order'},400);
+      const id=uuid();await db.prepare('INSERT INTO orders(id,customer_id,months,amount_vnd,seat_limit) VALUES(?,?,?,?,?)').bind(id,customer,months,amount,seats).run();await audit(db,actor,'order_create',id);
       return reply({id},201);
     }
     if(path==='/api/admin/payments/review'&&method==='POST'){
@@ -93,8 +93,8 @@ export async function adminApi(request,env){
       const expires=new Date();expires.setUTCMonth(expires.getUTCMonth()+order.months);
       // D1 batch is transactional; a unique order_id prevents duplicate fulfillment.
       await db.batch([
-        db.prepare('INSERT INTO licenses(id,customer_id,key_hash,key_hint,expires_at) VALUES(?,?,?,?,?)')
-          .bind(order.id,order.customer_id,await hex(key),key.slice(-8),expires.toISOString()),
+        db.prepare('INSERT INTO licenses(id,customer_id,key_hash,key_hint,expires_at,seat_limit) VALUES(?,?,?,?,?,?)')
+          .bind(order.id,order.customer_id,await hex(key),key.slice(-8),expires.toISOString(),order.seat_limit||1),
         db.prepare("INSERT INTO license_fulfillments(order_id,license_id,action) VALUES(?,?,'issue')")
           .bind(order.id,order.id),
         db.prepare('INSERT INTO admin_audit(id,actor,action,target_id) VALUES(?,?,?,?)')
@@ -121,8 +121,8 @@ export async function adminApi(request,env){
           expires_at=strftime('%Y-%m-%dT%H:%M:%fZ',
             datetime(CASE WHEN julianday(expires_at)>julianday('now')
               THEN expires_at ELSE 'now' END, '+' || ? || ' months')),
-          status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?`)
-          .bind(order.months,id),
+          status='active',seat_limit=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+          .bind(order.months,order.seat_limit||1,id),
         db.prepare('INSERT INTO admin_audit(id,actor,action,target_id) VALUES(?,?,?,?)')
           .bind(uuid(),actor,'license_renew',order.id)
       ]);
