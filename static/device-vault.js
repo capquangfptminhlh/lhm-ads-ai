@@ -6,7 +6,10 @@
 'use strict';
 (() => {
   const DATABASE='lhm-ads-device-only-v1';
-  const STORE='vaults', KEY='default', VERSION=1, MAX_ACCOUNTS=100;
+  const STORE='vaults', VERSION=1, MAX_ACCOUNTS=100;
+  let KEY='default';
+  const cloudPwa=Boolean(document.getElementById('lhm-local-workspace'));
+  let namespaceSet=!cloudPwa;
   const ITERATIONS=450000;
   const CTX=new TextEncoder().encode('LHM-Ads-AI:device-only:v1');
   let cryptoKey=null, memory=null;
@@ -28,6 +31,7 @@
   };
   function open(){
     requireSecure();
+    if(!namespaceSet)throw Error('Đăng nhập Google và mua gói để mở kho riêng.');
     return new Promise((resolve,reject)=>{
       const req=indexedDB.open(DATABASE,VERSION);
       req.onupgradeneeded=()=>{req.result.createObjectStore(STORE,{keyPath:'id'});};
@@ -278,9 +282,14 @@
     return {deleted:true};
   }
   function lock(){cryptoKey=null;memory=null;return {locked:true};}
+  function setNamespace(customerId){
+    if(typeof customerId!=='string'||!/^[0-9a-f-]{36}$/i.test(customerId))throw Error('Invalid customer workspace ID');
+    if(KEY!=='google:'+customerId)lock();
+    KEY='google:'+customerId;namespaceSet=true;
+  }
   Object.defineProperty(window,'LHMDeviceVault',{
     value:Object.freeze({
-      exists:async()=>Boolean(await read()),create,unlock,lock,isUnlocked:()=>Boolean(cryptoKey&&memory),
+      setNamespace,exists:async()=>Boolean(await read()),create,unlock,lock,isUnlocked:()=>Boolean(cryptoKey&&memory),
       listAccounts,upsertAccount,removeAccount,importDailyReport,listDailyReports,
       setDailyBudget,listDailyBudgets,listLocalAlerts,encryptedBackup,importBackup,destroy
     }),writable:false,configurable:false
