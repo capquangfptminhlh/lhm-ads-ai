@@ -4,6 +4,14 @@ Status: **built and tested on the feature branch (PR #46); not deployed to produ
 Production deploy, Google/Meta app settings, bank details and live acceptance are the owner's.
 Plan and owner checklist: `docs/KE_HOACH_TONG_THE.md` · Agent brief: `docs/AGENT_BRIEF_GMAIL_LICENSE.md`.
 
+## Bên cung cấp: cá nhân (chủ sản phẩm xác nhận)
+
+- LHM Ads AI được dự kiến cung cấp dưới tư cách **cá nhân**, không tự giới thiệu là công ty hay hộ kinh doanh khi chưa có đăng ký tương ứng.
+- Trước khi công bố Điều khoản dịch vụ (`static/legal-terms.html`) và Chính sách bảo mật (`static/legal-privacy.html`), chủ sản phẩm điền đúng **họ tên cá nhân**, **địa chỉ liên hệ hợp lệ**, **email chăm sóc khách hàng/dữ liệu**, **số điện thoại**, và ngày hiệu lực.
+- Cần xác nhận tình trạng đăng ký kinh doanh/thuế thực tế, cách cấp chứng từ thanh toán hoặc hóa đơn nếu áp dụng; không giả định cá nhân được miễn các nghĩa vụ này.
+- Chủ sản phẩm tự quyết định, rà soát và công khai **chính sách hoàn tiền**, quy trình hỗ trợ/khiếu nại, lưu giữ/xóa dữ liệu, trách nhiệm và giải quyết tranh chấp phù hợp quy định hiện hành.
+- Hai trang vẫn có `[CẦN ĐIỀN]` và được đánh dấu `BẢN NHÁP`; `tools/check_commercial_legal.py` cố ý chặn `commercial=true` đến khi hoàn thiện và có phê duyệt thủ công. **Không xóa placeholder chỉ để vượt CI.**
+
 ## What customers get
 
 - Sign in with **Gmail** on the PWA (`/local/`) or the Windows app (browser pairing with a 6-digit code). No password, no key.
