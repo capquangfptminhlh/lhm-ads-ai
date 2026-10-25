@@ -168,6 +168,12 @@ class CloudLicense:
             except CloudLicenseError:
                 return {"active": self.active(), "reason": "offline"}
             if code == 200 and data.get("active") is True:
+                # The cloud must confirm the same Google account on EVERY lease.
+                # Do not trust an edited local identifier, even with a valid token.
+                if (data.get("account_id") != self.customer_id or
+                        str(data.get("account_email") or "").lower() != self.email.lower()):
+                    self.last_seen = 0
+                    return {"active": False, "reason": "google_account_mismatch"}
                 self.last_seen = time.monotonic()
                 self.expires_at = str(data.get("expires_at") or "")
                 return {"active": True, "expires_at": self.expires_at,
