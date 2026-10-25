@@ -70,7 +70,7 @@ try {
         # BEFORE FastAPI can return 404 for an unregistered MCP endpoint.
         # Non-API aliases must still be absent entirely.
         $expected = if ($gmailOnly -and $path -eq '/api/mcp') { 402 } else { 404 }
-        if ($r.StatusCode -ne $expected) { throw "MCP route $path: expected $expected, got $($r.StatusCode)" }
+        if ($r.StatusCode -ne $expected) { throw "MCP route ${path}: expected $expected, got $($r.StatusCode)" }
     }
     $backup = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/desktop/backup/export" -Method POST -ContentType 'application/json' -Body '{"passphrase":"good-backup-passphrase-12345"}' -SkipHttpErrorCheck -TimeoutSec 10
     $expected = if ($gmailOnly) { 402 } else { 401 }
