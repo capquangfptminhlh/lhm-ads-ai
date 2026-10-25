@@ -33,3 +33,12 @@ def test_commercial_legal_gate_accepts_populated_pages_but_not_legal_approval(tm
     assert check_legal_pages(tmp_path) == []
     assert main(["--root", str(tmp_path)]) == 0
     assert "manual owner/legal approval" in capsys.readouterr().out
+
+def test_real_legal_templates_use_individual_provider():
+    root = Path(__file__).resolve().parents[1]
+    for name in ("static/legal-terms.html", "static/legal-privacy.html"):
+        page = (root / name).read_text(encoding="utf-8")
+        assert "<strong>cá nhân</strong>" in page
+        assert "Đơn vị cung cấp:" not in page
+        # Actual contact/registration details are intentionally not invented.
+        # Commercial builds must still fail closed until the owner reviews copy.
