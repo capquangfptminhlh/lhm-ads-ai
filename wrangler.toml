@@ -15,3 +15,9 @@ custom_domain = true
 directory = "./_site"
 binding = "ASSETS"
 run_worker_first = ["/api/*", "/admin", "/admin/*"]
+
+[[d1_databases]]
+binding = "COMMERCE_DB"
+database_name = "lhm-ads-commerce"
+database_id = "6f706d72-e94a-47d7-83e4-86c112c122b6"
+migrations_dir = "migrations"
