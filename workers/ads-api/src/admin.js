@@ -163,10 +163,13 @@ export async function adminApi(request,env){
       const customer=await customerByEmail(db,email,x.name);
       if(customer.status==='blocked')return reply({error:'Customer is blocked; unblock first'},409);
       const orderId=uuid();
-      await db.prepare("INSERT INTO orders(id,customer_id,months,days,seat_limit,amount_vnd,status,plan_code,source,reference,paid_at,approved_by) VALUES(?,?,?,?,?,?,'paid',?,?,?,CURRENT_TIMESTAMP,?)")
-        .bind(orderId,customer.id,months||Math.max(1,Math.ceil(days/30)),days,seats,amount,planCode,source,ref,actor).run();
-      const order=await db.prepare('SELECT * FROM orders WHERE id=?').bind(orderId).first();
-      const result=await grantFromOrder(db,order,actor,{reference:ref,note:string(x.note,500)||null,action:source});
+      // Direct paid grants are also atomic: never create an orphan paid
+      // order when a subsequent license write or audit record fails.
+      const order={id:orderId,customer_id:customer.id,
+        months:months||Math.max(1,Math.ceil(days/30)),days,
+        seat_limit:seats,amount_vnd:amount,plan_code:planCode,source};
+      const result=await grantFromOrder(db,order,actor,{reference:ref,
+        note:string(x.note,500)||null,action:source,createPaidOrder:true});
       return reply({...result,customer_id:customer.id,customer_created:customer.created,linked:Boolean(customer.google_sub)},201);
     }
     const transfer=path.match(LICENSE_PATH);
