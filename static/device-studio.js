@@ -197,6 +197,7 @@
       window.dispatchEvent(new Event('lhm:vault-locked'));
     }
     refresh();
+    window.dispatchEvent(new Event('lhm:pwa-signout'));
     window.scrollTo(0,0);
   });
   $('pwa-report-selector').addEventListener('change',e=>{selectedAccount=e.target.value;refresh();});
