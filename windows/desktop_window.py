@@ -99,6 +99,23 @@ class DesktopBridge:
         threading.Thread(target=self.window.destroy, daemon=True).start()
         return {'status': 'restarting', 'message': 'Đang đóng để cài đặt bản mới.'}
 
+    def open_license_url(self, url: str) -> bool:
+        """Open ONLY the first-party short-lived pairing page, never remote scripts."""
+        from urllib.parse import urlsplit, parse_qs
+        from uuid import UUID
+        try:
+            parsed = urlsplit(url)
+            if parsed.scheme != 'https' or parsed.netloc != 'ads.lhmcrm.com' or parsed.path != '/desktop/pair/':
+                return False
+            values = parse_qs(parsed.query)
+            if set(values) != {'id'} or len(values['id']) != 1 or parsed.fragment:
+                return False
+            if str(UUID(values['id'][0], version=4)) != values['id'][0].lower():
+                return False
+        except (ValueError, TypeError, KeyError):
+            return False
+        return bool(webbrowser.open(url, new=1))
+
     def open_oauth_url(self, url: str) -> bool:
         from urllib.parse import urlsplit
         if not isinstance(url, str) or len(url) > 4096:
