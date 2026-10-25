@@ -57,6 +57,7 @@
     text('pwa-page-title',names[to]);
     closeMenu();
     if(to==='accounts'||to==='reports'||to==='alerts'||to==='dashboard')refresh();
+    window.dispatchEvent(new CustomEvent('lhm:pwa-view',{detail:to}));
     if(focus){
       window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
       const heading=document.querySelector('.pwa-page.active h1');

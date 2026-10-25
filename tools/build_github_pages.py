@@ -110,7 +110,7 @@ def build(output: Path) -> Path:
         "  X-Frame-Options: DENY\n"
         "  Permissions-Policy: camera=(), microphone=(), geolocation=()\n"
         "  Content-Security-Policy: default-src 'self'; script-src 'self'; "
-        "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; img-src 'self' data: https://img.vietqr.io https://*.googleusercontent.com; "
         "font-src 'self' data:; connect-src 'self'; object-src 'none'; "
         "base-uri 'none'; frame-ancestors 'none'; form-action 'self'; "
         "upgrade-insecure-requests\n",

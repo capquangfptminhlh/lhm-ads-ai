@@ -1,130 +1,241 @@
-/* Google account + paid subscription gate. Never forwards Ads credentials. */
+/* Google account + paid subscription gate. Never forwards Ads credentials.
+ * Hard lock: the app and the device vault open only while the Gmail has an
+ * active plan and this device holds a seat. */
 'use strict';
 (()=>{
- const box=document.getElementById('customer-login-box');
- const portal=document.getElementById('pwa-login-portal');
- const logout=document.getElementById('customer-cloud-logout');
+ const $=id=>document.getElementById(id);
+ const box=$('customer-login-box'),portal=$('pwa-login-portal'),logout=$('customer-cloud-logout');
  if(!box||!portal)return;
  const root=document.body;
- const status=document.getElementById('customer-login-status');
- const login=document.getElementById('customer-google-signin');
- const account=document.getElementById('customer-account');
- const purchase=document.getElementById('customer-purchase');
- const plans=document.getElementById('customer-plans');
- const action=document.getElementById('customer-plan-submit');
+ const status=$('customer-login-status'),login=$('customer-google-signin'),account=$('customer-account');
+ const purchase=$('customer-purchase'),plans=$('customer-plans'),action=$('customer-plan-submit');
+ const payment=$('customer-payment'),seatPanel=$('customer-seat-limit'),note=$('customer-state-note');
  const localIdKey='lhm-license-client-v1';
- let subscribed=false,authenticated=false,ready=false;
- const msg=s=>{if(status)status.textContent=String(s);};
- const lock=(message)=>{
-   ready=false;root.classList.add('customer-locked');
-   box.hidden=false;portal.hidden=true;
-   if(logout)logout.hidden=!authenticated;
-   if(window.LHMDeviceVault?.isUnlocked())window.LHMDeviceVault.lock();
-   window.dispatchEvent(new Event('lhm:vault-locked'));
-   if(message)msg(message);
- };
- const unlock=()=>{
-   ready=true;root.classList.remove('customer-locked');box.hidden=true;
-   portal.hidden=false;if(logout)logout.hidden=false;
-   window.dispatchEvent(new Event('lhm:customer-ready'));
- };
+ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ const money=n=>new Intl.NumberFormat('vi-VN').format(n)+'đ';
+ const day=s=>new Date(s).toLocaleDateString('vi-VN');
+ let session=null,ready=false,heartbeat=null,poll=null,chosen='';
+ const msg=s=>{if(status)status.textContent=String(s||'');};
+ const show=(el,on)=>{if(el)el.hidden=!on;};
+
+ class ApiError extends Error{constructor(data,status){super(data.error||'Máy chủ đang bận');this.code=data.code;this.status=status;this.data=data;}}
  async function api(path,options={}){
-   const response=await fetch(path,{credentials:'same-origin',cache:'no-store',...options});
+   let response;
+   try{response=await fetch(path,{credentials:'same-origin',cache:'no-store',...options});}
+   catch(_){throw new ApiError({error:'Cần Internet để xác minh gói. Kiểm tra kết nối rồi thử lại.',code:'OFFLINE'},0);}
    const data=await response.json().catch(()=>({error:'Không đọc được phản hồi máy chủ'}));
-   if(!response.ok)throw Error(data.error||'Máy chủ đang bận');
+   if(!response.ok)throw new ApiError(data,response.status);
    return data;
  }
- const post=(url,data)=>api(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data)});
+ const post=(url,data)=>api(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data||{})});
  function clientId(){
-   let id=localStorage.getItem(localIdKey);
-   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id||'')){
-     id=crypto.randomUUID();localStorage.setItem(localIdKey,id);
-   }
+   let id=null;
+   try{id=localStorage.getItem(localIdKey);}catch(_){}
+   if(!UUID.test(id||'')){id=crypto.randomUUID();try{localStorage.setItem(localIdKey,id);}catch(_){}}
    return id;
  }
- async function acquire(mode){
-   const result=await post('/api/auth/seat',{client_id:clientId(),mode});
-   if(!result.active)throw Error('Chưa có quyền sử dụng phần mềm');
-   // Google subscription is the only normal sign-in. The AES key remains on this device.
-   const opened=await window.LHMDeviceVault?.autoUnlock?.();
-   unlock();
-   if(opened?.legacy_password_required)msg('Kho dữ liệu cũ cần mở bằng mật khẩu lần cuối.');
+ function deviceLabel(){
+   const ua=navigator.userAgent;
+   const os=/Android/.test(ua)?'Android':/iPhone|iPad/.test(ua)?'iPhone':/Windows/.test(ua)?'Windows':/Mac OS/.test(ua)?'Mac':'Thiết bị';
+   const app=/Edg\//.test(ua)?'Edge':/Chrome\//.test(ua)?'Chrome':/Firefox\//.test(ua)?'Firefox':/Safari\//.test(ua)?'Safari':'Trình duyệt';
+   return app+' '+os;
  }
- async function loadPlans(){
+
+ function lock(message){
+   ready=false;clearInterval(heartbeat);heartbeat=null;
+   root.classList.add('customer-locked');
+   box.hidden=false;portal.hidden=true;
+   if(window.LHMDeviceVault?.isUnlocked())window.LHMDeviceVault.lock();
+   window.dispatchEvent(new Event('lhm:vault-locked'));
+   if(message!==undefined)msg(message);
+ }
+ function unlock(){
+   ready=true;root.classList.remove('customer-locked');box.hidden=true;
+   portal.hidden=false;show(logout,true);
+   window.dispatchEvent(new Event('lhm:customer-ready'));
+ }
+ function panels(which){
+   show(purchase,which==='purchase');show(payment,which==='payment');show(seatPanel,which==='seats');
+ }
+ function stateNote(text){note.textContent=text||'';show(note,Boolean(text));}
+
+ function renderAccount(s){
+   show(login,!s);show(account,Boolean(s));show(logout,Boolean(s));
+   if(!s)return;
+   $('customer-email').textContent=s.email;
+   const avatar=$('customer-avatar');
+   if(s.picture){avatar.src=s.picture;avatar.hidden=false;}else avatar.hidden=true;
+   $('customer-plan-line').textContent=s.plan
+     ?' · '+(s.plan.name||s.plan.seat_limit+' máy')+' · hết hạn '+day(s.plan.expires_at)
+     :'';
+   const mine=$('lhm-my-plan');
+   if(mine)mine.textContent=s.plan
+     ?'Gmail: '+s.email+' · '+(s.plan.name||'')+' · tối đa '+s.plan.seat_limit+' máy cùng lúc · hết hạn '+day(s.plan.expires_at)
+       +' (còn '+s.plan.days_left+' ngày)'
+     :'Gmail: '+s.email+' · Chưa có gói đang hoạt động.';
+   const banner=$('lhm-plan-banner');
+   if(banner){
+     const soon=s.plan?.expiring_soon;
+     banner.hidden=!soon;
+     if(soon){
+       const left=Date.parse(s.plan.expires_at)-Date.now();
+       $('lhm-plan-banner-text').textContent=left<86400000
+         ?'Gói hết hạn lúc '+new Date(s.plan.expires_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})+' hôm nay. Sau đó phần mềm sẽ khoá.'
+         :'Gói còn '+s.plan.days_left+' ngày (hết hạn '+day(s.plan.expires_at)+'). Gia hạn để không bị gián đoạn.';
+       banner.classList.toggle('urgent',left<3*86400000);
+     }
+   }
+ }
+
+ async function renderPlans(){
    const result=await api('/api/auth/plans');
    plans.replaceChildren();
    for(const plan of result.plans||[]){
-     const option=document.createElement('option');
-     option.value=String(plan.seats);
-     option.disabled=!plan.available;
-     option.textContent=plan.seats+' phiên đồng thời · '+(plan.available
-      ?new Intl.NumberFormat('vi-VN').format(plan.price_vnd)+'đ / tháng'
-      :'Chưa có giá, liên hệ quản trị');
-     plans.append(option);
+     const label=document.createElement('label');
+     label.className='customer-plan';
+     const input=document.createElement('input');
+     input.type='radio';input.name='customer-plan';input.value=plan.code;
+     input.addEventListener('change',()=>{chosen=plan.code;action.disabled=false;});
+     const name=document.createElement('b');name.textContent=plan.name;
+     const meta=document.createElement('small');
+     meta.textContent=money(plan.price_vnd)+' · tối đa '+plan.seat_limit+' máy cùng lúc';
+     label.append(input,name,meta);plans.append(label);
    }
-   const available=[...plans.options].find(x=>!x.disabled);
-   if(available)plans.value=available.value;
-   action.disabled=!available;
+   const first=plans.querySelector('input');
+   if(first){first.checked=true;chosen=first.value;action.disabled=false;}
+   else{action.disabled=true;msg('Chưa có gói đang mở bán. Liên hệ quản trị viên.');}
  }
+
+ function renderPayment(order){
+   stateNote('');
+   const pay=order.payment||{};
+   $('customer-pay-plan').textContent=order.plan_name||order.plan_code||'';
+   $('customer-pay-amount').textContent=money(order.amount_vnd);
+   $('customer-pay-code').textContent=order.payment_code;
+   $('customer-pay-bank').textContent=pay.configured?pay.account_no+' · '+pay.account_name:'Quản trị viên sẽ gửi số tài khoản';
+   const qr=$('customer-qr');
+   if(pay.configured&&pay.qr_url){qr.src=pay.qr_url;qr.hidden=false;}else qr.hidden=true;
+   $('customer-order-cancel').dataset.order=order.id;
+   $('customer-pay-note').textContent='Ghi đúng nội dung '+order.payment_code+'. Đơn giữ đến '+
+     new Date(order.expires_at).toLocaleString('vi-VN')+'. Trang này tự cập nhật khi gói được kích hoạt.';
+   panels('payment');
+   clearInterval(poll);
+   poll=setInterval(async()=>{
+     try{const s=await api('/api/auth/session');if(s.state!=='pending'){clearInterval(poll);reload();}}catch(_){}
+   },15000);
+ }
+
+ function renderSeats(devices){
+   stateNote('');
+   const list=$('customer-seat-list');list.replaceChildren();
+   for(const d of devices||[]){
+     const li=document.createElement('li');
+     li.textContent=d.label+' · hoạt động '+new Date(d.last_seen_at).toLocaleString('vi-VN');
+     list.append(li);
+   }
+   panels('seats');
+ }
+
+ async function acquire(mode){
+   const result=await post('/api/auth/seat',{client_id:clientId(),mode,device_label:deviceLabel()});
+   if(!result.active)throw new ApiError({error:'Chưa có quyền sử dụng phần mềm'},403);
+   const opened=await window.LHMDeviceVault?.autoUnlock?.();
+   unlock();
+   if(opened?.legacy_password_required)msg('Kho dữ liệu cũ cần mở bằng mật khẩu lần cuối.');
+   clearInterval(heartbeat);
+   heartbeat=setInterval(beat,(session?.heartbeat_seconds||300)*1000);
+   return result;
+ }
+ async function beat(){
+   if(!ready)return;
+   try{await acquire('heartbeat');}
+   catch(e){
+     if(e.code==='OFFLINE')return;  // Brief network blips do not lock; the next beat decides.
+     lock();reload();
+   }
+ }
+
  async function reload(){
-   lock('Đang kiểm tra tài khoản Google và bản quyền…');
-   let state;
-   try{state=await api('/api/auth/session');}
-   catch(_){
-     authenticated=false;subscribed=false;
-     login.hidden=false;account.hidden=true;purchase.hidden=true;
-     if(logout)logout.hidden=true;
-     lock('Vui lòng đăng nhập bằng Google để bắt đầu.');
+   clearInterval(poll);
+   lock('Đang kiểm tra tài khoản Google và gói dịch vụ…');
+   panels('none');stateNote('');
+   try{session=await api('/api/auth/session');}
+   catch(e){
+     session=null;renderAccount(null);
+     if(e.code==='ACCOUNT_BLOCKED'){stateNote(e.message);show(logout,true);msg('');return;}
+     msg(e.code==='OFFLINE'?e.message:'Đăng nhập bằng Google để bắt đầu.');
      return;
    }
-   authenticated=true;subscribed=state.subscribed;
-   login.hidden=true;account.hidden=false;
-   account.textContent='Đã đăng nhập: '+state.email;
-   const planLabel=document.getElementById('lhm-my-plan');
-   if(planLabel){
-     planLabel.textContent=state.plan
-       ?'Gmail: '+state.email+' · '+state.plan.seat_limit+' phiên đồng thời · Hết hạn: '+
-          new Date(state.plan.expires_at).toLocaleDateString('vi-VN')
-       :'Gmail: '+state.email+' · Chưa chọn gói dịch vụ.';
-   }
-   if(window.LHMDeviceVault?.setNamespace)window.LHMDeviceVault.setNamespace(state.account_id);
-   if(!subscribed){
-     purchase.hidden=false;
-     if(state.pending_order){
-       action.disabled=true;
-       msg('Đơn hàng đang chờ xác nhận thanh toán. Mã đơn: '+state.pending_order.id);
-     }else{
-       msg('Hãy chọn gói và hoàn tất thanh toán trước khi thêm tài khoản quảng cáo.');
-       await loadPlans().catch(err=>msg(err.message));
+   renderAccount(session);
+   if(window.LHMDeviceVault?.setNamespace)window.LHMDeviceVault.setNamespace(session.account_id);
+   if(session.state==='active'){
+     try{await acquire('attach');msg('Gói hợp lệ. Kho dữ liệu trên thiết bị đã mở.');}
+     catch(e){
+       if(e.code==='SEAT_LIMIT'){renderSeats(e.data.devices);msg('');}
+       else lock(e.message);
      }
      return;
    }
-   purchase.hidden=true;
-   try{
-     await acquire('attach');
-     msg('Bản quyền hợp lệ. Có thể mở kho dữ liệu trên thiết bị.');
-   }catch(e){lock(e.message);}
+   if(session.state==='pending'&&session.pending_order){renderPayment(session.pending_order);msg('Đang chờ xác nhận thanh toán…');return;}
+   if(session.state==='revoked'){stateNote('Gói của Gmail này đã bị thu hồi. Liên hệ hỗ trợ để được kiểm tra.');msg('');return;}
+   stateNote(session.state==='expired'
+     ?'Gói đã hết hạn'+(session.expired_at?' ngày '+day(session.expired_at):'')+'. Phần mềm đang khoá; dữ liệu trên máy vẫn còn và mở lại ngay khi gia hạn.'
+     :'Gmail này chưa có gói. Đã mua bằng Gmail khác? Bấm "Đổi Gmail".');
+   panels('purchase');msg('');
+   await renderPlans().catch(e=>msg(e.message));
  }
+
  action?.addEventListener('click',async()=>{
+   if(!chosen)return;
    action.disabled=true;
-   try{
-     const result=await post('/api/auth/plan',{seats:Number(plans.value)});
-     msg('Đã tạo đơn hàng '+result.order_id+'. Chờ quản trị xác nhận chuyển khoản; chưa thu tiền tự động.');
-   }catch(e){msg(e.message);}
-   finally{action.disabled=false;}
+   try{const order=await post('/api/auth/plan',{plan_code:chosen});renderPayment(order);msg('Đã tạo đơn '+order.payment_code+'.');}
+   catch(e){
+     if(e.code==='PAYMENT_PENDING'&&e.data.pending_order)renderPayment(e.data.pending_order);
+     else msg(e.message);
+   }finally{action.disabled=false;}
  });
- const googleLogout=async()=>{
+ $('customer-order-cancel')?.addEventListener('click',async e=>{
+   try{await post('/api/auth/order/cancel',{order_id:e.currentTarget.dataset.order});}catch(err){msg(err.message);}
+   reload();
+ });
+ $('customer-takeover')?.addEventListener('click',async()=>{
+   try{await acquire('takeover');panels('none');msg('Đã chuyển sang dùng trên máy này.');}
+   catch(e){msg(e.message);}
+ });
+ box.addEventListener('click',e=>{
+   const id=e.target?.dataset?.copy;if(!id)return;
+   navigator.clipboard?.writeText($(id).textContent).then(()=>msg('Đã sao chép nội dung chuyển khoản.')).catch(()=>{});
+ });
+ const signOut=async()=>{
    try{await post('/api/auth/logout',{});}catch(_){}
-   authenticated=false;subscribed=false;lock();
-   location.assign('/local/');
+   session=null;lock();location.assign('/local/');
  };
- logout?.addEventListener('click',googleLogout);
- window.addEventListener('lhm:pwa-signout',googleLogout);
- // Heartbeat only refreshes an EXISTING seat, never silently steals another session.
- setInterval(async()=>{
-   if(!ready)return;
-   try{await acquire('heartbeat');}
-   catch(_){lock('Phiên sử dụng đã hết hạn hoặc bị thay thế. Đăng nhập lại để tiếp tục.');}
- },60000);
+ $('customer-switch')?.addEventListener('click',async()=>{
+   try{await post('/api/auth/logout',{});}catch(_){}
+   location.assign('/api/auth/google/start');
+ });
+ logout?.addEventListener('click',signOut);
+ window.addEventListener('lhm:pwa-signout',signOut);
+
+ // Settings page: renewal, devices and sign-out everywhere.
+ const renew=async()=>{lock();panels('purchase');stateNote('Chọn gói để gia hạn. Thời gian được cộng nối tiếp từ ngày hết hạn hiện tại.');
+   await renderPlans().catch(e=>msg(e.message));};
+ $('lhm-renew')?.addEventListener('click',renew);
+ $('lhm-plan-banner-renew')?.addEventListener('click',renew);
+ $('lhm-signout-all')?.addEventListener('click',async()=>{
+   if(!confirm('Đăng xuất Gmail này trên mọi máy và trình duyệt?'))return;
+   try{await post('/api/auth/devices/signout-all',{});}catch(_){}
+   session=null;lock();location.assign('/local/');
+ });
+ window.addEventListener('lhm:pwa-view',async e=>{
+   if(e.detail!=='settings'||!ready)return;
+   const list=$('lhm-my-devices');if(!list)return;
+   try{
+     const r=await api('/api/auth/devices?client_id='+encodeURIComponent(clientId()));
+     list.replaceChildren(...r.devices.map(d=>{const li=document.createElement('li');
+       li.textContent=d.label+(d.current?' (máy này)':'')+' · '+new Date(d.last_seen_at).toLocaleString('vi-VN');return li;}));
+   }catch(_){}
+ });
+ window.LHMCustomer={reload,get state(){return session?.state||null;}};
  reload().catch(e=>lock(e.message));
 })();

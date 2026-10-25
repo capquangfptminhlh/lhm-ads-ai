@@ -38,12 +38,35 @@
       <h3>Tài khoản LHM Ads AI</h3>
       <p class="customer-help">Đăng nhập bằng Google. Chỉ khách hàng có gói còn hạn mới được thêm tài khoản quảng cáo.</p>
       <a href="/api/auth/google/start" id="customer-google-signin" class="customer-google-btn">Đăng nhập bằng Google</a>
-      <p id="customer-account" class="customer-help" hidden></p>
+      <div id="customer-account" class="customer-account" hidden>
+        <img id="customer-avatar" class="customer-avatar" alt="" hidden>
+        <div><b id="customer-email"></b><small id="customer-plan-line"></small></div>
+        <button type="button" id="customer-switch" class="customer-link">Đổi Gmail</button>
+      </div>
+      <p id="customer-state-note" class="customer-note" hidden></p>
       <div id="customer-purchase" hidden>
-        <label for="customer-plans">Chọn số phiên sử dụng đồng thời</label>
-        <select id="customer-plans" aria-label="Chọn gói bản quyền"></select>
-        <button id="customer-plan-submit" type="button">Yêu cầu mua gói</button>
-        <p class="customer-help">Đơn hàng sẽ chờ nhân viên xác minh thanh toán. Không tự trừ tiền.</p>
+        <h4>Chọn gói</h4>
+        <div id="customer-plans" class="customer-plans" role="radiogroup" aria-label="Chọn gói dịch vụ"></div>
+        <button id="customer-plan-submit" type="button" disabled>Đặt gói và thanh toán</button>
+        <p class="customer-help">Sau khi chuyển khoản, quản trị viên xác nhận và gói được kích hoạt cho đúng Gmail này. Không tự trừ tiền.</p>
+      </div>
+      <div id="customer-payment" class="customer-payment" hidden>
+        <h4>Chuyển khoản để kích hoạt</h4>
+        <img id="customer-qr" class="customer-qr" alt="Mã QR chuyển khoản" hidden>
+        <dl class="customer-pay-lines">
+          <dt>Gói</dt><dd id="customer-pay-plan"></dd>
+          <dt>Số tiền</dt><dd><b id="customer-pay-amount"></b></dd>
+          <dt>Ngân hàng</dt><dd id="customer-pay-bank"></dd>
+          <dt>Nội dung CK</dt><dd><b id="customer-pay-code"></b> <button type="button" class="customer-link" data-copy="customer-pay-code">Sao chép</button></dd>
+        </dl>
+        <p class="customer-help" id="customer-pay-note">Ghi đúng nội dung chuyển khoản. Trang này tự cập nhật khi gói được kích hoạt.</p>
+        <button type="button" id="customer-order-cancel" class="customer-secondary">Huỷ đơn / chọn gói khác</button>
+      </div>
+      <div id="customer-seat-limit" class="customer-seats" hidden>
+        <h4>Gmail này đang dùng trên đủ số máy của gói</h4>
+        <ul id="customer-seat-list"></ul>
+        <button type="button" id="customer-takeover">Dùng trên máy này</button>
+        <p class="customer-help">Máy hoạt động lâu nhất sẽ bị đăng xuất. Dữ liệu trên máy đó vẫn còn nguyên.</p>
       </div>
       <p id="customer-login-status" role="status" aria-live="polite">Đang xác minh giấy phép…</p>
     </section>
@@ -92,6 +115,10 @@
       </div>
     </header>
     <main class="pwa-content">
+      <div id="lhm-plan-banner" class="lhm-plan-banner" role="status" hidden>
+        <span id="lhm-plan-banner-text"></span>
+        <button type="button" class="pwa-btn primary" id="lhm-plan-banner-renew">Gia hạn</button>
+      </div>
       <section class="pwa-page active" data-view="dashboard" aria-labelledby="pwa-dashboard-heading">
         <div class="pwa-heading">
           <div><span class="pwa-eyebrow">OVERVIEW · DEVICE-ONLY</span>
@@ -187,7 +214,12 @@
           </article>
           <article class="pwa-card"><h2>Gói dịch vụ của tôi</h2>
             <p id="lhm-my-plan" class="pwa-muted">Đang kiểm tra gói theo Gmail đã đăng nhập…</p>
-            <p class="pwa-muted">Không cần nhập key. Thời hạn và số phiên sử dụng được xác thực từ Cloudflare.</p>
+            <ul id="lhm-my-devices" class="lhm-devices"></ul>
+            <div class="lhm-plan-actions">
+              <button class="pwa-btn primary" type="button" id="lhm-renew">Gia hạn gói</button>
+              <button class="pwa-btn" type="button" id="lhm-signout-all">Đăng xuất mọi máy</button>
+            </div>
+            <p class="pwa-muted">Không cần nhập key. Gói gắn với Gmail; dữ liệu Ads vẫn chỉ nằm trên từng máy.</p>
           </article>
           <article class="pwa-card"><h2>Ứng dụng cài đặt</h2>
             <p class="pwa-muted">iPhone: Safari → Chia sẻ → Thêm vào Màn hình chính. Android: Chrome → Cài ứng dụng.</p>

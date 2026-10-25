@@ -13,3 +13,34 @@ body.customer-locked #pwa-access-gate{display:block!important}
 #customer-login-box .customer-google-btn:hover{background:#eaf3ff}
 #customer-login-box select{display:block;width:100%;padding:12px;border:1px solid #b8cbe0;border-radius:10px;background:#fff;color:#153350}
 #customer-account{overflow-wrap:anywhere;font-weight:700}
+
+/* Gmail account, plan picker, bank transfer and device limit panels. */
+.customer-account{display:flex;align-items:center;gap:10px;margin:12px 0;padding:10px;border:1px solid #dbe5f3;border-radius:12px;background:#f6faff}
+.customer-account>div{flex:1;min-width:0;overflow-wrap:anywhere}
+.customer-account b{display:block;font-size:14px}
+.customer-account small{color:#5d7690;font-size:12px}
+.customer-avatar{width:36px;height:36px;border-radius:50%;flex:none}
+#customer-login-box .customer-link{background:none;color:#1377c8;padding:4px 6px;margin:0;font-weight:700;font-size:12px}
+#customer-login-box .customer-secondary{background:#eef4fb;color:#1b4d7a;border:1px solid #c9daec}
+.customer-note{margin:10px 0;padding:10px 12px;border-radius:10px;background:#fff6ea;border:1px solid #f1d2a8;color:#7a4b12;font-size:13px;line-height:1.5}
+#customer-login-box h4{margin:14px 0 8px;font-size:15px;color:#163250}
+.customer-plans{display:grid;gap:8px}
+#customer-login-box [hidden]{display:none!important}
+#customer-login-box .customer-plan{display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:center;padding:11px 12px;border:1px solid #c9daec;border-radius:12px;cursor:pointer;margin:0!important}
+#customer-login-box .customer-plan:has(input:checked){border-color:#1377c8;background:#eef6ff}
+#customer-login-box .customer-plan input{width:auto;grid-row:1 / span 2;grid-column:1;margin:0}
+#customer-login-box .customer-plan b{font-size:14px;grid-column:2}
+#customer-login-box .customer-plan small{color:#5d7690;font-size:12px;grid-column:2}
+.customer-payment{margin-top:6px}
+.customer-qr{display:block;width:100%;max-width:260px;margin:4px auto 10px;border-radius:12px;border:1px solid #dbe5f3;background:#fff}
+.customer-pay-lines{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0;font-size:14px}
+.customer-pay-lines dt{color:#5d7690}
+.customer-pay-lines dd{margin:0;overflow-wrap:anywhere}
+.customer-seats ul{margin:6px 0 4px;padding-left:18px;font-size:13px;color:#2c4964}
+.lhm-plan-banner{display:flex;align-items:center;gap:12px;justify-content:space-between;margin:0 0 16px;padding:12px 14px;border-radius:12px;background:#fff6ea;border:1px solid #f1d2a8;color:#7a4b12;font-size:14px}
+.lhm-plan-banner.urgent{background:#ffecec;border-color:#f3b6b6;color:#8a1f1f}
+.lhm-plan-banner[hidden]{display:none}
+.lhm-devices{margin:8px 0;padding-left:18px;font-size:13px}
+.lhm-plan-actions{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+@media(max-width:420px){.lhm-plan-banner{flex-direction:column;align-items:stretch}}
+#customer-cloud-logout{background:none;border:1px solid #c9daec;border-radius:10px;padding:9px 14px;color:#1b4d7a;font-weight:700;cursor:pointer}
