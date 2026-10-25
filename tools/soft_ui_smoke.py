@@ -73,27 +73,17 @@ def main():
                 site.locator('.mk-nav-login').click()
                 assert site.url.endswith('/local/')
                 site.locator('#pwa-access-gate').wait_for()
-                site.locator('#lhm-vault-password').wait_for()
+                site.locator('#customer-google-signin').wait_for()
                 assert site.locator('body.pwa-gated').count()==1
                 assert not site.locator('.pwa-sidebar').is_visible()
                 assert not site.locator('.pwa-page[data-view="dashboard"]').is_visible()
-                assert site.locator('#pwa-access-gate').get_by_text('không phải tài khoản Cloud',exact=False).count()>=1
+                assert site.locator('#customer-google-signin').get_attribute('href')=='/api/auth/google/start'
+                assert not site.locator('#customer-purchase').is_visible()
                 site.screenshot(path=str(OUTPUT/'lhm-pwa-login-desktop.png'),full_page=True)
-                password='Demo-vault-2026-strong-passphrase!'
-                site.locator('#lhm-vault-password').fill(password)
-                site.locator('#lhm-vault-access-action').click()
-                site.locator('body.lhm-pwa:not(.pwa-gated)').wait_for(timeout=15000)
-                assert site.locator('.pwa-page.active[data-view="dashboard"]').is_visible()
-                assert site.locator('.pwa-sidebar').is_visible()
-                site.screenshot(path=str(OUTPUT/'lhm-independent-studio-desktop.png'),full_page=True)
-                site.locator('#pwa-signout').click()
-                site.locator('body.pwa-gated').wait_for(timeout=10000)
+                # Without verified Google login and a paid license, Ads UI MUST stay locked.
+                assert not site.locator('#lhm-vault-add').is_visible()
                 assert not site.locator('.pwa-sidebar').is_visible()
-                assert site.locator('#lhm-vault-access-action').inner_text()=='Mở khóa kho'
-                site.locator('#lhm-vault-password').fill(password)
-                site.locator('#lhm-vault-access-action').click()
-                site.locator('body.lhm-pwa:not(.pwa-gated)').wait_for(timeout=15000)
-                assert site.locator('#pwa-overview-accounts').inner_text()=='0'
+                site.screenshot(path=str(OUTPUT/'lhm-locked-studio-desktop.png'),full_page=True)
                 assert not errors,errors
                 site.close()
 
@@ -109,32 +99,10 @@ def main():
                 assert not mobile.locator('.pwa-mobile-dock').is_visible()
                 check_no_horizontal_overflow(mobile)
                 mobile.screenshot(path=str(OUTPUT/'lhm-pwa-login-mobile.png'),full_page=True)
-                mobile.locator('#lhm-vault-password').fill(password)
-                mobile.locator('#lhm-vault-access-action').click()
-                mobile.locator('body.lhm-pwa:not(.pwa-gated)').wait_for(timeout=15000)
-                assert mobile.locator('.pwa-mobile-dock').is_visible()
-                assert mobile.locator('.pwa-page.active[data-view="dashboard"]').is_visible()
-                mobile.screenshot(path=str(OUTPUT/'lhm-studio-pwa-dashboard-mobile.png'),full_page=True)
-                mobile.locator('.pwa-mobile-dock [data-go="accounts"]').click()
-                mobile.locator('#lhm-vault-unlocked:not(.hidden)').wait_for()
-                mobile.locator('#lhm-vault-platform').select_option('google')
-                mobile.locator('#lhm-vault-account').fill('111-222-3333')
-                mobile.locator('#lhm-vault-label').fill('Tài khoản minh họa')
-                mobile.locator('#lhm-vault-add button[type="submit"]').click()
-                mobile.wait_for_function("window.LHMDeviceVault.listAccounts().length === 1")
-                mobile.locator('.pwa-mobile-dock [data-go="dashboard"]').click()
-                assert mobile.locator('#pwa-overview-accounts').inner_text()=='1'
-                mobile.locator('#pwa-account-preview').get_by_text('Tài khoản minh họa').wait_for()
-                check_no_horizontal_overflow(mobile)
-                mobile.screenshot(path=str(OUTPUT/'lhm-studio-unlocked-mobile.png'),full_page=True)
-                mobile.locator('#pwa-signout').click()
-                mobile.locator('body.pwa-gated').wait_for(timeout=10000)
-                assert not mobile.locator('.pwa-mobile-dock').is_visible()
-                assert not mobile.locator('.pwa-page[data-view="dashboard"]').is_visible()
-                mobile.locator('#lhm-vault-password').fill(password)
-                mobile.locator('#lhm-vault-access-action').click()
-                mobile.locator('body.lhm-pwa:not(.pwa-gated)').wait_for(timeout=15000)
-                assert mobile.locator('#pwa-overview-accounts').inner_text()=='1'
+                assert mobile.locator('#customer-google-signin').is_visible()
+                assert not mobile.locator('#lhm-vault-add').is_visible()
+                assert not mobile.locator('.pwa-page[data-view="accounts"]').is_visible()
+                mobile.screenshot(path=str(OUTPUT/'lhm-locked-studio-mobile.png'),full_page=True)
                 assert not mobile_errors,mobile_errors
                 mobile.close()
 
@@ -152,7 +120,7 @@ def main():
             server.shutdown()
             server.server_close()
             os.chdir(old)
-    print("PASS: marketing landing, password-gated PWA, sign out, encrypted vault, responsive screenshots,"
+    print("PASS: marketing landing, Google-and-subscription-gated PWA, no Ads-add UI before licensing, responsive screenshots,"
           " reduced motion, responsive overflow; screenshots in artifacts/ui-preview")
 
 if __name__=='__main__': main()
