@@ -56,7 +56,7 @@ function render(){
   $('customer-list').replaceChildren();data.customers.forEach(x=>cells($('customer-list'),[x.name,x.email,x.phone||'—',x.status]));
   document.querySelectorAll('.customer-choices').forEach(s=>options(s,data.customers,x=>x.name+' · '+x.email));
   $('order-list').replaceChildren();
-  data.orders.forEach(x=>{const tr=cells($('order-list'),[x.id.slice(0,8),x.customer_name,x.months+' tháng',fmt(x.amount_vnd)+'đ',x.status]);const td=el('td','');
+  data.orders.forEach(x=>{const tr=cells($('order-list'),[x.id.slice(0,8),x.customer_name,x.months+' tháng · '+(x.seat_limit||1)+' phiên',fmt(x.amount_vnd)+'đ',x.status]);const td=el('td','');
  const pill=el('span',x.status==='paid'?'Đã thanh toán':x.status==='pending'
   ?(x.review_reference?'Chờ đối soát':'Chờ chuyển khoản'):'Đã hủy');
  pill.className='admin-tag '+(x.status==='paid'?'tag-success':x.status==='pending'?'tag-pending':'tag-muted');
@@ -110,7 +110,7 @@ function submit(form,path,transform){form.addEventListener('submit',async e=>{
  }catch(err){msg(err.message,true)}
  finally{submitButton.disabled=false}
 })}
-submit($('customer-form'),'customers');submit($('order-form'),'orders',v=>({...v,months:Number(v.months),amount_vnd:Number(v.amount_vnd)}));submit($('renew-form'),'licenses/renew');
+submit($('customer-form'),'customers');submit($('order-form'),'orders',v=>({...v,months:Number(v.months),seat_limit:Number(v.seat_limit),amount_vnd:Number(v.amount_vnd)}));submit($('renew-form'),'licenses/renew');
 $('copy-key').onclick=()=>{if(issuedKey)navigator.clipboard.writeText(issuedKey).then(()=>msg('Đã sao chép key')).catch(()=>msg('Không thể sao chép tự động',true))};
 $('license-choice').addEventListener('change',syncRenewOrders);
 for(const kind of ['customer','order','license','audit']){
