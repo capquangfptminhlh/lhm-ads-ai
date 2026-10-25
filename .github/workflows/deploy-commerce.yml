@@ -48,6 +48,7 @@ jobs:
           node --check workers/ads-api/src/index.js
           node --check workers/ads-api/src/admin.js
           node --check workers/ads-api/src/google-subscription.js
+          node --test tests/google_subscription_contract.test.mjs
           python -m unittest discover -s tests -p 'test_google_seats_migration.py' -v
           python -m unittest discover -s tests -p 'test_bootstrap_cloudflare.py' -v
           python -m unittest discover -s tests -p 'test_admin_d1_sql.py' -v
