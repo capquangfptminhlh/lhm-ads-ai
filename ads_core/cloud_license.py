@@ -189,17 +189,25 @@ class CloudLicense:
                         str(data.get("account_email") or "").lower() != self.email.lower()):
                     self._drop_lease("GOOGLE_ACCOUNT_MISMATCH")
                     return {"active": False, "reason": self.reason}
-                self.last_seen = time.monotonic()
-                self.expires_at = str(data.get("expires_at") or "")
                 lease = data.get("lease")
-                if isinstance(lease, str) and verify_lease(lease, self.customer_id, self.client_id,
-                                                           max_seen=self.max_seen) is not None:
-                    self.lease = lease
-                self._observe_time(_lease_issued_at(self.lease))
+                signed = verify_lease(lease, self.customer_id, self.client_id,
+                                      max_seen=self.max_seen) if isinstance(lease, str) else None
+                # A 200/active HTTP response is NOT proof of a paid subscription.
+                # Check the actual Ed25519 lease, including the policy-bound plan
+                # expiry and seat count, BEFORE updating local active status.
+                if (signed is None or
+                        data.get("expires_at") != signed.get("license_expires_at") or
+                        data.get("seat_limit") != signed.get("seat_limit")):
+                    self._drop_lease("LEASE_INVALID")
+                    return {"active": False, "reason": self.reason}
+                self.lease = lease
+                self.last_seen = time.monotonic()
+                self.expires_at = str(signed["license_expires_at"])
+                self._observe_time(_lease_issued_at(lease))
                 self.reason = ""
                 self._save()
                 return {"active": True, "expires_at": self.expires_at,
-                        "seat_limit": int(data.get("seat_limit") or 1),
+                        "seat_limit": signed["seat_limit"],
                         "offline_until": self.offline_until()}
             code_name = str(data.get("code") or "SUBSCRIPTION_INACTIVE")
             if code == 401:
