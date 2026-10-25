@@ -43,7 +43,10 @@ def test_native_google_login_pair_and_lease(tmp_path, monkeypatch):
     assert native.active()
     assert native.state()["email"] == "owner@gmail.com"
     assert native.path.exists()
-    assert os.stat(native.path).st_mode & 0o077 == 0
+    if os.name != 'nt':
+        assert os.stat(native.path).st_mode & 0o077 == 0
+    else:
+        assert 'a'*64 not in native.path.read_text(encoding='utf8')
     assert CloudLicense(tmp_path).state()["paired"]
     native.last_seen = time.monotonic()-130
     assert native.active() is False
