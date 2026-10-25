@@ -31,8 +31,8 @@
   </div>
   <div class="pwa-access-panel">
     <div class="pwa-access-panel-head"><span class="pwa-access-tag">SECURE DEVICE ACCESS</span>
-      <h2>Mở khóa kho dữ liệu trên thiết bị</h2>
-      <p>Nhập mật khẩu kho trên thiết bị này. Lần đầu sử dụng, hãy tạo kho mới bằng mật khẩu riêng ít nhất 12 ký tự.</p>
+      <h2>Đăng nhập để mở không gian Ads</h2>
+      <p>Đăng nhập Gmail, chọn gói còn hạn. Kho dữ liệu được mã hóa tự động ngay trên thiết bị.</p>
     </div>
     <section id="customer-login-box" aria-label="Đăng nhập Google và chọn gói">
       <h3>Tài khoản LHM Ads AI</h3>
@@ -49,7 +49,7 @@
     </section>
     <div id="pwa-login-portal" hidden></div>
     <button type="button" id="customer-cloud-logout" hidden>Đăng xuất tài khoản LHM</button>
-    <p class="pwa-access-explain">Sau khi đăng nhập Google và có gói còn hạn, khách tạo mật khẩu riêng để mã hóa dữ liệu trên máy. Không nhập mật khẩu Google hoặc Facebook vào ô mở kho.</p>
+    <p class="pwa-access-explain">Sau khi đăng nhập Google và có gói còn hạn, ứng dụng tự mở kho mã hóa trên thiết bị. Mật khẩu khôi phục chỉ cần khi xuất hoặc nhập bản sao lưu.</p>
   </div>
  </div>
  <footer class="pwa-access-footer">LHM Ads AI · Bảo vệ dữ liệu trên thiết bị · <a href="/">Giới thiệu dịch vụ</a></footer>
@@ -180,20 +180,14 @@
           <p>PWA độc lập trên trình duyệt, không cần chạy máy PC.</p></div></div>
         <div class="pwa-dashboard-grid">
           <article class="pwa-card"><h2>Lưu trữ dữ liệu</h2>
-            <p class="pwa-muted">Tài khoản và báo cáo được mã hóa bằng mật khẩu kho trong IndexedDB của trình duyệt hiện tại.
+            <p class="pwa-muted">Tài khoản và báo cáo được mã hóa bằng khóa không thể xuất (non-extractable) trong IndexedDB của trình duyệt hiện tại.
               Xóa dữ liệu trình duyệt có thể xóa kho. Hãy xuất bản sao lưu mã hóa định kỳ.</p>
             <p id="pwa-offline-total" class="pwa-muted">0 tài khoản · 0 ngày CSV</p>
             <button class="pwa-btn primary" type="button" data-go="accounts">Sao lưu / khôi phục / khóa kho →</button>
           </article>
-          <article class="pwa-card"><h2>Kiểm tra key bản quyền</h2>
-            <p class="pwa-muted">Nhập key LHM để xác minh tình trạng và thời hạn trên máy chủ. Key không được lưu trong trình duyệt sau khi kiểm tra.</p>
-            <form id="license-check-form" style="display:flex;gap:10px;flex-wrap:wrap">
-              <input id="license-key" type="password" autocomplete="off" spellcheck="false" required
-                 placeholder="LHM-..." aria-label="Key bản quyền LHM" style="min-width:180px;flex:1;background:#20252e;color:#fff;border:1px solid #465165;border-radius:10px;padding:11px">
-              <button class="pwa-btn primary" type="submit">Kiểm tra key</button>
-            </form>
-            <p id="license-check-result" class="pwa-muted" role="status" aria-live="polite">Cần kết nối Internet để kiểm tra.</p>
-            <p class="pwa-muted">Chức năng này chỉ kiểm tra hiệu lực key. Phân quyền tính năng trả phí chưa được kích hoạt ở bản PWA thử nghiệm.</p>
+          <article class="pwa-card"><h2>Gói dịch vụ của tôi</h2>
+            <p id="lhm-my-plan" class="pwa-muted">Đang kiểm tra gói theo Gmail đã đăng nhập…</p>
+            <p class="pwa-muted">Không cần nhập key. Thời hạn và số phiên sử dụng được xác thực từ Cloudflare.</p>
           </article>
           <article class="pwa-card"><h2>Ứng dụng cài đặt</h2>
             <p class="pwa-muted">iPhone: Safari → Chia sẻ → Thêm vào Màn hình chính. Android: Chrome → Cài ứng dụng.</p>
