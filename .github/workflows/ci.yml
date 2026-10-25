@@ -32,6 +32,9 @@ jobs:
       - run: node --check static/soft-motion-ui.js
       - run: node --check static/customer-login.js
       - run: node --check workers/ads-api/src/google-subscription.js
+      - run: node --check workers/ads-api/src/desktop-pair.js
+      - run: node --check static/desktop-cloud-login.js
+      - run: node --test tests/desktop_pairing_contract.test.mjs
       - run: node --test tests/google_subscription_contract.test.mjs
       - run: node --check workers/ads-api/src/index.js
       - run: python -m unittest discover -s tests -p 'test_github_pages_build_unittest.py' -v
