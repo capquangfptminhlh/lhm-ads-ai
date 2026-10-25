@@ -74,6 +74,8 @@ jobs:
         run: python -m tools.soft_ui_smoke
       - name: Walk the Gmail plan gate of the PWA in real Chromium
         run: python -m tools.pwa_plans_smoke
+      - name: End-to-end PWA order and Admin activation on the real Worker + SQLite
+        run: python -m tools.e2e_gmail_flow
       - name: Test provider selection with real Chromium and capture screenshots
         run: python tools/ui-smoke.py
       - name: Test actual first-run setup on desktop/mobile and redirect to Studio
