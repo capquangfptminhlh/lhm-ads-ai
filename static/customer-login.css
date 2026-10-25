@@ -44,3 +44,25 @@ body.customer-locked #pwa-access-gate{display:block!important}
 .lhm-plan-actions{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
 @media(max-width:420px){.lhm-plan-banner{flex-direction:column;align-items:stretch}}
 #customer-cloud-logout{background:none;border:1px solid #c9daec;border-radius:10px;padding:9px 14px;color:#1b4d7a;font-weight:700;cursor:pointer}
+
+/* Live Ads (API) cards inside the PWA. */
+.lhm-live{margin-top:16px}
+.lhm-live h3{font-size:15px;margin:14px 0 6px}
+.lhm-conn-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #e3ecf6}
+.lhm-conn-row b{min-width:110px}
+.lhm-cand-list{margin:6px 0;padding-left:18px}
+.lhm-cand-list li{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:4px 0}
+.lhm-table-wrap{overflow-x:auto;margin-top:10px}
+.lhm-table{width:100%;border-collapse:collapse;font-size:13px}
+.lhm-table th,.lhm-table td{padding:8px 6px;border-bottom:1px solid #e3ecf6;text-align:left;white-space:nowrap}
+.lhm-table th{font-size:11px;text-transform:uppercase;color:#5d7690}
+.lhm-form-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.lhm-form-row input,.lhm-form-row select{min-width:0;max-width:100%}
+.lhm-findings{padding-left:18px}
+.lhm-finding{margin:10px 0;padding:10px 12px;border-radius:12px;border:1px solid #dbe5f3;background:#f8fbff}
+.lhm-finding.lhm-critical{border-color:#f3b6b6;background:#fff3f3}
+.lhm-finding.lhm-opportunity{border-color:#bfe3cf;background:#f2fbf6}
+.lhm-finding p{margin:6px 0}
+.lhm-audit{font-size:12px;padding-left:18px;color:#4d6982}
+.lhm-error{color:#a32020!important}
+#lhm-pause-dialog{max-width:min(92vw,480px);border:1px solid #dbe5f3;border-radius:16px}

@@ -93,7 +93,7 @@
       <button type="button" data-go="accounts"><span aria-hidden="true">▤</span> Tài khoản Ads</button>
       <button type="button" data-go="reports"><span aria-hidden="true">▥</span> Báo cáo</button>
       <button type="button" data-go="alerts"><span aria-hidden="true">♧</span> Cảnh báo <small id="pwa-alert-count" class="pwa-limited">0</small></button>
-      <button type="button" data-go="assistant"><span aria-hidden="true">✧</span> AI Center <small class="pwa-limited">Chưa kết nối</small></button>
+      <button type="button" data-go="assistant"><span aria-hidden="true">✧</span> AI Center <small class="pwa-limited">Trên thiết bị</small></button>
       <button type="button" data-go="settings"><span aria-hidden="true">⚙</span> Cài đặt</button>
     </nav>
     <div class="pwa-sidebar-bottom">
@@ -128,7 +128,7 @@
         </div>
         <div class="pwa-notice"><span aria-hidden="true">✳</span>
           <div><strong>Studio PWA độc lập</strong> — giao diện đồng bộ với bản PC, không cần mở Windows.
-            Các chỉ số được nhập bằng CSV, chưa phải báo cáo trực tiếp từ API quảng cáo.</div>
+            Kết nối Google/Meta ở mục Tài khoản Ads để xem số liệu trực tiếp; các ô bên dưới là dữ liệu CSV nhập tay.</div>
         </div>
         <div class="pwa-kpis">
           <article class="pwa-card pwa-kpi"><span class="pwa-kpi-icon" aria-hidden="true">▤</span>
@@ -166,7 +166,7 @@
       <section class="pwa-page" data-view="reports" aria-labelledby="pwa-reports-heading" hidden>
         <div class="pwa-heading"><div><span class="pwa-eyebrow">LOCAL ANALYTICS</span>
           <h1 id="pwa-reports-heading">Báo cáo quảng cáo</h1>
-          <p>Dữ liệu CSV đã nhập, không tự đồng bộ từ các nền tảng quảng cáo.</p></div>
+          <p>Báo cáo trực tiếp từ Google/Meta (API) và dữ liệu CSV đã nhập.</p></div>
           <button class="pwa-btn primary" type="button" data-go="accounts">Nhập CSV / đặt ngân sách →</button>
         </div>
         <div class="pwa-notice" id="pwa-report-locked"><span>🔒</span>
@@ -194,8 +194,8 @@
       <section class="pwa-page" data-view="assistant" aria-labelledby="pwa-ai-heading" hidden>
         <div class="pwa-heading"><div><span class="pwa-eyebrow">AI CENTER</span>
           <h1 id="pwa-ai-heading">Trung tâm AI</h1>
-          <p>Giao diện thống nhất với bản PC; tính năng AI từ xa chưa được kết nối.</p></div></div>
-        <article class="pwa-card"><h2>Trạng thái tích hợp</h2>
+          <p>Cùng bộ quy tắc tối ưu với bản PC, chạy ngay trên thiết bị. Không có giám sát nền hay autopilot trên PWA.</p></div></div>
+        <article class="pwa-card" data-live-hide><h2>Trạng thái tích hợp</h2>
           <p>Phiên PWA hiện tại không có kết nối OpenRouter, Google Ads API, Meta Ads API hoặc TikTok Ads API.</p>
           <div class="pwa-callout">Không có tài khoản, token hay dữ liệu khách hàng được gửi tới một AI server. Các chức năng tự chỉnh giá thầu, thay đổi chiến dịch và theo dõi 24/7 chưa bật.</div>
           <button class="pwa-btn" type="button" data-go="reports">Xem dữ liệu CSV đang có →</button>
@@ -250,4 +250,5 @@
 <script src="/static/device-studio.js" defer></script>
 <script src="/static/license-check.js" defer></script>
 <script src="/static/customer-login.js" defer></script>
+<script type="module" src="/static/core/ads-app.js"></script>
 </body></html>

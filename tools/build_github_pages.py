@@ -59,6 +59,12 @@ def build(output: Path) -> Path:
     local=output / "local"
     local.mkdir()
     (local / "index.html").write_text(local_html,encoding="utf-8")
+    # Google/Meta browser sign-in return here (registered redirect URIs). The same app
+    # shell reads the token from the URL fragment and immediately rewrites the URL.
+    for provider in ("google", "meta"):
+        target = local / "oauth" / provider
+        target.mkdir(parents=True)
+        (target / "index.html").write_text(local_html,encoding="utf-8")
     studio = (STATIC / "studio.html").read_text(encoding="utf-8")
     assert '<form id="login-form">' in studio and '</body>' in studio
     # Unlike the FastAPI-hosted Studio, this static bundle cannot authenticate anyone.
@@ -111,7 +117,8 @@ def build(output: Path) -> Path:
         "  Permissions-Policy: camera=(), microphone=(), geolocation=()\n"
         "  Content-Security-Policy: default-src 'self'; script-src 'self'; "
         "style-src 'self' 'unsafe-inline'; img-src 'self' data: https://img.vietqr.io https://*.googleusercontent.com; "
-        "font-src 'self' data:; connect-src 'self'; object-src 'none'; "
+        "font-src 'self' data:; connect-src 'self' https://googleads.googleapis.com "
+        "https://graph.facebook.com https://openrouter.ai; object-src 'none'; "
         "base-uri 'none'; frame-ancestors 'none'; form-action 'self'; "
         "upgrade-insecure-requests\n",
         encoding="utf-8"

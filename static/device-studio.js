@@ -65,6 +65,8 @@
     }
   }
   for(const n of navs)n.addEventListener('click',()=>go(n.dataset.go));
+  // Live Ads module (static/core/ads-app.js) asks to show a page, e.g. after sign-in.
+  window.addEventListener('lhm:go',e=>go(String(e.detail||''),false));
   $('pwa-menu-toggle').addEventListener('click',()=>{
     const open=$('pwa-sidebar').classList.toggle('open');
     $('pwa-overlay').classList.toggle('active',open);

@@ -146,6 +146,17 @@ export default {
         message:'Cloudflare control plane and local-only Ads access not yet implemented.'
       });
     }
+    // Public, non-secret settings for the PWA's browser-side Google/Meta sign-in.
+    // OAuth client IDs are public by design; no secret or token is ever served here.
+    if(path==='/api/public/ads-config' && request.method==='GET'){
+      return json({
+        google_client_id:String(env?.GOOGLE_ADS_WEB_CLIENT_ID||''),
+        meta_app_id:String(env?.META_APP_ID||''),
+        google_ads_version:/^v\d+$/.test(env?.GOOGLE_ADS_API_VERSION||'')?env.GOOGLE_ADS_API_VERSION:'v25',
+        meta_graph_version:/^v\d+\.\d+$/.test(env?.META_GRAPH_VERSION||'')?env.META_GRAPH_VERSION:'v24.0',
+        meta_scopes:/^[a-z_,]+$/.test(env?.META_OAUTH_SCOPES||'')?env.META_OAUTH_SCOPES:'ads_read'
+      });
+    }
     // Public read-only key validation. Never returns customer PII or Ads data.
     if(path==='/api/license/verify' && request.method==='POST'){
       if(!env?.COMMERCE_DB)return json({error:'License service not configured'},503);

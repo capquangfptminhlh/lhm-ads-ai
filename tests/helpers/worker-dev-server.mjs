@@ -42,7 +42,8 @@ async function asset(request){
 }
 const env={COMMERCE_DB:db,ASSETS:{fetch:asset},CF_ACCESS_TEAM_DOMAIN:'dev.cloudflareaccess.com',CF_ACCESS_AUD:'dev-aud',
  ADMIN_EMAIL:'owner@example.com',GOOGLE_CLIENT_ID:'dev',GOOGLE_CLIENT_SECRET:'dev',
- BANK_BIN:'970436',BANK_ACCOUNT_NO:'0123456789',BANK_ACCOUNT_NAME:'NGUYEN VAN A'};
+ BANK_BIN:'970436',BANK_ACCOUNT_NO:'0123456789',BANK_ACCOUNT_NAME:'NGUYEN VAN A',
+ GOOGLE_ADS_WEB_CLIENT_ID:'dev-web-client.apps.googleusercontent.com',META_APP_ID:'1234567890'};
 
 const server=http.createServer(async(req,res)=>{
  try{
