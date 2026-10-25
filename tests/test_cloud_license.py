@@ -28,7 +28,7 @@ def test_native_google_login_pair_and_lease(tmp_path, monkeypatch):
                          "verify_url": "https://ads.lhmcrm.com/desktop/pair/?id=e02ab0e4-c2b0-4a23-99a1-acd430b37fea"}
         if path.endswith("/pair/claim"):
             assert hashlib.sha256(payload["verifier"].encode()).hexdigest() == seen[0][1]["verifier_hash"]
-            return 200, {"desktop_token": "a"*64, "email": "owner@gmail.com"}
+            return 200, {"desktop_token": "a"*64, "customer_id": "e02ab0e4-c2b0-4a23-99a1-acd430b37fea", "email": "owner@gmail.com"}
         if path.endswith("/seat"):
             assert authenticated is True
             return 200, {"active": True, "seat_limit": 3,
