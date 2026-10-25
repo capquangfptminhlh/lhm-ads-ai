@@ -103,8 +103,22 @@ export default {
           customer_auth_schema_ready=(tables.results||[]).length===2;
         }catch(_){customer_auth_schema_ready=false;}
       }
+      let google_seats_schema_ready=false,desktop_pairing_schema_ready=false;
+      if(commerce_binding_present){
+        try{
+          const check=await env.COMMERCE_DB.prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('license_seats','desktop_pairings','desktop_sessions')"
+          ).all();
+          const have=new Set((check.results||[]).map(row=>row.name));
+          google_seats_schema_ready=have.has('license_seats');
+          desktop_pairing_schema_ready=have.has('desktop_pairings')&&have.has('desktop_sessions');
+        }catch(_){google_seats_schema_ready=false;desktop_pairing_schema_ready=false;}
+      }
       return json({
         service:'lhm-ads-cloudflare',
+        google_login_configured:Boolean(env?.GOOGLE_CLIENT_ID && env?.GOOGLE_CLIENT_SECRET),
+        google_seats_schema_ready,
+        desktop_pairing_schema_ready,
         customer_auth_schema_ready,
         auth_ready:false,
         device_only_ready:false,
