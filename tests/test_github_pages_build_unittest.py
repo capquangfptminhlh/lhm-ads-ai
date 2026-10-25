@@ -63,7 +63,7 @@ class StaticPagesTests(unittest.TestCase):
             worker=(out/'sw.js').read_text(encoding='utf-8')
             self.assertIn("'/local/'",worker)
             self.assertIn("caches.match('/local/')",worker)
-            self.assertIn("lhm-pwa-cloudflare-v10-20261025",worker)
+            self.assertIn("lhm-pwa-cloudflare-v11-20261025",worker)
             self.assertIn("url.pathname.startsWith('/api/')",worker)
             self.assertNotIn("'/studio/'",worker)
 
