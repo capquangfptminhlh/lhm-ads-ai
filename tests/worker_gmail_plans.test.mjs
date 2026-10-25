@@ -8,7 +8,7 @@ import {createD1} from './helpers/d1-sqlite.mjs';
 globalThis.crypto??=webcrypto;
 const {googleSubscription,linkGoogleIdentity}=await import('../workers/ads-api/src/google-subscription.js');
 const {adminApi}=await import('../workers/ads-api/src/admin.js');
-const {normalizeEmail}=await import('../workers/ads-api/src/commerce.js');
+const {normalizeEmail,signLease}=await import('../workers/ads-api/src/commerce.js');
 const {cleanup}=await import('../workers/ads-api/src/index.js');
 
 const base='https://ads.lhmcrm.com';
@@ -244,6 +244,26 @@ test('Windows app receives an Ed25519 lease bound to its seat that never outlive
  // Browsers never get a lease.
  const web=await me.call('/api/auth/seat',{client_id:client()});
  assert.equal(web.body.lease,undefined);
+});
+
+test('Worker clamps even misconfigured 168-hour grace to 72h (without shortening paid plan)',async()=>{
+ const keys=await crypto.subtle.generateKey({name:'Ed25519'},true,['sign','verify']);
+ const pkcs8=Buffer.from(await crypto.subtle.exportKey('pkcs8',keys.privateKey)).toString('base64');
+ const farFuture=new Date(Date.now()+30*86400000).toISOString();
+ const lease=await signLease({LEASE_SIGNING_KEY:pkcs8,LEASE_GRACE_HOURS:168},{
+   customer:{id:'e02ab0e4-c2b0-4a23-99a1-acd430b37fea',email:'customer@gmail.com'},
+   license:{id:'5b2f6a4e-1d0c-4b7e-9a3d-2f8e7c6b5a49',
+            expires_at:farFuture,plan_code:'personal-1m',seat_limit:2},
+   clientHash:'a'.repeat(64)
+ });
+ assert.ok(lease,'Missing Ed25519 lease');
+ const [body,sig]=lease.split('.');
+ assert.ok(await crypto.subtle.verify({name:'Ed25519'},keys.publicKey,
+   Buffer.from(sig,'base64url'),new TextEncoder().encode(body)));
+ const signed=JSON.parse(Buffer.from(body,'base64url'));
+ const duration=Date.parse(signed.valid_until)-Date.parse(signed.issued_at);
+ assert.equal(duration,72*3600000,'Offline lease may not exceed 72h');
+ assert.ok(Date.parse(signed.valid_until)<Date.parse(signed.license_expires_at));
 });
 
 test('daily cleanup cancels stale pending orders',async()=>{
