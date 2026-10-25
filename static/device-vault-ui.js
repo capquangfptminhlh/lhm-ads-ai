@@ -45,7 +45,7 @@
       </div>
       <button id="lhm-vault-destroy" class="btn secondary" type="button">Xóa toàn bộ kho trên thiết bị</button>
     </div>
-    <p class="lhm-vault-footer">Quên mật khẩu thì không giải mã được dữ liệu. Xóa dữ liệu trình duyệt có thể làm mất kho; bản sao lưu mã hóa phải giữ an toàn. Khi khóa màn hình, trình duyệt có thể tạm dừng PWA nên không thể giám sát Ads liên tục.</p>`;
+    <p class="lhm-vault-footer">Khóa mã hóa được giữ trên thiết bị, không gửi lên máy chủ. Xóa dữ liệu trình duyệt có thể mất kho; giữ bản sao lưu và mật khẩu khôi phục ở nơi riêng. Khi khóa màn hình, trình duyệt có thể tạm dừng PWA nên không thể giám sát Ads liên tục.</p>`;
   host.append(section);
   const get=id=>document.getElementById(id);
   const status=s=>{get('lhm-vault-status').textContent=s;};
@@ -117,13 +117,17 @@
   });
   get('lhm-vault-backup').addEventListener('click',async()=>{
     try{
-      const data=await api.encryptedBackup();
+      const recoveryPassword=document.getElementById('lhm-local-workspace')
+        ?window.prompt('Đặt mật khẩu cho FILE SAO LƯU (từ 12 ký tự, không phải mật khẩu Google):')
+        :undefined;
+      if(recoveryPassword===null)return;
+      const data=await api.encryptedBackup(recoveryPassword);
       const link=document.createElement('a'),url=URL.createObjectURL(
         new Blob([data],{type:'application/json'}));
       link.href=url;link.download='lhm-ads-device-only-encrypted.json';
       document.body.append(link);link.click();link.remove();
       setTimeout(()=>URL.revokeObjectURL(url),1000);
-      status('Đã xuất bản mã hóa. Giữ file và mật khẩu an toàn.');
+      status('Đã xuất sao lưu mã hóa. Cất file và mật khẩu khôi phục ở nơi riêng.');
     }catch(err){status(err.message);}
   });
   get('lhm-vault-import').addEventListener('change',async e=>{
@@ -132,8 +136,12 @@
     if(file.size>4_000_000){status('Tệp sao lưu quá lớn.');return;}
     if(!window.confirm('Khôi phục sẽ GHI ĐÈ toàn bộ kho trên thiết bị này. Tiếp tục?'))return;
     try{
-      await api.importBackup(await file.text());
-      await refreshAccess();status('Đã nạp tệp mã hóa. Hãy mở khóa bằng mật khẩu bản sao lưu.');
+      const recoveryPassword=document.getElementById('lhm-local-workspace')
+        ?window.prompt('Nhập mật khẩu khôi phục của file sao lưu:')
+        :undefined;
+      if(recoveryPassword===null)return;
+      await api.importBackup(await file.text(),recoveryPassword);
+      await refreshAccess();status('Đã khôi phục kho mã hóa trên thiết bị.');
     }catch(err){status(err.message);}
   });
   get('lhm-vault-destroy').addEventListener('click',async()=>{
