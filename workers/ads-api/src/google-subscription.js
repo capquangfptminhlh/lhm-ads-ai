@@ -41,6 +41,13 @@ async function oidcClaims(jwt,clientId,nonce){
  return {sub:claims.sub,email:claims.email.trim().toLowerCase(),name:String(claims.name||claims.email).slice(0,120)};
 }
 async function user(req,db){
+ const authorization=req.headers.get('Authorization')||'';
+ if(new URL(req.url).pathname==='/api/auth/seat'&&/^Bearer [a-f0-9]{64}$/.test(authorization)){
+   const secret=authorization.slice(7);
+   const native=await db.prepare('SELECT c.id,c.name,c.email,c.status,c.google_sub FROM desktop_sessions s JOIN customers c ON c.id=s.customer_id WHERE s.token_hash=? AND s.expires_at>?')
+     .bind(await hash(secret),iso(Date.now())).first();
+   return native?.status==='active'&&native.google_sub?native:null;
+ }
  const token=extract(req,'lhm_google_session');
  if(!/^[a-f0-9]{64}$/.test(token))return null;
  const row=await db.prepare("SELECT c.id,c.name,c.email,c.status,c.google_sub FROM customer_sessions s JOIN customers c ON c.id=s.customer_id WHERE s.token_hash=? AND s.expires_at>?")
@@ -53,8 +60,10 @@ async function license(db,id){
 }
 function safeReturn(request){
  const u=new URL(request.url);
- // Fixed post-login location; never accept an arbitrary redirect URL.
- return u.origin+'/local/';
+ // Only allow our own fixed pairing destination or /local/. Never an arbitrary URL.
+ const pending=extract(request,'lhm_oauth_pair');
+ return u.origin+(pending&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pending)
+  ?'/desktop/pair/?id='+pending:'/local/');
 }
 async function readBody(req){
  if(req.headers.get('content-type')?.split(';')[0]!=='application/json')return null;
@@ -69,12 +78,17 @@ export async function googleSubscription(req,env){
  if(path==='/api/auth/google/start'&&method==='GET'){
    if(!oauthReady(env))return json({error:'Google Sign-In not configured'},503);
    const state=random(),nonce=random(),verifier=random();
+   const pair=url.searchParams.get('pair')||'';
+   if(pair&&!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pair))
+     return json({error:'Invalid PC pairing reference'},400);
    const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(verifier)));
    const params=new URLSearchParams({client_id:env.GOOGLE_CLIENT_ID,redirect_uri:url.origin+'/api/auth/google/callback',
     response_type:'code',scope:'openid email profile',state,nonce,code_challenge:b64url(digest),
     code_challenge_method:'S256',prompt:'select_account'});
-   return new Response(null,{status:302,headers:{Location:'https://accounts.google.com/o/oauth2/v2/auth?'+params,
-     'Set-Cookie':cookie('lhm_oauth_flow',state+'.'+nonce+'.'+verifier,300),...headers,'Cache-Control':'no-store'}});
+   const h=new Headers({Location:'https://accounts.google.com/o/oauth2/v2/auth?'+params,...headers,'Cache-Control':'no-store'});
+   h.append('Set-Cookie',cookie('lhm_oauth_flow',state+'.'+nonce+'.'+verifier,300));
+   h.append('Set-Cookie',cookie('lhm_oauth_pair',pair,300));
+   return new Response(null,{status:302,headers:h});
  }
  if(path==='/api/auth/google/callback'&&method==='GET'){
    const data=extract(req,'lhm_oauth_flow').split('.');
@@ -105,6 +119,7 @@ export async function googleSubscription(req,env){
      await db.prepare('INSERT INTO customer_sessions(token_hash,customer_id,expires_at) VALUES(?,?,?)')
        .bind(await hash(sessionToken),id,iso(Date.now()+7*86400000)).run();
      const h=new Headers({Location:safeReturn(req),'Cache-Control':'no-store',...headers});
+     h.append('Set-Cookie',cookie('lhm_oauth_pair','',0));
      // Separate Set-Cookie headers are required; never comma-join cookies.
      h.append('Set-Cookie',cleared);
      h.append('Set-Cookie',cookie('lhm_google_session',sessionToken,7*86400));
@@ -176,4 +191,10 @@ export async function googleSubscription(req,env){
    return json({active:true,expires_at:plan.expires_at,seat_limit:plan.seat_limit,occupied:count?.n||0,ttl_seconds:120});
  }
  return json({error:'Unknown endpoint'},404);
+}
+
+// Used by browser-side PC approval; only a verified Google cookie can authorize it.
+export async function googleSessionActor(request,db){
+ if((request.headers.get('Authorization')||'').length)return null;
+ return user(request,db);
 }
