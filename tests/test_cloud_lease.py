@@ -180,6 +180,19 @@ def test_no_signed_lease_cannot_unlock_during_transient_outage(tmp_path, keys, m
         assert native.lease is None
 
 
+def test_explicit_403_with_malformed_cloud_payload_still_revokes_grace(tmp_path, keys, monkeypatch):
+    native = paired(tmp_path)
+    native.lease = sign(keys, native.client_id)
+    native._save()
+    assert native.active() is True
+    # The HTTP status is authoritative even if the backend sends a list,
+    # broken JSON, or no structured business error code.
+    monkeypatch.setattr(native, "_request", lambda *args, **kwargs: (403, ["bad-response"]))
+    result = native.refresh_lease()
+    assert result["active"] is False
+    assert native.lease is None and CloudLicense(tmp_path).active() is False
+
+
 @pytest.mark.parametrize("raw", [b"", b"not-json", b"[]", b"null", b'"plain-text"'])
 def test_bad_http_200_json_does_not_kill_heartbeat_or_grant_access(tmp_path, monkeypatch, raw):
     native = paired(tmp_path)
