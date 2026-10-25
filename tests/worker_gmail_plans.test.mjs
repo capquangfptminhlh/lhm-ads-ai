@@ -185,6 +185,48 @@ test('self-service order -> QR -> admin activate -> seats -> renew -> expiry',as
  assert.equal(r.status,402);assert.equal(r.body.code,'SUBSCRIPTION_EXPIRED');
 });
 
+test('bank payment approval is atomic: SQL fault cannot mark order paid without license',async()=>{
+ const {db,admin,signIn}=setup();
+ const buyer=await signIn({sub:'bank-atomicity-buyer',email:'bank-atomicity@gmail.com'});
+ const purchase=await buyer.call('/api/auth/plan',{plan_code:'personal-1m'});
+ assert.equal(purchase.status,201);
+ const id=purchase.body.id;
+ const normalBatch=db.batch;
+ // Inject a failure as the last SQL statement: the order transition and all
+ // license writes must roll back together under one D1 transaction.
+ db.batch=async statements=>normalBatch([...statements,
+   db.prepare('INSERT INTO deliberate_missing_commerce_table VALUES(1)')]);
+ const failed=await admin('/api/admin/orders/activate',{order_id:id,reference:'BANK-ATOMIC-001'});
+ assert.equal(failed.status,500);
+ assert.equal(db.sqlite.prepare('SELECT status FROM orders WHERE id=?').get(id).status,'pending');
+ assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM license_fulfillments WHERE order_id=?').get(id).n,0);
+ assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM licenses WHERE customer_id=?').get(buyer.id).n,0);
+ db.batch=normalBatch;
+ const retried=await admin('/api/admin/orders/activate',{order_id:id,reference:'BANK-ATOMIC-001'});
+ assert.equal(retried.status,200,JSON.stringify(retried.body));
+ assert.equal(db.sqlite.prepare('SELECT status FROM orders WHERE id=?').get(id).status,'paid');
+ assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM license_fulfillments WHERE order_id=?').get(id).n,1);
+});
+
+test('manual Gmail grant is atomic: failed issuance leaves no paid order',async()=>{
+ const {db,admin,signIn}=setup();
+ const buyer=await signIn({sub:'manual-atomicity-buyer',email:'manual-atomicity@gmail.com'});
+ const normalBatch=db.batch;
+ db.batch=async statements=>normalBatch([...statements,
+   db.prepare('INSERT INTO deliberate_missing_commerce_table VALUES(1)')]);
+ const fields={email:'manual-atomicity@gmail.com',confirm_email:'manual-atomicity@gmail.com',
+   plan_code:'personal-1m',reference:'DIRECT-ATOMIC-001'};
+ const failed=await admin('/api/admin/grant',fields);
+ assert.equal(failed.status,500);
+ assert.equal(db.sqlite.prepare("SELECT COUNT(*) AS n FROM orders WHERE customer_id=?").get(buyer.id).n,0);
+ assert.equal(db.sqlite.prepare("SELECT COUNT(*) AS n FROM licenses WHERE customer_id=?").get(buyer.id).n,0);
+ db.batch=normalBatch;
+ const retried=await admin('/api/admin/grant',fields);
+ assert.equal(retried.status,201,JSON.stringify(retried.body));
+ assert.equal(db.sqlite.prepare("SELECT COUNT(*) AS n FROM orders WHERE customer_id=? AND status='paid'").get(buyer.id).n,1);
+ assert.equal(db.sqlite.prepare("SELECT COUNT(*) AS n FROM license_fulfillments").get().n,1);
+});
+
 test('revoked plan and blocked customer are refused everywhere',async()=>{
  const {admin,signIn}=setup();
  const me=await signIn({sub:'sub-x',email:'x@gmail.com'});
