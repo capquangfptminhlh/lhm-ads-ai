@@ -7,6 +7,11 @@ customer data or Ads credentials are involved.
 from __future__ import annotations
 
 import json
+import sys
+from pathlib import Path
+
+# Support both "python tools/smoke_gmail_production.py" and package imports.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools import smoke_production
 
 REQUIRED_FLAGS = (
