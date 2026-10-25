@@ -31,9 +31,13 @@ Plan and owner checklist: `docs/KE_HOACH_TONG_THE.md` · Agent brief: `docs/AGEN
 
 ## Windows build (owner)
 
-- GitHub variable `LHM_LEASE_PUBLIC_KEY_B64` (public half from `tools/create_lease_keys.py`).
-- The commercial build (`tools/prepare_commercial_build.py`) then pins the key and switches the EXE to Gmail sign-in. Without the variable the EXE keeps the legacy offline license.
-- Staging without a commercial build: set `LHM_CLOUD_LICENSE_MODE=required` and `LHM_LEASE_PUBLIC_KEY_B64`.
+- Generate the Worker Ed25519 lease signer on the owner's trusted computer with `python tools/create_lease_keys.py`. Store its **PRIVATE** value only as Cloudflare Worker secret `LEASE_SIGNING_KEY`. Do not email or commit it.
+- Set GitHub Actions variable `LHM_LEASE_PUBLIC_KEY_B64` to the matching **PUBLIC** value and secret `LHM_COMMERCIAL_PUBLIC_KEY_B64` to the vendor license **PUBLIC** value. Neither is a private signing key.
+- Store the same Worker **PUBLIC** base64 value independently on the owner's signing workstation in a file such as `trusted-worker-lease-public.b64`; do **not** derive this trusted copy from `release-manifest.json` or the candidate ZIP. Verify that it corresponds to the production Worker secret.
+- Manually trigger **Build and test Windows EXE** with `commercial=true`. This builds **Nuitka only** and fails closed if either public key is missing/invalid. The manifest must say `commercial-candidate`, `nuitka`, `google-only` and list the Worker lease key fingerprint.
+- Before customer distribution, run `python tools/release_gate.py inspect-candidate --exe LHM-Ads-AI.exe --checksum LHM-Ads-AI.sha256 --manifest release-manifest.json --vendor-public vendor-public.b64 --lease-public trusted-worker-lease-public.b64` using files from the *same* candidate build. It verifies EXE SHA-256 plus both independently trusted public keys; **it does not approve sale**.
+- After all live acceptance evidence and owner approval, an unsigned Windows ZIP can be prepared locally via `tools/package_unsigned_release.py package` (now requires `--lease-public` as well as `--vendor-public`). Customers verifying a package also need `--trusted-lease-public` along with `--trusted-vendor-public`. Optional Authenticode packaging through `windows/package-commercial-release.ps1` also requires `-LeasePublicFile`.
+- Staging without a commercial EXE: set `LHM_CLOUD_LICENSE_MODE=required` and `LHM_LEASE_PUBLIC_KEY_B64`. The **pilot** EXE remains pilot-only; a commercial build without a Worker lease public key now **fails** instead of silently falling back to legacy licensing.
 
 ## Admin
 
