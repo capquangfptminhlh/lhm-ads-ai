@@ -38,13 +38,13 @@ def build(output: Path) -> Path:
         "/static/device-insights.js","/static/device-mcp.js","/static/device-vault.css",
         "/static/device-insights.css","/static/device-local.css","/static/soft-motion-ui.css",
         "/static/device-studio.css","/static/device-studio.js",
-        "/static/license-check.js","/static/fonts.css",
+        "/static/license-check.js","/static/customer-login.js","/static/customer-login.css","/static/fonts.css",
         "/static/marketing.css","/static/marketing-refresh.css",
         "/static/pwa-refresh.css"
     ]
     sw=sw.replace("const SHELL = [","const SHELL = [\n"+
       "".join(f"  '{name}',\n" for name in pre_cache),1)
-    sw=sw.replace("lhm-pwa-v1-20261023","lhm-pwa-cloudflare-v9-20261024",1)
+    sw=sw.replace("lhm-pwa-v1-20261023","lhm-pwa-cloudflare-v10-20261025",1)
     sw=sw.replace("if (req.mode === 'navigate') {",
       "if (req.mode === 'navigate') {\n"+
       "    if (url.pathname === '/local/' || url.pathname === '/local') {\n"+
