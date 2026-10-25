@@ -45,7 +45,10 @@
  async function acquire(mode){
    const result=await post('/api/auth/seat',{client_id:clientId(),mode});
    if(!result.active)throw Error('Chưa có quyền sử dụng phần mềm');
+   // Google subscription is the only normal sign-in. The AES key remains on this device.
+   const opened=await window.LHMDeviceVault?.autoUnlock?.();
    unlock();
+   if(opened?.legacy_password_required)msg('Kho dữ liệu cũ cần mở bằng mật khẩu lần cuối.');
  }
  async function loadPlans(){
    const result=await api('/api/auth/plans');
@@ -103,11 +106,13 @@
    }catch(e){msg(e.message);}
    finally{action.disabled=false;}
  });
- logout?.addEventListener('click',async()=>{
+ const googleLogout=async()=>{
    try{await post('/api/auth/logout',{});}catch(_){}
    authenticated=false;subscribed=false;lock();
    location.assign('/local/');
- });
+ };
+ logout?.addEventListener('click',googleLogout);
+ window.addEventListener('lhm:pwa-signout',googleLogout);
  // Heartbeat only refreshes an EXISTING seat, never silently steals another session.
  setInterval(async()=>{
    if(!ready)return;
