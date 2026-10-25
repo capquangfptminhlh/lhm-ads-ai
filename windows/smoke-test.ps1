@@ -1,12 +1,16 @@
 $ErrorActionPreference = 'Stop'
 $exe = Join-Path $PWD 'dist\LHM-Ads-AI.exe'
 if (-not (Test-Path $exe)) { throw "EXE missing: $exe" }
-$env:LHM_DATA_DIR = Join-Path $env:RUNNER_TEMP 'lhm-ads-ai-onboarding-smoke'
-# The commercial preparation step replaces this file's edition markers BEFORE building.
-# Detect the actual compiled edition from checked-in build inputs, not an untrusted EXE claim.
+# Exercise both the pinned commercial edition AND the staging-only environment
+# override against the actual packaged EXE. The second path is how PR builds
+# verify Gmail-only gating without shipping an EXE with synthetic seller keys.
 $releaseInfo = Get-Content 'ads_core/release_info.py' -Raw
-$gmailOnly = $releaseInfo -match "CLOUD_LICENSE_MODE = 'required'"
-if ($gmailOnly) { Write-Host 'Smoke mode: COMMERCIAL Google-only (no local password setup)' }
+$pinnedGmail = $releaseInfo -match "CLOUD_LICENSE_MODE = 'required'"
+$stagedGmail = $env:LHM_CLOUD_LICENSE_MODE -eq 'required'
+$gmailOnly = $pinnedGmail -or $stagedGmail
+$folderLabel = if ($gmailOnly) { 'lhm-ads-ai-gmail-locked-smoke' } else { 'lhm-ads-ai-onboarding-smoke' }
+$env:LHM_DATA_DIR = Join-Path $env:RUNNER_TEMP $folderLabel
+if ($gmailOnly) { Write-Host 'Smoke mode: Google-only without a paid signed lease (HTTP 402 expected)' }
 else { Write-Host 'Smoke mode: PILOT legacy first-run onboarding' }
 $port = 18765
 $proc = Start-Process -FilePath $exe -ArgumentList @('--headless', '--port', "$port") -PassThru
@@ -42,7 +46,14 @@ try {
     }
     $bad = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/desktop/first-run" -Method POST -ContentType 'application/json' -Body '{"email":"x@example.com","password":"long_password_123","token":"invalid_invalid_invalid_invalid_invalid"}' -SkipHttpErrorCheck -TimeoutSec 10
     if ($bad.StatusCode -ne 403) { throw "Invalid setup token unexpectedly accepted" }
-    Write-Host 'PASS: setup requires one-time token'
+    Write-Host 'PASS: legacy setup endpoint cannot authorize invalid token'
+    if ($gmailOnly) {
+        $legacy = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/login" -Method POST -ContentType 'application/json' -Body '{"email":"owner@gmail.com","password":"legacy-password-123"}' -SkipHttpErrorCheck -TimeoutSec 10
+        if ($legacy.StatusCode -ne 403) { throw "Gmail-only mode allows legacy password login: $($legacy.StatusCode)" }
+        $activate = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/license/activate" -Method POST -ContentType 'application/json' -Body '{}' -SkipHttpErrorCheck -TimeoutSec 10
+        if ($activate.StatusCode -ne 403) { throw "Gmail-only mode allows legacy offline activation: $($activate.StatusCode)" }
+        Write-Host 'PASS: legacy password login and license activation blocked in Gmail-only EXE'
+    }
     $studio = Invoke-WebRequest -Uri "http://127.0.0.1:$port/studio" -TimeoutSec 10
     if ($studio.StatusCode -ne 200 -or $studio.Content -notmatch 'LHM ADS AI') { throw 'Studio HTML mismatch' }
     if ($studio.Content -notmatch 'data-provider-choice="google"' -or $studio.Content -notmatch 'data-provider-choice="meta"') { throw 'Separate Google/Meta wizard missing' }
