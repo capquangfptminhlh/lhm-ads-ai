@@ -20,6 +20,9 @@ const json=(payload,status=200)=>new Response(JSON.stringify(payload),{
 export default {
   async fetch(request,env){
     const path=new URL(request.url).pathname;
+    // Hosted Studio demo cannot bypass the Google subscription gate.
+    if(path==='/studio'||path.startsWith('/studio/'))
+      return Response.redirect(new URL('/local/',request.url),302);
     // Admin UI is NEVER a publicly downloadable static page.
     // This requires Worker-first asset routing for /admin and /admin/*.
     if(path==='/admin' || path.startsWith('/admin/')){
