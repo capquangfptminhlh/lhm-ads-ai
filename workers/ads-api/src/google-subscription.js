@@ -188,7 +188,7 @@ export async function googleSubscription(req,env){
      }
    }
    const count=await db.prepare('SELECT COUNT(*) AS n FROM license_seats WHERE license_id=?').bind(plan.id).first();
-   return json({active:true,expires_at:plan.expires_at,seat_limit:plan.seat_limit,occupied:count?.n||0,ttl_seconds:120});
+   return json({active:true,account_id:actor.id,account_email:actor.email,expires_at:plan.expires_at,seat_limit:plan.seat_limit,occupied:count?.n||0,ttl_seconds:120});
  }
  return json({error:'Unknown endpoint'},404);
 }
