@@ -8,3 +8,8 @@ body.customer-locked #pwa-access-gate{display:block!important}
 #customer-login-box button:disabled{opacity:.6}
 #customer-login-box .customer-help{font-size:12px;line-height:1.5;color:#627991}
 #customer-login-box [role=status]{font-size:13px;min-height:1.4em;margin-top:10px}
+
+#customer-login-box .customer-google-btn{display:block;text-align:center;background:#fff;color:#1b4d7a;border:1px solid #a8c2dc;border-radius:12px;padding:13px;text-decoration:none;font-weight:800;margin:15px 0}
+#customer-login-box .customer-google-btn:hover{background:#eaf3ff}
+#customer-login-box select{display:block;width:100%;padding:12px;border:1px solid #b8cbe0;border-radius:10px;background:#fff;color:#153350}
+#customer-account{overflow-wrap:anywhere;font-weight:700}
