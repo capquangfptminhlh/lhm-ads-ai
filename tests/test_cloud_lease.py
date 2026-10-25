@@ -121,8 +121,9 @@ def paired(tmp_path) -> CloudLicense:
 def test_offline_grace_then_hard_lock_on_server_refusal(tmp_path, keys, monkeypatch):
     native = paired(tmp_path)
     lease = sign(keys, native.client_id)
+    signed = json.loads(base64.urlsafe_b64decode(lease.split(".")[0] + "=="))
     replies = [(200, {"active": True, "account_id": CUSTOMER, "account_email": "owner@gmail.com",
-                      "seat_limit": 2, "expires_at": iso(timedelta(days=20)), "lease": lease})]
+                      "seat_limit": 2, "expires_at": signed["license_expires_at"], "lease": lease})]
     def fake(path, payload, authenticated=False):
         reply = replies.pop(0)
         if isinstance(reply, Exception):
@@ -147,18 +148,43 @@ def test_offline_grace_then_hard_lock_on_server_refusal(tmp_path, keys, monkeypa
 
 def test_seat_limit_lists_devices_and_takeover_is_explicit(tmp_path, keys, monkeypatch):
     native = paired(tmp_path)
+    seat_lease = sign(keys, native.client_id)
+    signed = json.loads(base64.urlsafe_b64decode(seat_lease.split(".")[0] + "=="))
     sent = []
     def fake(path, payload, authenticated=False):
         sent.append(payload["mode"])
         if payload["mode"] == "attach":
             return 409, {"code": "SEAT_LIMIT", "devices": [{"label": "Chrome Android", "last_seen_at": "2026-10-25T08:00:00Z"}]}
         return 200, {"active": True, "account_id": CUSTOMER, "account_email": "owner@gmail.com",
-                     "seat_limit": 2, "expires_at": iso(timedelta(days=5))}
+                     "seat_limit": 2, "expires_at": signed["license_expires_at"], "lease": seat_lease}
     monkeypatch.setattr(native, "_request", fake)
     result = native.refresh_lease(mode="attach")
     assert result["reason"] == "SEAT_LIMIT" and result["devices"][0]["label"] == "Chrome Android"
     assert native.refresh_lease(mode="takeover")["active"] is True
     assert sent == ["attach", "takeover"]
+
+
+def test_active_http_without_verified_matching_lease_must_not_unlock(tmp_path, keys, monkeypatch):
+    native = paired(tmp_path)
+    valid = sign(keys, native.client_id)
+    signed = json.loads(base64.urlsafe_b64decode(valid.split(".")[0] + "=="))
+    base = {"active": True, "account_id": CUSTOMER, "account_email": "owner@gmail.com",
+            "seat_limit": 2, "expires_at": signed["license_expires_at"]}
+    bad_responses = [
+        base,  # no lease at all (e.g. Worker secret missing)
+        {**base, "lease": "forged.invalid"},
+        {**base, "lease": valid, "seat_limit": 5},  # unsigned response changes cannot increase seats
+        {**base, "lease": valid, "expires_at": iso(timedelta(days=30))},
+    ]
+    replies = [(200, item) for item in bad_responses] + [(200, {**base, "lease": valid})]
+    monkeypatch.setattr(native, "_request", lambda *args, **kwargs: replies.pop(0))
+    for _ in bad_responses:
+        result = native.refresh_lease(mode="attach")
+        assert result == {"active": False, "reason": "LEASE_INVALID"}
+        assert native.active() is False
+        assert CloudLicense(tmp_path).active() is False
+    assert native.refresh_lease(mode="attach")["active"] is True
+    assert native.active() is True
 
 
 def test_gmail_mode_drives_every_feature_gate(tmp_path, keys, monkeypatch):
