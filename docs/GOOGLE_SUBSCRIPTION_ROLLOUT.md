@@ -11,7 +11,7 @@ Status: **feature branch for review, NOT deployed or production verified**.
 - PWA vault names are keyed by server-issued customer UUID; switching Google accounts on the same browser must not open another customer's encrypted vault.
 
 ## Required Cloudflare setup BEFORE activating feature
-1. Back up D1 and apply `migrations/0004_google_seats.sql` through Wrangler **before** deploying the Worker.
+1. Back up D1 and apply both `migrations/0004_google_seats.sql` and `migrations/0005_desktop_pairing.sql` through Wrangler **before** deploying the Worker.
 2. In Google Cloud Console, create **OAuth Web application** credentials. Configure exactly:
    - Authorized redirect: `https://ads.lhmcrm.com/api/auth/google/callback`
    - Origin: `https://ads.lhmcrm.com`
@@ -28,8 +28,21 @@ Status: **feature branch for review, NOT deployed or production verified**.
 - `POST /api/auth/seat` grants/refeshes 120-second seats for active licenses; it stores only hashed random IDs. Heartbeats never silently reclaim evicted seats.
 - `/local/` client stays gated without an active seat. `/studio/` on the hosted Worker redirects to `/local/`; the local Windows application is a separate offline backend.
 
-## Windows app — IMPORTANT not implemented by this patch
-The current Windows desktop app is **Python/pywebview/WebView2**, not Electron. It still uses a signed local-device license file. This branch **does not** yet implement the secure Google-browser-to-desktop pairing, server-side seat heartbeat or PC-side mutation gate; do not market Windows as covered by the new multi-device plan. That requires a separate trusted browser-to-native authorization handoff and a fail-closed license dependency in the local API. Never copy Google OAuth client secrets, a raw website session cookie or Ads tokens into the packaged binary.
+## Windows app — code added to feature branch, NOT yet customer-ready
+The current Windows desktop is **Python/pywebview/WebView2**, not Electron.
+This branch now contains a native CloudLicense client and a WebView2 licence overlay,
+but all Windows cloud licensing must remain **staging only** until tested with
+real Cloudflare Google OAuth credentials and an actual signed/packaged Windows EXE.
+
+- `POST /api/desktop/pair/start` takes a SHA-256 hash of the locally generated random proof; server creates a short-lived pairing URL and a display code.
+- Browser opens first-party `/desktop/pair/?id=...`, signs in with Google,
+  selects/pays for the required plan and must explicitly approve the PC.
+- PC polls `POST /api/desktop/pair/claim` with the secret verifier that never leaves the PC except via its direct TLS request. A single-use bearer license grant is issued only after approval.
+- On Windows the bearer is saved via DPAPI and used only for `/api/auth/seat` heartbeats; no Ads tokens, report values, Google/Meta ad-account IDs or client credentials pass to Cloudflare.
+- Windows local API gate in `ads_core/desktop_cloud_license.py` returns HTTP 402 before Ads reads/writes if the cloud seat lease is absent/expired. Local login and pairing control endpoints remain accessible to resolve the issue.
+- Launch this branch for staging with `LHM_CLOUD_LICENSE_MODE=required`. Default PC builds retain the legacy license path and **are not protected** by the new cloud subscription mechanism, pending acceptance.
+- **Still missing for the one-Gmail-only customer UX:** removing the separate initial/local admin password flow while preserving local encryption and safe session binding; test actual browser-to-Windows approval, renewals, forced eviction, offline and revoked access on real Windows. This work must finish before commercial production release.
+- Do not enable required mode until the customer account/seat and Google OAuth settings have passed end-to-end staging QA.
 
 ## Known limitations / to verify
 - A normal browser PWA cannot have an unforgeable hardware fingerprint. Concurrent sessions are a practical subscription quota, not DRM.
