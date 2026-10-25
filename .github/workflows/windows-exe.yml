@@ -195,61 +195,9 @@ jobs:
           if ('${{ github.event_name }}' -eq 'workflow_dispatch' -and '${{ inputs.commercial }}' -eq 'true') {
             $edition = 'commercial-candidate'
             if ('${{ matrix.builder }}' -ne 'nuitka') { throw 'Commercial candidates must use Nuitka, never PyInstaller' }
-            # Check the pinned Worker lease PUBLIC key inside the exact sources
-            # used to compile this EXE. Never embed a private key in CI outputs.
+            # Public Ed25519 signing key fingerprint from the exact sources compiled.
             $leaseKeyFingerprint = (python -c "import base64,hashlib; from ads_core.release_info import CLOUD_LICENSE_MODE, LEASE_PUBLIC_KEY_B64; assert CLOUD_LICENSE_MODE == 'required'; raw=base64.b64decode(LEASE_PUBLIC_KEY_B64,validate=True); assert len(raw)==32; print(hashlib.sha256(raw).hexdigest())").Trim()
-            if ($LASTEXITCODE -ne 0 -or $leaseKeyFingerprint -notmatch '^[0-9a-f]{64}
-            product = 'LHM Ads AI'
-            source_commit = '${{ github.sha }}'
-            edition = $edition
-            product_version = $version
-            license_public_key_sha256 = $fingerprint
-            executable = 'LHM-Ads-AI.exe'
-            sha256 = $hash
-            created_at_utc = (Get-Date).ToUniversalTime().ToString('o')
-            builder = '${{ matrix.builder }}'
-            license_mode = $licenseMode
-            lease_public_key_sha256 = $leaseKeyFingerprint
-            authenticode = 'UNSIGNED'
-            distribution = 'NOT_APPROVED_FOR_SALE'
-          }
-          $manifest | ConvertTo-Json | Set-Content -Path 'dist/release-manifest.json' -Encoding utf8
-          $instructions = @(
-            'LHM Ads AI - INTERNAL CI CANDIDATE ONLY.'
-            'Windows Authenticode is UNSIGNED. SmartScreen/Unknown Publisher warnings may occur.'
-            'Never disable Windows protections to bypass those warnings.'
-          )
-          if ($edition -eq 'commercial-candidate') {
-            $instructions += 'Owner may choose OFFLINE Ed25519 manifest signature instead of Authenticode.'
-            $instructions += 'First verify candidate hash/key, real Ads acceptance and owner approval.'
-            $instructions += 'Then package as COMMERCIAL-UNSIGNED with tools/package_unsigned_release.py.'
-            $instructions += 'This unsigned candidate is NOT YET approved for customer distribution.'
-          } else {
-            $instructions += 'PILOT only: do not rebrand or distribute as paid Commercial.'
-          }
-          Set-Content -Path 'dist/README-VERIFY-BEFORE-SALE.txt' -Value $instructions -Encoding ascii
-      - name: Bundle customer quick-start next to Windows EXE
-        if: success()
-        shell: pwsh
-        run: |
-          Copy-Item 'static/huong-dan-ket-noi.html' 'dist/HUONG-DAN-KET-NOI.html'
-          Copy-Item 'static/customer-help-print.css' 'dist/customer-help-print.css'
-          if (-not (Test-Path 'dist/HUONG-DAN-KET-NOI.html')) { throw 'Missing customer guide' }
-      - name: Upload tested EXE and checksum
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ (github.event_name == 'workflow_dispatch' && inputs.commercial) && 'LHM-Ads-AI-COMMERCIAL-CANDIDATE-UNSIGNED' || (matrix.builder == 'nuitka' && 'LHM-Ads-AI-PILOT-NUITKA' || 'LHM-Ads-AI-PILOT') }}
-          path: |
-            dist/LHM-Ads-AI.exe
-            dist/LHM-Ads-AI.sha256
-            dist/release-manifest.json
-            dist/README-VERIFY-BEFORE-SALE.txt
-            dist/HUONG-DAN-KET-NOI.html
-            dist/customer-help-print.css
-          if-no-files-found: error
-          retention-days: 14
-) {
+            if ($LASTEXITCODE -ne 0 -or $leaseKeyFingerprint -notmatch '^[0-9a-f]{64}$') {
               throw 'Commercial EXE missing validated Gmail-only Ed25519 lease trust anchor'
             }
             $licenseMode = 'google-only'
@@ -264,6 +212,8 @@ jobs:
             sha256 = $hash
             created_at_utc = (Get-Date).ToUniversalTime().ToString('o')
             builder = '${{ matrix.builder }}'
+            license_mode = $licenseMode
+            lease_public_key_sha256 = $leaseKeyFingerprint
             authenticode = 'UNSIGNED'
             distribution = 'NOT_APPROVED_FOR_SALE'
           }
