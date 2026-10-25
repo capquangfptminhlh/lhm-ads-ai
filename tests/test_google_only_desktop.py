@@ -32,7 +32,7 @@ def active_app(tmp_path, monkeypatch):
     session.expires_at = (datetime.now(timezone.utc)+timedelta(days=3)).isoformat()
     monkeypatch.setattr(grants, "_session", session)
     native_routes.set_native_proof(PROOF)
-    with TestClient(app, client=("127.0.0.1", 50432)) as client:
+    with TestClient(app, base_url="http://localhost:8765", client=("127.0.0.1", 50432)) as client:
         yield client, session
     native_routes.set_native_proof(None)
 
