@@ -156,7 +156,9 @@ async function leaseKey(env){
 export async function signLease(env,{customer,license,clientHash}){
  const key=await leaseKey(env).catch(()=>null);
  if(!key)return null;
- const graceHours=Math.min(168,Math.max(1,Number(env?.LEASE_GRACE_HOURS)||72));
+ // Product policy: an offline lease must NEVER exceed 72 hours, even with
+ // an incorrect Worker configuration. The Windows verifier enforces this too.
+ const graceHours=Math.min(72,Math.max(1,Number(env?.LEASE_GRACE_HOURS)||72));
  const now=Date.now();
  const validUntil=Math.min(now+graceHours*3600000,Date.parse(license.expires_at));
  const payload={v:1,customer_id:customer.id,email:customer.email,license_id:license.id,client_hash:clientHash,
