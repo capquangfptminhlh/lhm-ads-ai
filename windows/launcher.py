@@ -127,6 +127,14 @@ def main():
         return
     from ads_core.desktop_onboarding import prepare_first_run
     setup_token = prepare_first_run()
+    # One ephemeral secret authorizes only the *native* WebView2 to request a
+    # local session AFTER its Google subscription was independently verified.
+    native_proof = None
+    if os.environ.get('LHM_CLOUD_LICENSE_MODE') == 'required':
+        from ads_core.desktop_cloud_license import set_native_proof
+        native_proof = secrets.token_urlsafe(48)
+        set_native_proof(native_proof)
+        setup_token = None
     # Import routes after the onboarding token is created.
     from ads_core.extended import app
     import uvicorn
@@ -136,7 +144,8 @@ def main():
     else:
         from windows.desktop_window import run_window
         run_window(app, port=args.port, setup_token=setup_token,
-                   data_folder=folder, smoke_window=args.window_smoke)
+                   data_folder=folder, smoke_window=args.window_smoke,
+                   native_license_proof=native_proof)
 
 
 if __name__ == '__main__':
