@@ -66,6 +66,8 @@ jobs:
           done
       - name: Validate local encrypted Ads vault in real Chromium
         run: python -m tools.device_vault_smoke
+      - name: Verify Gmail-only PWA and isolated encrypted vaults in Chromium
+        run: python -m tools.google_pwa_smoke
       - name: Verify soft-depth responsive UI and capture new visual previews
         run: python -m tools.soft_ui_smoke
       - name: Test provider selection with real Chromium and capture screenshots
