@@ -28,7 +28,10 @@ def parts(tmp_path):
     ck.write_text(f'{sha}  LHM-Ads-AI.exe\n',encoding='ascii')
     manifest=tmp_path/'candidate.json'
     entry={'product':'LHM Ads AI','source_commit':'a'*40,'product_version':'0.3.0',
-            'edition':'commercial-candidate','authenticode':'UNSIGNED',
+            'edition':'commercial-candidate','builder':'nuitka',
+            'license_mode':'google-only',
+            'lease_public_key_sha256':hashlib.sha256(b'test-lease-key').hexdigest(),
+            'authenticode':'UNSIGNED',
             'distribution':'NOT_APPROVED_FOR_SALE','executable':'LHM-Ads-AI.exe',
             'sha256':sha,'license_public_key_sha256':hashlib.sha256(raw).hexdigest()}
     manifest.write_text(json.dumps(entry),encoding='utf-8')
