@@ -97,7 +97,7 @@ jobs:
         run: |
           $tokens = $null
           $errors = $null
-          foreach ($file in @('windows/package-commercial-release.ps1', 'windows/vendor-start.ps1')) {
+          foreach ($file in @('windows/package-commercial-release.ps1', 'windows/vendor-start.ps1', 'windows/smoke-test.ps1')) {
             $tokens = $null
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile(
