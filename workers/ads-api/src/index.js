@@ -160,8 +160,9 @@ export default {
     if(path.startsWith('/api/admin/'))return adminApi(request,env);
     if(path==='/desktop/pair/' || path.startsWith('/api/desktop/'))return desktopPair(request,env);
     if(path.startsWith('/api/auth/'))return googleSubscription(request,env);
-    // Legacy password sessions remain for migration, but customer PWA uses Google only.
-    if(path.startsWith('/api/customer/'))return customerAuth(request,env);
+    // Disable the obsolete password-based customer entry point in Google-only mode.
+    // Existing customers must migrate via a verified Google account, never a shared key.
+    if(path.startsWith('/api/customer/'))return json({code:'GOOGLE_LOGIN_REQUIRED',error:'Đăng nhập bằng Google'},410);
     if(path.startsWith('/api/')){
       return json({
         detail:'Cloudflare Ads API is not enabled. Do not send Ads credentials to this service.',
