@@ -31,7 +31,7 @@ def test_native_google_login_pair_and_lease(tmp_path, monkeypatch):
             return 200, {"desktop_token": "a"*64, "customer_id": "e02ab0e4-c2b0-4a23-99a1-acd430b37fea", "email": "owner@gmail.com"}
         if path.endswith("/seat"):
             assert authenticated is True
-            return 200, {"active": True, "seat_limit": 3,
+            return 200, {"active": True, "account_id": "e02ab0e4-c2b0-4a23-99a1-acd430b37fea", "account_email": "owner@gmail.com", "seat_limit": 3,
                          "expires_at": (datetime.now(timezone.utc)+timedelta(days=5)).isoformat()}
         return 200, {"ok": True}
     monkeypatch.setattr(native, "_request", fake)
