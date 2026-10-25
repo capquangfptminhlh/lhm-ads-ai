@@ -61,6 +61,7 @@ class DesktopBridge:
         self.executable = executable
         self.install_requested = False
         self.window = None
+        self.native_license_proof = None
 
     def _can_update(self) -> bool:
         return (self.data_folder is not None and self.executable is not None
@@ -98,6 +99,10 @@ class DesktopBridge:
         self.install_requested = True
         threading.Thread(target=self.window.destroy, daemon=True).start()
         return {'status': 'restarting', 'message': 'Đang đóng để cài đặt bản mới.'}
+
+    def get_local_license_proof(self) -> str:
+        """Only a per-process local proof to authorize trusted WebView requests."""
+        return self.native_license_proof or ''
 
     def open_license_url(self, url: str) -> bool:
         """Open ONLY the first-party short-lived pairing page, never remote scripts."""
@@ -147,7 +152,7 @@ def wait_for_service(port: int, thread: threading.Thread, *, timeout: float = 30
 
 
 def run_window(app, *, port: int, setup_token: str | None, data_folder: Path,
-               smoke_window: bool = False):
+               smoke_window: bool = False, native_license_proof: str | None = None):
     import uvicorn
     # The local API is a private implementation detail. The user sees only one
     # branded Windows window. Server lifetime follows GUI window lifetime.
@@ -162,6 +167,7 @@ def run_window(app, *, port: int, setup_token: str | None, data_folder: Path,
         data_folder=data_folder,
         executable=Path(sys.executable) if getattr(sys, 'frozen', False) else None,
     )
+    bridge.native_license_proof = native_license_proof
     try:
         wait_for_service(port, thread)
         import webview
