@@ -15,9 +15,9 @@
 | Hạng mục | Tình trạng |
 |---|---|
 | Bản PC (EXE) | Chạy tốt toàn bộ, kể cả kết nối Google Ads |
-| PWA | Có vỏ giao diện, kho mã hoá, đăng nhập Gmail (PR #46); **chưa gọi Google/Meta** |
-| Đăng ký Gmail + gói | Khoảng 60% trong PR #46 (nháp, chưa merge, chưa deploy) |
-| CI | PR #46 xanh. `main` đỏ ở smoke test kho → đã có PR #48 sửa. Cloudflare Workers Builds đỏ ở commit chỉ sửa tài liệu → lỗi phía Cloudflare, cần đọc log trong dashboard |
+| PWA | **Đã chạy Google Ads/Meta trực tiếp từ trình duyệt** (PR #46): báo cáo, quét chiến dịch, đề xuất, tạm dừng; khớp bản PC trên 1.145 ca kiểm thử |
+| Đăng ký Gmail + gói | **Đã làm xong trên PR #46** (Worker, PWA, PC, admin, chuyển khách pilot); chưa merge, chưa lên production |
+| CI | `main` xanh (PR #48 đã merge). PR #46 xanh. Cloudflare Workers Builds tự động vẫn đỏ (lỗi phía Cloudflare, cần đọc log); deploy qua GitHub workflow chạy tốt |
 | Trình duyệt gọi thẳng Google Ads / Meta | **Được** — đã kiểm tra CORS từ `ads.lhmcrm.com` |
 | Developer token Google Ads | Google đã bỏ từ 9/9/2026; quyền theo Google Cloud project |
 

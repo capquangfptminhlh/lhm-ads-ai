@@ -6,6 +6,23 @@
 
 ---
 
+## Trạng thái thực hiện (cập nhật 2026-10-25)
+
+| GĐ | Trạng thái | Ghi chú |
+|---|---|---|
+| 0 | Xong (trừ staging) | `main` xanh (PR #48), PR #46 xanh, 401→402 đúng. `[env.staging]` **chưa làm**: cần D1 staging do chủ sản phẩm tạo. |
+| 1 | Xong | Migration 0006, so khớp Gmail §4.2, API khách/admin, cron. Lease ký số trả **trong phản hồi `/api/auth/seat`** của PC (không tách `/api/auth/lease`) để lease luôn gắn với seat vừa xác nhận. |
+| 2 | Xong | Chọn gói, QR VietQR, chờ kích hoạt, giới hạn máy + "Dùng trên máy này", banner, khóa cứng. |
+| 2B | Xong (Google + Meta) | Khác brief: **giữ Python làm nguồn chuẩn**, không tách `shared/rules/playbook.json`; thay vào đó `tools/gen_core_fixtures.py` sinh 1.145 ca từ chính code Python và CI bắt JS khớp từng byte. Cùng mục đích chống lệch, không đụng code PC đang chạy. |
+| 3 | Xong, **trừ Nuitka** | Lease 72h, chống lùi giờ, khóa cứng mọi cổng tính năng (advisor/autopilot/monitoring/OpenRouter/MCP), takeover, giao diện. Build Nuitka **chưa làm**: cần thử trên runner Windows với pywebview/pythonnet. |
+| 4 | Xong | Trang admin mới (6 tab) + nhập hàng loạt khách pilot. |
+| 5 | Xong | Khác brief: công cụ xuất CSV, admin dán vào trang (dùng phiên Access của admin) thay vì script tự gọi API (cần service token Access). |
+| 6 | Xong (khung pháp lý) | `/dieu-khoan`, `/bao-mat` là bản nháp có ô [CẦN ĐIỀN]; tài liệu, FAQ, ACCEPTANCE §E cập nhật. |
+
+Còn mở: staging, Nuitka, nội dung pháp lý, mọi mục nghiệm thu thật (ACCEPTANCE §E = NOT_RUN).
+
+---
+
 ## 0. Mục tiêu một câu
 
 Khách **đăng nhập bằng Gmail** (trên PWA hoặc EXE PC) → **chọn và mua gói** → admin **xác nhận tiền và kích hoạt gói cho đúng Gmail đó** → khách đăng nhập **đúng Gmail ấy trên bất kỳ máy nào** là dùng được, trong giới hạn số máy của gói. Không có mật khẩu riêng, khách không bao giờ phải gõ key.

@@ -1,0 +1,8 @@
+/* Terms and privacy pages. */
+body{margin:0;background:#f5f8fd;color:#1d3149;font:16px/1.7 system-ui,-apple-system,"Segoe UI",sans-serif}
+.legal{max-width:780px;margin:0 auto;padding:28px 16px 80px}
+.legal h1{font-size:30px;line-height:1.25;margin:8px 0 12px}
+.legal h2{font-size:19px;margin:28px 0 8px}
+.legal a{color:#146fc8}
+.legal code{background:#e8f0fa;padding:1px 5px;border-radius:5px}
+.legal-draft{background:#fff6ea;border:1px solid #f1d2a8;color:#7a4b12;padding:10px 12px;border-radius:10px;font-weight:700}

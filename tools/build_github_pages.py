@@ -96,6 +96,11 @@ def build(output: Path) -> Path:
     page = output / "studio"
     page.mkdir()
     (page / "index.html").write_text(studio, encoding="utf-8")
+    # Terms and privacy (linked from the Google OAuth consent screen).
+    for slug, source in (("dieu-khoan", "legal-terms.html"), ("bao-mat", "legal-privacy.html")):
+        target = output / slug
+        target.mkdir()
+        (target / "index.html").write_text((STATIC / source).read_text(encoding="utf-8"), encoding="utf-8")
     # Cloudflare Access-protected admin page; API independently verifies signed Access JWT.
     admin = output / "admin"
     admin.mkdir()

@@ -1,5 +1,7 @@
 # Nghiệm thu trực tiếp (Live Acceptance) — LHM Ads AI
 
+> Mục **E** (đăng nhập Gmail, gói theo Gmail, PWA chạy Ads) ở cuối tài liệu. Mọi dòng mặc định `NOT_RUN`.
+
 Tài liệu này là quy trình nghiệm thu bằng **tài khoản quảng cáo thật** và
 **máy Windows thật**. Các bước này chỉ chủ sở hữu thực hiện được (cần tài
 khoản Google/Meta của chủ sở hữu, quyền duyệt ứng dụng của hai nền tảng và
@@ -146,3 +148,25 @@ trình phát triển (test tự động của repo dùng HTTP mock). Chỉ mục
 chuyển sang PASS bằng máy móc; các mục còn lại chỉ chuyển trạng thái khi
 chủ sở hữu chạy đúng quy trình trên và lưu bằng chứng. Không dùng kết quả
 CI xanh thay cho nghiệm thu trực tiếp.
+
+
+## E. Đăng nhập Gmail, gói theo Gmail và PWA chạy Ads
+
+Chạy trên production (hoặc staging) với Gmail, ngân hàng và tài khoản quảng cáo thật. Ghi
+`PASS`/`FAIL` kèm ảnh chụp hoặc mã giao dịch; chưa chạy thì giữ `NOT_RUN`.
+
+| # | Bước | Kết quả |
+|---|---|---|
+| E1 | Gmail mới → chọn gói → chuyển khoản đúng mã `LHMxxxxx` → admin "Duyệt & kích hoạt" → PWA và PC tự mở khóa trong ≤ 15 giây | NOT_RUN |
+| E2 | Admin cấp gói cho Gmail gõ khác dấu chấm/hoa thường (vd `Ten.Khach@gmail.com`) → khách đăng nhập `tenkhach@gmail.com` nhận đúng gói | NOT_RUN |
+| E3 | Gmail không được cấp → không vào được, có nút Đổi Gmail | NOT_RUN |
+| E4 | Gia hạn khi còn hạn cộng nối tiếp; hết hạn → khóa cứng đúng giờ (cả PC đang ngoại tuyến); thu hồi; khóa tài khoản; chuyển gói sang Gmail khác | NOT_RUN |
+| E5 | Gói 2 máy: PC + điện thoại dùng được; máy thứ 3 hỏi xác nhận rồi mới đăng xuất máy cũ nhất | NOT_RUN |
+| E6 | PC rút mạng 1 giờ vẫn dùng; quá 72 giờ khóa; chỉnh lùi đồng hồ không kéo dài được | NOT_RUN |
+| E7 | Khởi động lại PC giữ trạng thái; Đăng xuất xóa phiên | NOT_RUN |
+| E8 | Hai Gmail trên cùng máy/trình duyệt không thấy dữ liệu của nhau | NOT_RUN |
+| E9 | DevTools/Network: không request nào tới `ads.lhmcrm.com` chứa token, ID tài khoản hay báo cáo Ads | NOT_RUN |
+| E10 | PWA và PC trên **cùng tài khoản Google Ads thật**, cùng khoảng ngày → chi tiêu, chuyển đổi, CPA/ROAS từng chiến dịch và danh sách đề xuất giống nhau | NOT_RUN |
+| E11 | Như E10 với **Meta Ads** (sau App Review) | NOT_RUN |
+| E12 | PWA để quá 1 giờ → kết nối lại Google một chạm, không mất dữ liệu đang xem | NOT_RUN |
+| E13 | Thiết bị: Android Chrome, iPhone Safari (cài ra màn hình chính), Windows 10 và 11 sạch | NOT_RUN |

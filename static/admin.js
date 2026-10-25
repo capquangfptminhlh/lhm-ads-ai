@@ -229,6 +229,29 @@ $('grant-form').addEventListener('submit',async e=>{
   f.reset();syncGrant();msg('Đã lưu thành công');await refresh();
  }catch(err){msg(err.message,true);}finally{b.disabled=false;}
 });
+/* Pilot migration: lines from tools/migrate_pilot_to_gmail.py --out */
+$('bulk-run').addEventListener('click',async()=>{
+ const lines=$('bulk-csv').value.split(/\r?\n/).map(l=>l.trim()).filter(l=>l&&!/^gmail,/i.test(l));
+ const rows=[],bad=[];
+ for(const line of lines){
+  const [email,days,reference,...rest]=line.split(',');
+  const d=Number(days);
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email||'')||!Number.isInteger(d)||d<1||d>1100||!(reference||'').trim())bad.push(line);
+  else rows.push({email:email.trim(),days:d,reference:reference.trim(),note:rest.join(',').trim()});
+ }
+ if(bad.length){msg('Dòng không hợp lệ: '+bad.slice(0,3).join(' | '),true);return;}
+ const plan=data.plans.find(p=>p.active)||data.plans[0];
+ if(!rows.length||!plan||!confirm('Cấp '+planName(plan.code)+' theo số ngày còn lại cho '+rows.length+' Gmail?'))return;
+ const out=$('bulk-result');out.replaceChildren();
+ for(const r of rows){
+  try{
+   const x=await api('grant',{email:r.email,confirm_email:r.email,plan_code:plan.code,days:r.days,
+     reference:r.reference,note:r.note||undefined,source:'pilot_migration'});
+   out.append(el('li',r.email+' · '+r.days+' ngày · hết hạn '+day(x.license.expires_at)+(x.linked?'':' · chờ khách đăng nhập Gmail')));
+  }catch(e){out.append(el('li',r.email+' · LỖI: '+e.message));}
+ }
+ msg('Đã xử lý '+rows.length+' dòng.');await refresh();
+});
 $('plan-add').addEventListener('click',()=>$('plan-list').append(planRow({code:'',name:'',seat_limit:2,months:1,price_vnd:0,active:false,sort:50})));
 $('order-search').addEventListener('input',()=>filterTable('order'));
 $('audit-search').addEventListener('input',()=>filterTable('audit'));

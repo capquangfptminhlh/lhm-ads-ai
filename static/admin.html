@@ -56,7 +56,12 @@
 <label>Ghi chú<input name="note" maxlength="500"></label>
 <label class="admin-check"><input type="checkbox" name="pilot"> Chuyển từ khách pilot cũ</label>
 <button type="submit">Cấp gói</button></form>
-<p id="grant-result" class="review" hidden></p></section>
+<p id="grant-result" class="review" hidden></p>
+<details class="admin-history"><summary>Nhập danh sách chuyển khách pilot (CSV)</summary>
+<p>Dán nội dung file do <code>tools/migrate_pilot_to_gmail.py --out</code> tạo ra (cột <code>gmail,days,reference,note</code>). Mỗi dòng được cấp gói theo đúng số ngày còn lại.</p>
+<textarea id="bulk-csv" rows="6" spellcheck="false" aria-label="Danh sách chuyển khách pilot"></textarea>
+<button type="button" id="bulk-run">Kiểm tra và cấp</button>
+<ol id="bulk-result" class="admin-notes"></ol></details></section>
 
 <section class="view panel" id="expiring"><div class="admin-section-title"><div><h2>Sắp hết hạn</h2><p>Gói hết hạn trong 7 ngày tới. Sao chép tin nhắn để nhắc khách qua Zalo.</p></div></div>
 <div class="scroll"><table><thead><tr><th>Khách</th><th>Gmail</th><th>Điện thoại</th><th>Hết hạn</th><th>Còn</th><th></th></tr></thead><tbody id="expiring-list"></tbody></table></div>

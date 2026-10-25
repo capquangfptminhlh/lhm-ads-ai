@@ -1,5 +1,7 @@
 # LHM Ads AI — GitHub + Cloudflare Workers (không VPS)
 
+> **Gmail và gói theo Gmail (nhánh PR #46, chưa lên production):** khách đăng nhập bằng Gmail trên PWA và bản Windows, mua gói qua VietQR, admin kích hoạt theo mã chuyển khoản; hết hạn là khóa cứng. PWA đọc Google Ads/Meta trực tiếp từ trình duyệt với cùng bộ quy tắc như bản PC. Triển khai: [docs/GOOGLE_SUBSCRIPTION_ROLLOUT.md](docs/GOOGLE_SUBSCRIPTION_ROLLOUT.md) · Kế hoạch: [docs/KE_HOACH_TONG_THE.md](docs/KE_HOACH_TONG_THE.md).
+
 **Yêu cầu bảo mật đã chốt: 100% tài khoản, token và báo cáo quảng cáo nằm trên thiết bị khách, Cloudflare không lưu bản sao.** Không thể sử dụng backend FastAPI trên VPS hoặc Cloudflare OAuth token storage để đáp ứng yêu cầu này; client-side Ads integrations cần thiết kế lại và kiểm thử từng nền tảng. Không hứa PWA giám sát khi thiết bị bị hệ điều hành tạm dừng. Xem [docs/DEVICE_ONLY_ADS_DATA.md](docs/DEVICE_ONLY_ADS_DATA.md).
 
 

@@ -100,6 +100,14 @@ def main():
                 assert customer.locator("body.customer-locked").count()==1
                 assert not customer.locator(".pwa-shell").is_visible()
 
+                # Pilot migration: paste the CSV from tools/migrate_pilot_to_gmail.py --out.
+                admin.locator('nav button[data-tab="grant"]').click()
+                admin.locator("#grant summary",has_text="chuyển khách pilot").click()
+                admin.fill("#bulk-csv","gmail,days,reference,note\nbulk.user@gmail.com,9,PILOT-KH009,Pilot license lic-9\n")
+                admin.once("dialog",lambda d:d.accept())
+                admin.locator("#bulk-run").click()
+                admin.locator("#bulk-result li",has_text="bulk.user@gmail.com · 9 ngày").wait_for()
+
                 # Plans tab lists the seeded pilot prices.
                 admin.locator('nav button[data-tab="plans"]').click()
                 assert admin.locator("#plan-list tr").count()>=4

@@ -1,66 +1,58 @@
-# Google login + subscription gate (deployment checklist)
+# Gmail sign-in, Gmail-bound plans and PWA Ads — rollout checklist
 
-Status: **feature branch for review, NOT deployed or production verified**.
+Status: **built and tested on the feature branch (PR #46); not deployed to production.**
+Production deploy, Google/Meta app settings, bank details and live acceptance are the owner's.
+Plan and owner checklist: `docs/KE_HOACH_TONG_THE.md` · Agent brief: `docs/AGENT_BRIEF_GMAIL_LICENSE.md`.
 
-## Product decision
-- The customer signs in once with their real Google account; email alone is not authentication.
-- New customer accounts can sign in without a subscription but **cannot use the Ads account-add UI** until a paid license is issued.
-- Monthly plans have 1, 3 or 5 **concurrent active browser installations** (not permanent machine binding).
-- When all seats are occupied, a new sign-in may replace the least-recently-active session. Old sessions lose permission at their next heartbeat; no manual remove-device action required.
-- **Only** Google account identity (verified Google sub + email), order and license metadata, and one-way hashes of random client seat IDs are in Cloudflare D1. Google Ads, Meta Ads, OpenRouter credentials, Ad account IDs and reports remain only on the customer's own device.
-- PWA vault names are keyed by server-issued customer UUID; switching Google accounts on the same browser must not open another customer's encrypted vault.
+## What customers get
 
-## Required Cloudflare setup BEFORE activating feature
-1. Back up D1 and apply both `migrations/0004_google_seats.sql` and `migrations/0005_desktop_pairing.sql` through Wrangler **before** deploying the Worker.
-2. In Google Cloud Console, create **OAuth Web application** credentials. Configure exactly:
-   - Authorized redirect: `https://ads.lhmcrm.com/api/auth/google/callback`
-   - Origin: `https://ads.lhmcrm.com`
-   - Enable Google authentication with `openid email profile`. Production consent-screen publishing/verification requirements still apply.
-3. Store `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as **Cloudflare Worker secrets**, not git files or frontend JS.
-4. Set server-side non-secret Worker variables `PRICE_SEAT_1`, `PRICE_SEAT_3`, `PRICE_SEAT_5` in VND per month. They must be positive integers. **Do not use placeholder prices in production**. Existing key issuance is still performed by Admin *after* independent payment verification.
-5. Keep `COMMERCE_DB` binding and Cloudflare Access protection of `/admin/*` and `/api/admin/*`. Test Google sign-in, pending order, admin approval, paid license, renewal, expiry, concurrent 4th login eviction and authentication failures in staging.
-6. Only enable production after test reports and real smoke tests pass on mobile and desktop. Never mark OAuth, pricing, billing or Windows as complete based on code review alone.
+- Sign in with **Gmail** on the PWA (`/local/`) or the Windows app (browser pairing with a 6-digit code). No password, no key.
+- Choose a plan → bank transfer with a **VietQR** code and a payment code `LHMxxxxx` → the admin activates it → the app unlocks by itself within ~15 s.
+- The plan belongs to the Gmail: sign in with that Gmail on any device, up to the plan's number of devices at once. A device beyond the limit asks before signing the least recently active one out.
+- **Hard lock** when the plan expires, is revoked or the account is blocked. Data on the device is kept and opens again after renewal.
+- Windows keeps working offline for at most 72 h (signed lease, never past the plan's end).
+- The PWA reads Google Ads / Meta directly from the browser: accounts (incl. MCC children), live reports, the same optimization playbook as the PC, and pause with confirmation. Background monitoring, autopilot and MCP remain PC-only.
+- Ads tokens, account IDs and reports never reach Cloudflare.
 
-## PWA
-- `GET /api/auth/google/start` initiates OAuth code + PKCE/state/nonce.
-- `GET /api/auth/google/callback` verifies Google's **RSA signature, audience, issuer, expiry, verified email and nonce**. It issues an HttpOnly session cookie.
-- `GET /api/auth/session` provides license status, `GET /api/auth/plans` server-defined pricing, and `POST /api/auth/plan` requests a pending order.
-- `POST /api/auth/seat` grants/refeshes 120-second seats for active licenses; it stores only hashed random IDs. Heartbeats never silently reclaim evicted seats.
-- `/local/` client stays gated without an active seat. `/studio/` on the hosted Worker redirects to `/local/`; the local Windows application is a separate offline backend.
+## Cloudflare (owner)
 
-## Windows app — code added to feature branch, NOT yet customer-ready
-The current Windows desktop is **Python/pywebview/WebView2**, not Electron.
-This branch now contains a native CloudLicense client and a Google-only WebView2 sign-in overlay,
-but all Windows cloud licensing must remain **staging only** until tested with
-real Cloudflare Google OAuth credentials and an actual signed/packaged Windows EXE.
+1. **Back up D1**, then apply migrations `0004`, `0005`, `0006` (the deploy workflow runs them):
+   GitHub → Actions → *Deploy LHM Ads Commerce* (it also deploys the Worker and verifies Access).
+2. Worker **secrets** (`npx wrangler secret put NAME`):
+   - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — OAuth client **LHM Login** (Web application), redirect `https://ads.lhmcrm.com/api/auth/google/callback`.
+   - `LEASE_SIGNING_KEY` — from `python tools/create_lease_keys.py` (private half).
+3. Worker **variables** (not secret):
+   - `BANK_BIN` (6-digit VietQR bank BIN), `BANK_ACCOUNT_NO`, `BANK_ACCOUNT_NAME` — shown with the QR. Without them customers see "Quản trị viên sẽ gửi số tài khoản".
+   - `GOOGLE_ADS_WEB_CLIENT_ID` — OAuth client **LHM Ads PWA** (Web application), JavaScript origin `https://ads.lhmcrm.com`, redirect `https://ads.lhmcrm.com/local/oauth/google`, same Cloud project as the PC client.
+   - `META_APP_ID`; Meta app: Valid OAuth Redirect URI `https://ads.lhmcrm.com/local/oauth/meta`, Client and Web OAuth Login on.
+   - Optional: `META_OAUTH_SCOPES` (default `ads_read`; add `ads_management` only after App Review, needed for pause), `GOOGLE_ADS_API_VERSION` (default `v25`), `META_GRAPH_VERSION` (default `v24.0`), `ORDER_PENDING_HOURS` (48), `LEASE_GRACE_HOURS` (72).
+4. The daily cron in `wrangler.toml` cancels unpaid orders after `ORDER_PENDING_HOURS` and cleans expired sessions/seats.
+5. Check `https://ads.lhmcrm.com/api/_hosting/status`: `google_login_configured`, `gmail_plans_schema_ready`, `payment_instructions_configured`, `desktop_lease_signing_configured` should all be `true`.
 
-- `POST /api/desktop/pair/start` takes a SHA-256 hash of the locally generated random proof; server creates a short-lived pairing URL and a display code.
-- Browser opens first-party `/desktop/pair/?id=...`, signs in with Google,
-  selects/pays for the required plan and must explicitly approve the PC.
-- PC polls `POST /api/desktop/pair/claim` with the secret verifier that never leaves the PC except via its direct TLS request. A single-use bearer license grant is issued only after approval.
-- On Windows the bearer is saved via DPAPI and used only for `/api/auth/seat` heartbeats; no Ads tokens, report values, Google/Meta ad-account IDs or client credentials pass to Cloudflare.
-- Windows local API gate in `ads_core/desktop_cloud_license.py` returns HTTP 402 before Ads reads/writes if the cloud seat lease is absent/expired. Local login and pairing control endpoints remain accessible to resolve the issue.
-- Launch this branch for staging with `LHM_CLOUD_LICENSE_MODE=required`. Default PC builds retain the legacy license path and **are not protected** by the new cloud subscription mechanism, pending acceptance.
-- **Google-only Windows flow is now implemented in source:** the native WebView2 receives a per-process proof, displays Google sign-in, issues a local tenant-scoped session after a verified active lease, and blocks old password/first-run enrollment when `LHM_CLOUD_LICENSE_MODE=required`. Switching Google accounts cannot open the prior customer's local Ads records. Integration tests run in CI, but physical-device sign-in, renewals, eviction, offline and revocation **still require real-cloud acceptance before commercial release**.
-- Do not enable required mode until the customer account/seat and Google OAuth settings have passed end-to-end staging QA.
+## Windows build (owner)
 
-## Known limitations / to verify
-- A normal browser PWA cannot have an unforgeable hardware fingerprint. Concurrent sessions are a practical subscription quota, not DRM.
-- Offline authenticated access is blocked; product requires periodic Internet access to enforce concurrent seats. The PWA encrypted vault remains stored locally.
-- The default local IndexedDB vault created by pre-migration demo releases is not silently assigned to a Google identity; users should export existing encrypted backups before migration.
-- Payment is **manual verified** in current Admin; do not promise automatic provisioning, refunds or card collection.
-- Old password/customer endpoints still exist for backwards compatibility and require a separate migration/deprecation policy.
+- GitHub variable `LHM_LEASE_PUBLIC_KEY_B64` (public half from `tools/create_lease_keys.py`).
+- The commercial build (`tools/prepare_commercial_build.py`) then pins the key and switches the EXE to Gmail sign-in. Without the variable the EXE keeps the legacy offline license.
+- Staging without a commercial build: set `LHM_CLOUD_LICENSE_MODE=required` and `LHM_LEASE_PUBLIC_KEY_B64`.
 
-## Local database safety during migration
-- The Windows Google-only mode stores Ads tokens **on this PC** in SQLite and encrypts secrets with the existing local master key. Each Google customer's data is partitioned by `org_id=google:<verified-cloud-customer-uuid>`; FastAPI checks license customer identity on every authenticated request.
-- Legacy data is not silently copied to a new Google account. If an old local admin already uses the same email, the server returns a 409 conflict to protect the existing encrypted accounts until a deliberate, reviewed migration is performed.
-- The secure native proof exists only in memory of the packaged WebView2/Windows process, not in the Cloudflare database, license file, query string or GitHub.
-- Cloudflare's seat response now includes the verified account UUID/email. Windows rejects mismatched identities even if an apparently valid bearer is present.
+## Admin
 
-## Google-only PWA vault without daily password
-- Once Google authentication and the subscription seat are verified, a new PWA workspace automatically creates a **non-extractable** AES-256-GCM browser key in IndexedDB. Customers do not have a second LHM password or key step in normal daily use.
-- Encrypted Ads records stay under the verified Cloudflare customer UUID in IndexedDB. Changing Gmail switches namespaces and clears the in-memory decrypt key.
-- The non-extractable key is **device-local** and not synchronized. Clearing browser data loses the key and vault. To move data, the user explicitly exports a portable PBKDF2/AES-GCM backup with a **separate 12+-character recovery password** and enters that recovery password once on the new device.
-- This protects against raw offline storage copying, **not** an already compromised browser, injected same-origin JavaScript or device malware. Do not advertise hardware-grade protection for a browser PWA.
-- The previous email/password customer API responds HTTP 410 in the new Google-only release; migrate existing accounts deliberately, never automatically copy old passwords or Ads records into new Google tenants.
-- A real Chromium smoke test simulates switching between two verified Gmail identities on the same device; it must pass before deployment.
+`/admin/` (Cloudflare Access): **Đơn chờ** (activate by payment code), **Khách hàng** (Gmail search, devices, block, unlink Google, transfer, notes), **Cấp gói theo Gmail** (incl. pilot bulk import), **Sắp hết hạn**, **Bảng giá**, **Nhật ký**.
+
+## Moving pilot customers
+
+1. Collect each pilot customer's Gmail into `gmails.csv` (`customer_ref,gmail`).
+2. `python tools/migrate_pilot_to_gmail.py --map gmails.csv --out grants.csv` (preview without `--out`).
+3. Admin → Cấp gói theo Gmail → *Nhập danh sách chuyển khách pilot* → paste `grants.csv`.
+4. Ship the Gmail-mode EXE; customers sign in with that Gmail. Old offline licenses still work until they expire.
+
+## Automated checks (CI)
+
+- Worker on real SQLite: `tests/worker_gmail_plans.test.mjs`.
+- PWA ↔ PC parity, 1,145 cases from the Python code: `tests/core_parity.test.mjs` (+ `tests/test_core_fixtures.py`).
+- Windows lease (JS-signed, Python-verified): `tests/test_cloud_lease.py`.
+- Browser: `tools/pwa_plans_smoke.py`, `tools/e2e_gmail_flow.py`, `tools/pc_gate_smoke.py`, `tools/pwa_ads_smoke.py`.
+
+## Not verified yet (live acceptance, owner)
+
+Real Google sign-in and consent screen, real bank transfer + activation, real Google Ads / Meta accounts on the PWA (numbers equal to the PC), a signed commercial EXE on clean Windows 10/11, Android Chrome and iPhone Safari installs, seat takeover between a phone and a PC, 72 h offline, revocation. Record results in `docs/ACCEPTANCE.md` §E; keep `NOT_RUN` until done.
