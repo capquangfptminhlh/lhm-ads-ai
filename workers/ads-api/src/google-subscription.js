@@ -123,7 +123,7 @@ export async function googleSubscription(req,env){
  const plan=await license(db,actor.id);
  if(path==='/api/auth/session'&&method==='GET'){
    const pending=await db.prepare("SELECT id,seat_limit,amount_vnd,months FROM orders WHERE customer_id=? AND status='pending' ORDER BY created_at DESC LIMIT 1").bind(actor.id).first();
-   return json({authenticated:true,email:actor.email,name:actor.name,
+   return json({authenticated:true,account_id:actor.id,email:actor.email,name:actor.name,
     subscribed:!!plan,plan:plan?{expires_at:plan.expires_at,seat_limit:plan.seat_limit}:null,pending_order:pending||null});
  }
  if(path==='/api/auth/plans'&&method==='GET'){
@@ -150,6 +150,7 @@ export async function googleSubscription(req,env){
    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(client))
      return json({error:'Invalid client identifier'},400);
    const clientHash=await hash(plan.id+':'+client);
+   const heartbeat=data?.mode==='heartbeat';
    const since=iso(Date.now()-120000),now=iso(Date.now());
    // Remove expired seats; only licenses and random client IDs are stored.
    await db.prepare('DELETE FROM license_seats WHERE license_id=? AND last_seen_at<?').bind(plan.id,since).run();
@@ -158,6 +159,7 @@ export async function googleSubscription(req,env){
    if(old){
      await db.prepare('UPDATE license_seats SET last_seen_at=? WHERE license_id=? AND client_hash=?').bind(now,plan.id,clientHash).run();
    }else{
+     if(heartbeat)return json({error:'Session seat replaced',code:'SEAT_REPLACED'},409);
      // Single conditional write prevents two simultaneous new clients from over-allocating.
      const inserted=await db.prepare('INSERT INTO license_seats(license_id,client_hash,last_seen_at) SELECT ?,?,? WHERE (SELECT COUNT(*) FROM license_seats WHERE license_id=?)<?')
        .bind(plan.id,clientHash,now,plan.id,plan.seat_limit).run();
