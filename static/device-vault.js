@@ -300,13 +300,19 @@
       source:'manual_csv',note:'Phát hiện từ CSV đã nhập, KHÔNG phải cảnh báo realtime.'
     })).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30);
   }
-  async function encryptedBackup(){
+  async function encryptedBackup(recoveryPassword){
     requireUnlocked();
-    const data=await read();validateRecord(data);
-    // The returned object contains ONLY ciphertext; no plaintext credentials.
+    let data=await read();validateRecord(data);
+    // Non-extractable browser device keys cannot travel to another machine.
+    // Re-encrypt the backup with an explicit recovery passphrase, ONLY on export.
+    if(data.kdf==='DEVICE-KEY-AES256'){
+      if(!verifyPassword(recoveryPassword))throw Error('Mật khẩu sao lưu cần tối thiểu 12 ký tự.');
+      const salt=crypto.getRandomValues(new Uint8Array(16));
+      data=await encrypt(memory,await derive(recoveryPassword,salt),salt);
+    }
     return JSON.stringify({format:'lhm-ads-encrypted-backup',version:1,vault:data});
   }
-  async function importBackup(raw){
+  async function importBackup(raw,recoveryPassword){
     requireSecure();
     if(typeof raw!=='string'||raw.length>4_000_000)throw Error('Tệp sao lưu quá lớn.');
     const parsed=JSON.parse(raw);
@@ -314,6 +320,15 @@
       throw Error('Tệp sao lưu không phải của LHM Ads AI.');
     validateRecord(parsed.vault);
     // Caller must confirm destructive replacement. No server operations performed.
+    if(cloudPwa&&parsed.vault.kdf==='PBKDF2-SHA256'){
+      if(!verifyPassword(recoveryPassword))throw Error('Cần mật khẩu bản sao lưu (tối thiểu 12 ký tự).');
+      const oldKey=await derive(recoveryPassword,unbase64(parsed.vault.salt));
+      const value=await decrypt(parsed.vault,oldKey);
+      const key=await deviceKey();
+      await write(await encrypt(value,key,null));
+      cryptoKey=key;memory=value;
+      return {imported:true,unlocked:true};
+    }
     cryptoKey=null;memory=null;
     await write(parsed.vault);
     return {imported:true};
