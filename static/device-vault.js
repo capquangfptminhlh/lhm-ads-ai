@@ -6,7 +6,7 @@
 'use strict';
 (() => {
   const DATABASE='lhm-ads-device-only-v1';
-  const STORE='vaults', VERSION=1, MAX_ACCOUNTS=100;
+  const STORE='vaults', KEYRING='deviceKeys', VERSION=1, DB_VERSION=2, MAX_ACCOUNTS=100;
   let KEY='default';
   const cloudPwa=Boolean(document.getElementById('lhm-local-workspace'));
   let namespaceSet=!cloudPwa;
@@ -33,8 +33,11 @@
     requireSecure();
     if(!namespaceSet)throw Error('Đăng nhập Google và mua gói để mở kho riêng.');
     return new Promise((resolve,reject)=>{
-      const req=indexedDB.open(DATABASE,VERSION);
-      req.onupgradeneeded=()=>{req.result.createObjectStore(STORE,{keyPath:'id'});};
+      const req=indexedDB.open(DATABASE,DB_VERSION);
+      req.onupgradeneeded=()=>{
+        if(!req.result.objectStoreNames.contains(STORE))req.result.createObjectStore(STORE,{keyPath:'id'});
+        if(!req.result.objectStoreNames.contains(KEYRING))req.result.createObjectStore(KEYRING,{keyPath:'id'});
+      };
       req.onsuccess=()=>resolve(req.result);
       req.onerror=()=>reject(new Error('Không mở được kho dữ liệu trên thiết bị.'));
       req.onblocked=()=>reject(new Error('Kho đang mở ở tab khác.'));
@@ -67,6 +70,42 @@
       tx.onerror=()=>reject(new Error('Không xóa được kho dữ liệu.'));
     });}finally{db.close();}
   }
+  async function deviceKey(){
+    if(!cloudPwa||!namespaceSet)throw Error('Cần đăng nhập tài khoản Google hợp lệ.');
+    const db=await open();
+    try{
+      const existing=await new Promise((resolve,reject)=>{
+        const req=db.transaction(KEYRING,'readonly').objectStore(KEYRING).get(KEY);
+        req.onsuccess=()=>resolve(req.result?.key||null);
+        req.onerror=()=>reject(Error('Không đọc được khóa bảo mật thiết bị.'));
+      });
+      if(existing)return existing;
+      // The key is NON-EXTRACTABLE, never sent to Cloudflare. A separate recovery
+      // password is only requested when exporting/importing a backup.
+      const key=await crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction(KEYRING,'readwrite');
+        tx.objectStore(KEYRING).put({id:KEY,key});
+        tx.oncomplete=resolve;tx.onerror=()=>reject(Error('Không lưu được khóa thiết bị.'));
+      });
+      return key;
+    }finally{db.close();}
+  }
+  async function autoUnlock(){
+    requireSecure();
+    if(!cloudPwa||!namespaceSet)throw Error('Chưa có Gmail đăng nhập.');
+    if(cryptoKey&&memory)return {unlocked:true};
+    const record=await read();
+    if(record && record.kdf!=='DEVICE-KEY-AES256')return {legacy_password_required:true};
+    const key=await deviceKey();
+    if(record){
+      const value=await decrypt(record,key);
+      cryptoKey=key;memory=value;return {unlocked:true,count:value.accounts.length};
+    }
+    const value=empty();
+    await write(await encrypt(value,key,null));
+    cryptoKey=key;memory=value;return {created:true,unlocked:true};
+  }
   async function derive(password,salt){
     return crypto.subtle.deriveKey({
       name:'PBKDF2',salt,iterations:ITERATIONS,hash:'SHA-256'
@@ -79,8 +118,11 @@
   async function encrypt(data,key,salt){
     const iv=crypto.getRandomValues(new Uint8Array(12));
     const ciphertext=await crypto.subtle.encrypt({...aad,iv},key,encoder.encode(JSON.stringify(data)));
-    return {id:KEY,version:VERSION,kdf:'PBKDF2-SHA256',iterations:ITERATIONS,
-      salt:base64(salt),iv:base64(iv),ciphertext:base64(new Uint8Array(ciphertext))};
+    return salt===null
+      ? {id:KEY,version:VERSION,kdf:'DEVICE-KEY-AES256',iv:base64(iv),
+         ciphertext:base64(new Uint8Array(ciphertext))}
+      : {id:KEY,version:VERSION,kdf:'PBKDF2-SHA256',iterations:ITERATIONS,
+         salt:base64(salt),iv:base64(iv),ciphertext:base64(new Uint8Array(ciphertext))};
   }
   async function decrypt(record,key){
     const plaintext=await crypto.subtle.decrypt({...aad,iv:unbase64(record.iv)},key,unbase64(record.ciphertext));
@@ -95,9 +137,9 @@
   }
   function validateRecord(record){
     if(!record||record.id!==KEY||record.version!==VERSION||
-      record.kdf!=='PBKDF2-SHA256'||record.iterations!==ITERATIONS||
-      unbase64(record.salt).length!==16||unbase64(record.iv).length!==12||
-      unbase64(record.ciphertext).length<32)
+      !(record.kdf==='DEVICE-KEY-AES256'||
+       (record.kdf==='PBKDF2-SHA256'&&record.iterations===ITERATIONS&&unbase64(record.salt).length===16))||
+      unbase64(record.iv).length!==12||unbase64(record.ciphertext).length<32)
       throw Error('Tệp sao lưu không đúng định dạng kho LHM.');
   }
   function requireUnlocked(){
@@ -130,7 +172,7 @@
        !Array.isArray(next.budgetRules)||next.budgetRules.length>MAX_ACCOUNTS)
       throw Error('Số tài khoản vượt giới hạn kho cục bộ.');
     const old=await read();validateRecord(old);
-    const encrypted=await encrypt(next,cryptoKey,unbase64(old.salt));
+    const encrypted=await encrypt(next,cryptoKey,old.kdf==='DEVICE-KEY-AES256'?null:unbase64(old.salt));
     await write(encrypted);
     memory=next;
   }
@@ -289,7 +331,7 @@
   }
   Object.defineProperty(window,'LHMDeviceVault',{
     value:Object.freeze({
-      setNamespace,exists:async()=>Boolean(await read()),create,unlock,lock,isUnlocked:()=>Boolean(cryptoKey&&memory),
+      setNamespace,autoUnlock,exists:async()=>Boolean(await read()),create,unlock,lock,isUnlocked:()=>Boolean(cryptoKey&&memory),
       listAccounts,upsertAccount,removeAccount,importDailyReport,listDailyReports,
       setDailyBudget,listDailyBudgets,listLocalAlerts,encryptedBackup,importBackup,destroy
     }),writable:false,configurable:false
