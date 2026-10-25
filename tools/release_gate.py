@@ -82,6 +82,8 @@ def verify_candidate(exe:Path, checksum:Path, manifest:Path, public_file:Path) -
     info=read_json(manifest)
     expected={
         'edition':'commercial-candidate',
+        'builder':'nuitka',
+        'license_mode':'google-only',
         'authenticode':'UNSIGNED',
         'distribution':'NOT_APPROVED_FOR_SALE',
         'product':'LHM Ads AI',
@@ -99,6 +101,12 @@ def verify_candidate(exe:Path, checksum:Path, manifest:Path, public_file:Path) -
     fingerprint=info.get('license_public_key_sha256')
     if not isinstance(fingerprint,str) or not HEX64.fullmatch(fingerprint):
         raise ReleaseGateError('Missing vendor public key fingerprint')
+    # Commercial builds must pin the Worker-signed Gmail lease trust anchor.
+    # This is derived from the source PRE-compilation by CI, never supplied by
+    # a user's renderer or payment page. No legacy-license fallback is allowed.
+    lease_fingerprint=info.get('lease_public_key_sha256')
+    if not isinstance(lease_fingerprint,str) or not HEX64.fullmatch(lease_fingerprint):
+        raise ReleaseGateError('Missing verified Gmail lease public key fingerprint')
     if fingerprint!=verify_public_file(public_file):
         raise ReleaseGateError('Commercial EXE public key fingerprint does not match vendor key')
     if not exe.is_file() or not 0<exe.stat().st_size<=MAX_EXE or exe.name!='LHM-Ads-AI.exe':
