@@ -215,7 +215,9 @@ def cloud_access_ok() -> bool:
     return bool(_session is not None and _session.active())
 
 def heartbeat_loop(stop: threading.Event):
-    while not stop.wait(55):
+    while not stop.is_set():
         session = current_cloud_license()
         if session and session.token:
-            session.refresh_lease(heartbeat=True)
+            session.refresh_lease(heartbeat=bool(session.last_seen))
+        if stop.wait(55):
+            break
