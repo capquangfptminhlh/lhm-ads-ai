@@ -172,8 +172,14 @@ def test_cloudflare_transient_outages_keep_only_an_existing_signed_lease(tmp_pat
 
 def test_no_signed_lease_cannot_unlock_during_transient_outage(tmp_path, keys, monkeypatch):
     native = paired(tmp_path)
-    replies = [(503, {}), (429, {}), (200, ["malformed-not-json-object"])]
-    monkeypatch.setattr(native, "_request", lambda *args, **kwargs: replies.pop(0))
+    replies = [(503, {}), (429, {}),
+               CloudLicenseError("Invalid response from LHM licensing server")]
+    def fake_request(*args, **kwargs):
+        reply = replies.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+    monkeypatch.setattr(native, "_request", fake_request)
     for _ in range(3):
         result = native.refresh_lease()
         assert result["active"] is False and result["reason"] == "OFFLINE_LOCKED"
