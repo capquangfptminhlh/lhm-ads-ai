@@ -37,6 +37,7 @@ class CloudLicense:
         self.origin = origin
         self.token = None
         self.email = ""
+        self.customer_id = None
         self.client_id = None
         self.pair_id = None
         self.pair_verifier = None
@@ -66,12 +67,18 @@ class CloudLicense:
                 if self.token is not None and not IDENTIFIER.fullmatch(self.token):
                     raise ValueError("Invalid token")
                 self.email = str(values.get("email") or "")
+                cid = values.get("customer_id")
+                self.customer_id = str(uuid.UUID(cid, version=4)) if cid else None
+                if self.token and not self.customer_id:
+                    # Older grants were not bound to a verified Google tenant.
+                    self.token = None; self.email = ""
             except (KeyError, TypeError, ValueError, json.JSONDecodeError, OSError) as exc:
                 raise CloudLicenseError("Desktop license file corrupt. Do not reset without approval") from exc
 
     def _save(self):
         self.folder.mkdir(parents=True, exist_ok=True)
-        values = {"client_id": self.client_id, "desktop_token": self.token, "email": self.email}
+        values = {"client_id": self.client_id, "desktop_token": self.token, "email": self.email,
+                  "customer_id": self.customer_id}
         if os.name == "nt":
             payload = {"format": "windows-dpapi-v1",
                        "ciphertext": dpapi_encrypt(json.dumps(values).encode("utf8"))}
@@ -138,7 +145,13 @@ class CloudLicense:
             token = data.get("desktop_token")
             if status != 200 or not isinstance(token, str) or not IDENTIFIER.fullmatch(token):
                 raise CloudLicenseError("Pairing expired, account unpaid or already used")
+            customer_id = data.get("customer_id")
+            try:
+                customer_id = str(uuid.UUID(customer_id, version=4))
+            except (ValueError, TypeError, AttributeError):
+                raise CloudLicenseError("Cloud license is not bound to a verified customer ID") from None
             self.token = token
+            self.customer_id = customer_id
             self.email = str(data.get("email") or "")[:254]
             self.last_seen = 0
             self._save()
@@ -163,12 +176,13 @@ class CloudLicense:
             if code == 401:
                 self.token = None
                 self.email = ""
+                self.customer_id = None
                 self._save()
             return {"active": False, "reason": str(data.get("code") or "subscription_inactive")}
 
     def active(self) -> bool:
         with self.lock:
-            return bool(self.token and self.last_seen and time.monotonic() - self.last_seen < 120
+            return bool(self.token and self.customer_id and self.last_seen and time.monotonic() - self.last_seen < 120
                         and self.expires_at and self._expires_ok())
 
     def _expires_ok(self):
@@ -180,7 +194,8 @@ class CloudLicense:
             return False
 
     def state(self) -> dict:
-        return {"active": self.active(), "paired": bool(self.token), "email": self.email,
+        return {"active": self.active(), "paired": bool(self.token and self.customer_id),
+                "customer_id": self.customer_id, "email": self.email,
                 "expires_at": self.expires_at, "pairing": bool(self.pair_id)}
 
     def logout(self):
@@ -192,6 +207,7 @@ class CloudLicense:
                     pass
             self.token = None
             self.email = ""
+            self.customer_id = None
             self.last_seen = 0
             self.expires_at = ""
             self.pair_id = self.pair_verifier = self.display_code = None
