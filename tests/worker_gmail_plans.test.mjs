@@ -185,6 +185,32 @@ test('self-service order -> QR -> admin activate -> seats -> renew -> expiry',as
  assert.equal(r.status,402);assert.equal(r.body.code,'SUBSCRIPTION_EXPIRED');
 });
 
+test('one verified bank transfer cannot activate two different Gmail orders',async()=>{
+ const {db,admin,signIn}=setup();
+ const first=await signIn({sub:'bank-receipt-owner-a',email:'receipt-owner-a@gmail.com'});
+ const second=await signIn({sub:'bank-receipt-owner-b',email:'receipt-owner-b@gmail.com'});
+ const o1=await first.call('/api/auth/plan',{plan_code:'personal-1m'});
+ const o2=await second.call('/api/auth/plan',{plan_code:'personal-1m'});
+ assert.equal(o1.status,201);
+ assert.equal(o2.status,201);
+ const approved=await admin('/api/admin/orders/activate',{
+   order_id:o1.body.id,reference:'BANK-RECEIPT-ABCD-123'});
+ assert.equal(approved.status,200,JSON.stringify(approved.body));
+ const duplicate=await admin('/api/admin/orders/activate',{
+   order_id:o2.body.id,reference:' bank-receipt-abcd-123 '});
+ assert.equal(duplicate.status,409,'case/whitespace variations must not reuse one transfer');
+ const secondOrder=db.sqlite.prepare('SELECT status,paid_at FROM orders WHERE id=?').get(o2.body.id);
+ assert.equal(secondOrder.status,'pending');
+ assert.equal(secondOrder.paid_at,null);
+ assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM license_fulfillments WHERE order_id=?').get(o2.body.id).n,0);
+ assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM licenses WHERE customer_id=?').get(second.id).n,0);
+ // A genuinely different verified reference must still allow retry of that order.
+ const retried=await admin('/api/admin/orders/activate',{
+   order_id:o2.body.id,reference:'BANK-RECEIPT-ABCD-456'});
+ assert.equal(retried.status,200,JSON.stringify(retried.body));
+ assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM orders WHERE status=\'paid\'').get().n,2);
+});
+
 test('bank payment approval is atomic: SQL fault cannot mark order paid without license',async()=>{
  const {db,admin,signIn}=setup();
  const buyer=await signIn({sub:'bank-atomicity-buyer',email:'bank-atomicity@gmail.com'});
