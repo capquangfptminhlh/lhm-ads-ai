@@ -118,6 +118,12 @@ jobs:
           LHM_UPDATE_MANIFEST_URL: ${{ vars.LHM_UPDATE_MANIFEST_URL }}
           LHM_UPDATE_PUBLIC_KEY_B64: ${{ vars.LHM_UPDATE_PUBLIC_KEY_B64 }}
         run: python tools/configure_desktop_update.py
+      - name: Require signed online updates for commercial Windows releases
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.commercial }}
+        shell: pwsh
+        run: |
+          python -c "from windows.online_update import configuration; assert configuration() is not None, 'Commercial EXE must pin HTTPS update manifest and Ed25519 public key'"
+          if ($LASTEXITCODE -ne 0) { throw 'Commercial release blocked: signed online updates not configured' }
       - name: Make branded Windows icon
         shell: pwsh
         run: python windows/make_icon.py
