@@ -239,10 +239,12 @@ export async function adminApi(request,env){
       const x=await body(request),id=string(x.order_id,50);
       const review=await db.prepare('SELECT reference FROM payment_reviews WHERE order_id=?').bind(id).first();
       if(!review)return reply({error:'Record and independently verify transfer reference first'},409);
-      const changed=await db.prepare("UPDATE orders SET status='paid',paid_at=CURRENT_TIMESTAMP,approved_by=?,reference=? WHERE id=? AND status='pending'").bind(actor,review.reference,id).run();
-      if(changed.meta.changes!==1)return reply({error:'Order already processed or missing'},409);
-      await audit(db,actor,'payment_approved',id);
-      return reply({ok:true});
+      // Legacy API compatibility: approving a receipt MUST issue/extend the
+      // Gmail entitlement in the same atomic D1 batch. Never mark paid only.
+      const result=await fulfillPaidOrder(db,id,actor,{
+        reference:review.reference,action:'legacy_payment_approve'});
+      if(!result.ok)return reply({error:result.error},409);
+      return reply(result);
     }
     if(path==='/api/admin/licenses/issue'&&method==='POST'){
       const x=await body(request),order=await db.prepare("SELECT * FROM orders WHERE id=? AND status='paid'")
