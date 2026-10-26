@@ -185,6 +185,23 @@ test('self-service order -> QR -> admin activate -> seats -> renew -> expiry',as
  assert.equal(r.status,402);assert.equal(r.body.code,'SUBSCRIPTION_EXPIRED');
 });
 
+test('legacy payment approval also atomically grants license, never marks paid alone',async()=>{
+ const {db,admin,signIn}=setup();
+ const buyer=await signIn({sub:'legacy-approve-sub',email:'legacy-approve@gmail.com'});
+ const order=await buyer.call('/api/auth/plan',{plan_code:'personal-1m'});
+ assert.equal(order.status,201);
+ const reviewed=await admin('/api/admin/payments/review',{
+   order_id:order.body.id,reference:'LEGACY-BANK-APPROVAL-01',note:'Bank transfer checked separately'});
+ assert.equal(reviewed.status,200,JSON.stringify(reviewed.body));
+ const approved=await admin('/api/admin/payments/approve',{order_id:order.body.id});
+ assert.equal(approved.status,200,JSON.stringify(approved.body));
+ assert.equal(approved.body.ok,true);
+ assert.equal(db.sqlite.prepare('SELECT status FROM orders WHERE id=?').get(order.body.id).status,'paid');
+ assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM license_fulfillments WHERE order_id=?').get(order.body.id).n,1);
+ assert.equal((await buyer.call('/api/auth/session')).body.state,'active');
+ assert.equal((await admin('/api/admin/payments/approve',{order_id:order.body.id})).status,409);
+});
+
 test('one verified bank transfer cannot activate two different Gmail orders',async()=>{
  const {db,admin,signIn}=setup();
  const first=await signIn({sub:'bank-receipt-owner-a',email:'receipt-owner-a@gmail.com'});
