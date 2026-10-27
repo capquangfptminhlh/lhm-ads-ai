@@ -71,8 +71,12 @@ Real Google sign-in and consent screen, real bank transfer + activation, real Go
 
 ## Read-only staging / production Gmail readiness (GitHub Actions)
 
-Before merging PR #46, open **Actions → Staging Gmail readiness (read-only) → Run workflow**
-and select the feature branch. Set `base_url` to the actual HTTPS staging origin
+GitHub shows the **Run workflow** button only after this workflow file has
+landed on the repository's default branch. Until then, run the CLI probe
+locally against staging; do **not** merge PR #46 merely to expose the
+button. After a separate review of the workflow-only change on `main`, open
+**Actions → Staging Gmail readiness (read-only) → Run workflow** and select
+the feature branch. Set `base_url` to the actual HTTPS staging origin
 (e.g. `https://staging.lhmcrm.com`, or an assigned `*.workers.dev` / `*.pages.dev`
 preview). The URL is **not** a deployment target: the workflow only makes four
 unauthenticated GET requests; it does not touch D1, customer sessions, bank
@@ -87,3 +91,25 @@ EXE behavior or Meta/Google Ads acceptance. Do not use it to bypass E1–E13.
 From a trusted machine, the same probe can be run with
 `python tools/smoke_gmail_production.py --base-url https://staging.lhmcrm.com --json`.
 For production, omit `--base-url` (defaults to `https://ads.lhmcrm.com`).
+
+## Cloudflare Workers Builds preflight
+
+Workers Builds currently reports failed PR preview builds while GitHub unit
+tests are green. **The exact Cloudflare failure must be read from its build
+logs**; do not infer a fixed root cause from a green GitHub CI run.
+
+The repository's `wrangler.toml` binds static assets at `./_site`, which is
+generated and deliberately not committed. In **Cloudflare → Worker →
+Settings → Build**, confirm the repository root points to this project and
+the **Build command** runs:
+`python3 tools/build_github_pages.py --output _site`
+BEFORE the configured preview/deploy command. Production must track
+`main` only; PR branches must create previews, never promote to the
+`ads.lhmcrm.com` production Worker. The deployment command must use the
+existing `wrangler.toml`; do not bypass production D1/Access acceptance.
+
+GitHub's PWA workflow now also executes `wrangler deploy --dry-run` (no
+Cloudflare token, DB migrations, website publish or paid customer actions)
+after generating `_site`. This detects bundling failures independently of
+Cloudflare Dashboard settings, but cannot validate dashboard permissions or
+account-specific preview configuration.

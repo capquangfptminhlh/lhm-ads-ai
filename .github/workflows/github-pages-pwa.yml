@@ -38,6 +38,13 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_admin_d1_sql.py' -v
       - name: Build fail-closed PWA assets
         run: python tools/build_github_pages.py --output _site
+      - name: Verify actual Wrangler Worker and assets bundle (offline dry-run)
+        # A green PWA/static test alone does not prove Workers Builds can bundle
+        # the Worker + D1 binding + generated _site/ assets for deployment.
+        env:
+          CI: 'true'
+          WRANGLER_SEND_METRICS: 'false'
+        run: npx --yes wrangler@4 deploy --dry-run --outdir .worker-dry-run
       - name: Verify bundle contains no backend secrets
         run: python -m unittest discover -s tests -p 'test_github_pages_build_unittest.py' -v
       - uses: actions/upload-artifact@v4
