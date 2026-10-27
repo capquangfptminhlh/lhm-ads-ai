@@ -68,3 +68,22 @@ Plan and owner checklist: `docs/KE_HOACH_TONG_THE.md` · Agent brief: `docs/AGEN
 ## Not verified yet (live acceptance, owner)
 
 Real Google sign-in and consent screen, real bank transfer + activation, real Google Ads / Meta accounts on the PWA (numbers equal to the PC), a signed commercial EXE on clean Windows 10/11, Android Chrome and iPhone Safari installs, seat takeover between a phone and a PC, 72 h offline, revocation. Record results in `docs/ACCEPTANCE.md` §E; keep `NOT_RUN` until done.
+
+## Read-only staging / production Gmail readiness (GitHub Actions)
+
+Before merging PR #46, open **Actions → Staging Gmail readiness (read-only) → Run workflow**
+and select the feature branch. Set `base_url` to the actual HTTPS staging origin
+(e.g. `https://staging.lhmcrm.com`, or an assigned `*.workers.dev` / `*.pages.dev`
+preview). The URL is **not** a deployment target: the workflow only makes four
+unauthenticated GET requests; it does not touch D1, customer sessions, bank
+payments or Ads data.
+
+The Action records a `gmail-readiness.json` artifact listing the exact
+public control-plane failures. A red check means the chosen environment is not
+ready; a green check only establishes public route/configuration readiness.
+Neither result proves live Google consent, actual bank reconciliation, Windows
+EXE behavior or Meta/Google Ads acceptance. Do not use it to bypass E1–E13.
+
+From a trusted machine, the same probe can be run with
+`python tools/smoke_gmail_production.py --base-url https://staging.lhmcrm.com --json`.
+For production, omit `--base-url` (defaults to `https://ads.lhmcrm.com`).

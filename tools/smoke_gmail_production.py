@@ -6,8 +6,10 @@ customer data or Ads credentials are involved.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
+from urllib.parse import urlsplit
 from pathlib import Path
 
 # Support both "python tools/smoke_gmail_production.py" and package imports.
@@ -26,6 +28,30 @@ REQUIRED_FLAGS = (
     "desktop_lease_signing_configured",
     "payment_instructions_configured",
 )
+
+
+
+def validate_base_url(value: str) -> str:
+    """Only probe HTTPS LHM domains or a Cloudflare preview, never an arbitrary host.
+
+    Reject paths, credentials and fragments so the checked routes cannot be
+    silently rewritten by a crafted URL. No tokens/cookies are sent.
+    """
+    if not isinstance(value, str) or not value or len(value) > 2048 or any(ch.isspace() for ch in value):
+        raise ValueError("Origin must be a valid HTTPS LHM/Cloudflare URL")
+    try:
+        parsed = urlsplit(value)
+        hostname = (parsed.hostname or "").lower().rstrip(".")
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("Origin is malformed") from exc
+    trusted = (hostname == "lhmcrm.com" or hostname.endswith(".lhmcrm.com")
+               or hostname.endswith(".workers.dev") or hostname.endswith(".pages.dev"))
+    if (parsed.scheme != "https" or not trusted or parsed.username or parsed.password
+            or parsed.path not in ("", "/") or parsed.query or parsed.fragment
+            or port not in (None, 443)):
+        raise ValueError("Only HTTPS LHM or Cloudflare preview origins are allowed")
+    return "https://" + parsed.netloc.rstrip("/")
 
 
 def audit(call=smoke_production.call) -> list[str]:
@@ -68,17 +94,35 @@ def audit(call=smoke_production.call) -> list[str]:
     return issues
 
 
-def main() -> int:
-    problems = audit()
-    if problems:
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Read-only public Gmail/PWA readiness smoke for production or staging")
+    parser.add_argument("--base-url", default=smoke_production.BASE,
+                        help="HTTPS LHM domain or Cloudflare workers.dev/pages.dev preview origin")
+    parser.add_argument("--json", action="store_true",
+                        help="Machine-readable report (no secrets or customer data)")
+    args = parser.parse_args(argv)
+    try:
+        base = validate_base_url(args.base_url)
+    except ValueError as exc:
+        parser.error(str(exc))
+    # No redirect following, browser credentials or write operations.
+    problems = audit(call=lambda path: smoke_production.call(path, base=base))
+    if args.json:
+        print(json.dumps({
+            "base_url": base, "status": "FAIL" if problems else "PASS",
+            "issues": problems,
+            "note": "Public control-plane only; live OAuth/payment/Ads acceptance remains NOT_RUN",
+        }, ensure_ascii=False, indent=2))
+    else:
         for message in problems:
             print("FAIL: " + message)
-        print("RESULT: GMAIL PRODUCTION NOT READY")
-        return 1
-    print("PASS: public Gmail control-plane routes configured and protected.")
-    print("NOTE: real Google OAuth, device leases, bank receipts and Ads still require live acceptance.")
-    return 0
-
+        if problems:
+            print("RESULT: GMAIL ENVIRONMENT NOT READY")
+        else:
+            print("PASS: public Gmail control-plane routes configured and protected.")
+            print("NOTE: real Google OAuth, device leases, bank receipts and Ads still require live acceptance.")
+    return 1 if problems else 0
 
 if __name__ == "__main__":
     raise SystemExit(main())

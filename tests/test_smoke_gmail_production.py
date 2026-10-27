@@ -1,7 +1,8 @@
 """Offline tests for read-only, fail-closed LIVE Gmail readiness probe."""
 import json
 
-from tools.smoke_gmail_production import REQUIRED_FLAGS, audit
+from tools.smoke_gmail_production import REQUIRED_FLAGS, audit, main, validate_base_url
+from tools import smoke_gmail_production
 
 
 def healthy(path):
@@ -61,3 +62,49 @@ def test_unprotected_gmail_session_or_unconfigured_ads_oauth_is_rejected():
         return code, body
     issues = audit(invalid)
     assert len(issues) == 2
+
+
+def test_staging_origin_must_be_https_and_on_owner_or_cloudflare_domain():
+    assert validate_base_url("https://ads.lhmcrm.com/") == "https://ads.lhmcrm.com"
+    assert validate_base_url("https://lhm-preview.workers.dev") == "https://lhm-preview.workers.dev"
+    assert validate_base_url("https://lhm-preview.pages.dev/") == "https://lhm-preview.pages.dev"
+    import pytest
+    for bad in (
+        "http://ads.lhmcrm.com", "https://localhost", "https://127.0.0.1",
+        "https://evil.example", "https://ads.lhmcrm.com.evil.example",
+        "https://ads.lhmcrm.com/other", "https://ads.lhmcrm.com?redirect=/",
+        "https://user:pass@ads.lhmcrm.com", "https://ads.lhmcrm.com:444",
+        "https://[broken", "https://ads.lhmcrm.com:abc",
+    ):
+        with pytest.raises(ValueError):
+            validate_base_url(bad)
+
+
+def test_staging_cli_json_reports_pass_without_real_network(monkeypatch, capsys):
+    seen = []
+
+    def fake_call(path, *, base):
+        seen.append((path, base))
+        return healthy(path)
+
+    monkeypatch.setattr(smoke_gmail_production.smoke_production, "call", fake_call)
+    assert main(["--base-url", "https://staging.lhmcrm.com", "--json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["base_url"] == "https://staging.lhmcrm.com"
+    assert report["status"] == "PASS"
+    assert report["issues"] == []
+    assert len(seen) == 4
+    assert all(base == "https://staging.lhmcrm.com" for _path, base in seen)
+
+
+def test_staging_cli_json_fails_closed_when_public_auth_not_ready(monkeypatch, capsys):
+    def missing_auth(path, *, base):
+        if path == "/api/auth/session":
+            return 503, '{"code":"DEVICE_ONLY_NOT_READY"}'
+        return healthy(path)
+
+    monkeypatch.setattr(smoke_gmail_production.smoke_production, "call", missing_auth)
+    assert main(["--base-url", "https://review.pages.dev", "--json"]) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "FAIL"
+    assert report["issues"] == ["Gmail session route missing or not correctly protected"]
