@@ -99,11 +99,14 @@ tests are green. **The exact Cloudflare failure must be read from its build
 logs**; do not infer a fixed root cause from a green GitHub CI run.
 
 The repository's `wrangler.toml` binds static assets at `./_site`, which is
-generated and deliberately not committed. In **Cloudflare → Worker →
-Settings → Build**, confirm the repository root points to this project and
-the **Build command** runs:
-`python3 tools/build_github_pages.py --output _site`
-BEFORE the configured preview/deploy command. Production must track
+generated and deliberately not committed. In **Cloudflare → Worker → Settings → Build**, confirm the repository
+root points to this project. The repository's `wrangler.toml` now declares
+`[build] command = "python3 tools/build_github_pages.py --output _site"`.
+Wrangler automatically executes this custom build before `wrangler deploy`
+or preview, even from a fresh checkout. Cloudflare's separate **Build command**
+may be left empty if its deploy command invokes Wrangler normally; avoid
+a different command that bypasses `wrangler.toml`. Preview builds must
+still remain isolated from `ads.lhmcrm.com` and the production D1 database. Production must track
 `main` only; PR branches must create previews, never promote to the
 `ads.lhmcrm.com` production Worker. The deployment command must use the
 existing `wrangler.toml`; do not bypass production D1/Access acceptance.
@@ -113,3 +116,12 @@ Cloudflare token, DB migrations, website publish or paid customer actions)
 after generating `_site`. This detects bundling failures independently of
 Cloudflare Dashboard settings, but cannot validate dashboard permissions or
 account-specific preview configuration.
+
+### Repository-owned Cloudflare asset build (2026-10-27)
+
+The `[build]` stanza in `wrangler.toml` is the source of truth for creating
+`_site/`. Wrangler runs the Python script before reading Worker static assets.
+This is an offline build step and can be checked with
+`npx wrangler@4 deploy --dry-run` on a fresh checkout. It **does not**
+configure Cloudflare Dashboard production/preview branch routing, secrets or D1
+migrations, and passing dry-run alone does not establish live readiness.
