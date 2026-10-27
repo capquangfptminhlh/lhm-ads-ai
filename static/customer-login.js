@@ -162,7 +162,11 @@
    // A heartbeat must not re-decrypt/remount the local Ads vault.
    if(mode==='heartbeat'&&ready)return result;
    const opened=await window.LHMDeviceVault?.autoUnlock?.();
-   if(revision!==authRevision)throw new ApiError({error:'Phiên đăng nhập đã thay đổi',code:'STALE'},409);
+   if(revision!==authRevision||Date.now()>=verifiedUntil){
+     // Even if decrypt completed after logout/expiry, never expose stale data.
+     window.LHMDeviceVault?.lock?.();
+     throw new ApiError({error:'Phiên đăng nhập hoặc thời hạn gói đã thay đổi',code:'STALE'},409);
+   }
    unlock();
    if(opened?.legacy_password_required)msg('Kho dữ liệu cũ cần mở bằng mật khẩu lần cuối.');
    clearInterval(heartbeat);

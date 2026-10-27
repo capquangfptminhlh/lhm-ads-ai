@@ -13,6 +13,7 @@ import os
 import socketserver
 import tempfile
 import threading
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 from tools.build_github_pages import build
@@ -37,6 +38,7 @@ class FakeWorker:
         self.order=None
         self.seat_full_once=True
         self.offline_heartbeats=0
+        self.seat_expiry_override=None
         self.calls=[]
 
     def session(self):
@@ -79,7 +81,8 @@ class FakeWorker:
                 return reply({"error":"Đã dùng hết số máy của gói.","code":"SEAT_LIMIT","seat_limit":2,"devices":[
                     {"id":"a"*12,"label":"Chrome Android","last_seen_at":"2026-10-25T08:00:00.000Z"},
                     {"id":"b"*12,"label":"Máy tính Windows","last_seen_at":"2026-10-25T09:00:00.000Z"}]},409)
-            return reply({"active":True,"seat_limit":2,"occupied":2,"ttl_seconds":600,"heartbeat_seconds":300,"expires_at":"2099-01-03T00:00:00.000Z"})
+            return reply({"active":True,"seat_limit":2,"occupied":2,"ttl_seconds":600,"heartbeat_seconds":300,
+                          "expires_at":self.seat_expiry_override or "2099-01-03T00:00:00.000Z"})
         if path=="/api/auth/devices":return reply({"seat_limit":2,"devices":[]})
         return reply({"ok":True})
 
@@ -164,6 +167,14 @@ def main():
                 assert fake.offline_heartbeats==0
                 page.evaluate("window.LHMCustomer.reload()")
                 page.locator("body:not(.customer-locked)").wait_for(timeout=10000)
+
+                # A nearly expired *signed-in* seat must lock by its deadline,
+                # without relying on another heartbeat or an account reload.
+                fake.seat_expiry_override=(datetime.now(timezone.utc)+timedelta(seconds=4)).isoformat().replace("+00:00","Z")
+                page.evaluate("window.LHMCustomer.reload()")
+                page.locator("body:not(.customer-locked)").wait_for(timeout=10000)
+                page.locator("body.customer-locked").wait_for(timeout=7000)
+                fake.seat_expiry_override=None
 
                 # Expired: hard lock, renewal offered, data kept.
                 fake.state="expired"
