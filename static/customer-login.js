@@ -15,6 +15,7 @@
  const money=n=>new Intl.NumberFormat('vi-VN').format(n)+'đ';
  const day=s=>new Date(s).toLocaleDateString('vi-VN');
  let session=null,ready=false,heartbeat=null,poll=null,chosen='';
+ let seatExpiryTimer=null,verifiedUntil=0,missedBeats=0,authRevision=0;
  const msg=s=>{if(status)status.textContent=String(s||'');};
  const show=(el,on)=>{if(el)el.hidden=!on;};
 
@@ -42,6 +43,8 @@
  }
 
  function lock(message){
+   authRevision++;verifiedUntil=0;missedBeats=0;
+   clearTimeout(seatExpiryTimer);seatExpiryTimer=null;
    ready=false;clearInterval(heartbeat);heartbeat=null;
    root.classList.add('customer-locked');
    box.hidden=false;portal.hidden=true;
@@ -137,9 +140,29 @@
  }
 
  async function acquire(mode){
+   const revision=authRevision;
    const result=await post('/api/auth/seat',{client_id:clientId(),mode,device_label:deviceLabel()});
+   // A delayed response must not re-open a vault after an account change/lock.
+   if(revision!==authRevision)throw new ApiError({error:'Phiên đăng nhập đã thay đổi',code:'STALE'},409);
    if(!result.active)throw new ApiError({error:'Chưa có quyền sử dụng phần mềm'},403);
+   const ttl=Number(result.ttl_seconds),planEnd=Date.parse(result.expires_at);
+   if(!Number.isFinite(ttl)||ttl<1||ttl>600||!Number.isFinite(planEnd)||planEnd<=Date.now())
+     throw new ApiError({error:'Máy chủ không trả về thời hạn xác minh gói hợp lệ.',code:'INVALID_LEASE'},503);
+   // PWA seats are online-only. Their maximum offline window is the shorter
+   // of the server's TTL and the paid subscription expiry, never the PC's 72h.
+   verifiedUntil=Math.min(Date.now()+ttl*1000,planEnd);
+   missedBeats=0;
+   clearTimeout(seatExpiryTimer);
+   const deadline=verifiedUntil;
+   seatExpiryTimer=setTimeout(()=>{
+     // A real timer still locks after its TTL even if the wall clock is rolled back.
+     if(ready&&verifiedUntil===deadline)
+       lock('Phiên bản quyền đã hết hạn xác minh. Kết nối Internet để kiểm tra lại gói.');
+   },Math.max(0,deadline-Date.now()));
+   // A heartbeat must not re-decrypt/remount the local Ads vault.
+   if(mode==='heartbeat'&&ready)return result;
    const opened=await window.LHMDeviceVault?.autoUnlock?.();
+   if(revision!==authRevision)throw new ApiError({error:'Phiên đăng nhập đã thay đổi',code:'STALE'},409);
    unlock();
    if(opened?.legacy_password_required)msg('Kho dữ liệu cũ cần mở bằng mật khẩu lần cuối.');
    clearInterval(heartbeat);
@@ -150,10 +173,24 @@
    if(!ready)return;
    try{await acquire('heartbeat');}
    catch(e){
-     if(e.code==='OFFLINE')return;  // Brief network blips do not lock; the next beat decides.
+     if(e.code==='STALE')return;
+     if(e.code==='OFFLINE'){
+       // Permit one brief network blip, but never leave the PWA open indefinitely.
+       // A second failed heartbeat locks even after clock rollback.
+       missedBeats++;
+       if(missedBeats>=2||Date.now()>=verifiedUntil)
+         lock('Mất kết nối quá lâu. Hãy kết nối Internet để xác minh lại gói.');
+       return;
+     }
      lock();reload();
    }
  }
+ document.addEventListener('visibilitychange',()=>{
+   if(!document.hidden&&ready){
+     if(Date.now()>=verifiedUntil)lock('Phiên bản quyền đã hết hạn xác minh. Kết nối lại để tiếp tục.');
+     else beat().catch(()=>{});
+   }
+ });
 
  async function reload(){
    clearInterval(poll);

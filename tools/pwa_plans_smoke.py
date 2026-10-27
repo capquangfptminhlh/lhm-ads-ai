@@ -36,6 +36,7 @@ class FakeWorker:
         self.state="none"
         self.order=None
         self.seat_full_once=True
+        self.offline_heartbeats=0
         self.calls=[]
 
     def session(self):
@@ -68,6 +69,9 @@ class FakeWorker:
             self.state="pending"
             return reply({**self.order,"status":"pending"},201)
         if path=="/api/auth/seat":
+            if body.get("mode")=="heartbeat" and self.offline_heartbeats:
+                self.offline_heartbeats-=1
+                return route.abort("failed")
             if self.state!="active":
                 return reply({"error":"Gói đã hết hạn.","code":"SUBSCRIPTION_EXPIRED"},402)
             if self.seat_full_once and body.get("mode")=="attach":
@@ -75,7 +79,7 @@ class FakeWorker:
                 return reply({"error":"Đã dùng hết số máy của gói.","code":"SEAT_LIMIT","seat_limit":2,"devices":[
                     {"id":"a"*12,"label":"Chrome Android","last_seen_at":"2026-10-25T08:00:00.000Z"},
                     {"id":"b"*12,"label":"Máy tính Windows","last_seen_at":"2026-10-25T09:00:00.000Z"}]},409)
-            return reply({"active":True,"seat_limit":2,"occupied":2,"heartbeat_seconds":300,"expires_at":"2099-01-03T00:00:00.000Z"})
+            return reply({"active":True,"seat_limit":2,"occupied":2,"ttl_seconds":600,"heartbeat_seconds":300,"expires_at":"2099-01-03T00:00:00.000Z"})
         if path=="/api/auth/devices":return reply({"seat_limit":2,"devices":[]})
         return reply({"ok":True})
 
@@ -93,6 +97,17 @@ def main():
             with sync_playwright() as pw:
                 browser=pw.chromium.launch(headless=True)
                 page=browser.new_page(viewport={"width":390,"height":844})
+                # Capture the real production heartbeat to exercise liveness without
+                # sleeping five minutes; never expose a test-only hook in the app.
+                page.add_init_script("""(() => {
+                  const original = window.setInterval.bind(window);
+                  window.setInterval = (fn, delay, ...args) => {
+                    if (delay === 300000 && typeof fn === 'function') window.__pwaSmokeBeat = fn;
+                    return original(fn, delay, ...args);
+                  };
+                  window.__pwaSmokeReadyEvents = 0;
+                  window.addEventListener('lhm:customer-ready', () => window.__pwaSmokeReadyEvents++);
+                })();""")
                 errors=[]
                 page.on("pageerror",lambda e:errors.append(str(e)))
                 page.route("**/api/auth/**",fake.handle)
@@ -131,6 +146,24 @@ def main():
                 page.locator("#lhm-plan-banner").wait_for()
                 assert "2 ngày" in page.locator("#lhm-plan-banner-text").inner_text()
                 page.screenshot(path=str(out/"lhm-pwa-active-banner-mobile.png"),full_page=True)
+
+                # Heartbeat must refresh server TTL without unlocking vault again
+                # or remounting the workspace. One short network outage is okay;
+                # two consecutive outages must lock the PWA.
+                assert page.evaluate("window.__pwaSmokeReadyEvents")==1
+                assert page.evaluate("typeof window.__pwaSmokeBeat")=="function"
+                page.evaluate("window.__pwaSmokeBeat()")
+                assert page.evaluate("window.__pwaSmokeReadyEvents")==1
+                assert page.locator("body.customer-locked").count()==0
+                fake.offline_heartbeats=2
+                page.evaluate("window.__pwaSmokeBeat()")
+                assert page.locator("body.customer-locked").count()==0
+                page.evaluate("window.__pwaSmokeBeat()")
+                page.locator("body.customer-locked").wait_for(timeout=10000)
+                assert not page.locator(".pwa-shell").is_visible()
+                assert fake.offline_heartbeats==0
+                page.evaluate("window.LHMCustomer.reload()")
+                page.locator("body:not(.customer-locked)").wait_for(timeout=10000)
 
                 # Expired: hard lock, renewal offered, data kept.
                 fake.state="expired"
