@@ -9,7 +9,7 @@ globalThis.crypto??=webcrypto;
 const {googleSubscription,linkGoogleIdentity}=await import('../workers/ads-api/src/google-subscription.js');
 const {adminApi}=await import('../workers/ads-api/src/admin.js');
 const {normalizeEmail,signLease}=await import('../workers/ads-api/src/commerce.js');
-const {cleanup}=await import('../workers/ads-api/src/index.js');
+const {default:worker,cleanup}=await import('../workers/ads-api/src/index.js');
 
 const base='https://ads.lhmcrm.com';
 const sha=x=>createHash('sha256').update(x).digest('hex');
@@ -386,6 +386,21 @@ test('pilot migration grants remaining days; transfer moves a plan between Gmail
  assert.equal(r.body.customers.length,1);assert.equal(r.body.customers[0].linked,1);
  r=await admin('/api/admin/customers/'+right.id);
  assert.equal(r.body.licenses.length,1);
+});
+
+test('hosting readiness checks an importable Ed25519 Windows signing key',async()=>{
+ const {db}=setup();
+ const ready=async secret=>{
+   const env={COMMERCE_DB:db,LEASE_SIGNING_KEY:secret};
+   const result=await worker.fetch(new Request(base+'/api/_hosting/status'),env);
+   assert.equal(result.status,200);
+   return (await result.json()).desktop_lease_signing_configured;
+ };
+ assert.equal(await ready(''),false);
+ assert.equal(await ready('not-an-ed25519-pkcs8-key'),false);
+ const keyPair=await crypto.subtle.generateKey({name:'Ed25519'},true,['sign','verify']);
+ const key=Buffer.from(await crypto.subtle.exportKey('pkcs8',keyPair.privateKey)).toString('base64');
+ assert.equal(await ready(key),true);
 });
 
 test('Windows cannot consume a paid device seat when lease signing is not configured',async()=>{
