@@ -56,9 +56,12 @@ def main():
                 desktop.locator('#login .lhm-soft-eye').evaluate('(el) => el.click()')
                 assert desktop.locator('#login #login-pass').get_attribute('type')=='password'
                 check_no_horizontal_overflow(desktop)
-                desktop.screenshot(path=str(OUTPUT/'lhm-soft-login-desktop.png'),full_page=True)
+                desktop.screenshot(path=str(OUTPUT/'lhm-soft-login-desktop.png'),full_page=True,animations='disabled')
                 desktop.close()
 
+                # Freeze visual transitions in screenshots: the sign-in panel has
+                # an entrance opacity animation; sampling its first frame falsely
+                # appears as washed-out typography on white cards.
                 # Public landing is a real marketing page. The PWA is inaccessible
                 # until the customer unlocks the encrypted local device vault.
                 site=browser.new_page(viewport={'width':1440,'height':900})
@@ -69,7 +72,7 @@ def main():
                 assert 'Quản lý quảng cáo' in site.locator('h1').first.inner_text()
                 assert 'lhmcrm.com' in site.locator('link[rel="canonical"]').get_attribute('href')
                 check_no_horizontal_overflow(site)
-                site.screenshot(path=str(OUTPUT/'lhm-public-marketing-desktop.png'),full_page=True)
+                site.screenshot(path=str(OUTPUT/'lhm-public-marketing-desktop.png'),full_page=True,animations='disabled')
                 site.locator('.mk-nav-login').click()
                 assert site.url.endswith('/local/')
                 site.locator('#pwa-access-gate').wait_for()
@@ -79,11 +82,11 @@ def main():
                 assert not site.locator('.pwa-page[data-view="dashboard"]').is_visible()
                 assert site.locator('#customer-google-signin').get_attribute('href')=='/api/auth/google/start'
                 assert not site.locator('#customer-purchase').is_visible()
-                site.screenshot(path=str(OUTPUT/'lhm-pwa-login-desktop.png'),full_page=True)
+                site.screenshot(path=str(OUTPUT/'lhm-pwa-login-desktop.png'),full_page=True,animations='disabled')
                 # Without verified Google login and a paid license, Ads UI MUST stay locked.
                 assert not site.locator('#lhm-vault-add').is_visible()
                 assert not site.locator('.pwa-sidebar').is_visible()
-                site.screenshot(path=str(OUTPUT/'lhm-locked-studio-desktop.png'),full_page=True)
+                site.screenshot(path=str(OUTPUT/'lhm-locked-studio-desktop.png'),full_page=True,animations='disabled')
                 assert not errors,errors
                 site.close()
 
@@ -93,17 +96,17 @@ def main():
                 mobile.goto(origin+'/',wait_until='domcontentloaded')
                 mobile.locator('.mk-mobile-menu summary').wait_for()
                 check_no_horizontal_overflow(mobile)
-                mobile.screenshot(path=str(OUTPUT/'lhm-public-marketing-mobile.png'),full_page=True)
+                mobile.screenshot(path=str(OUTPUT/'lhm-public-marketing-mobile.png'),full_page=True,animations='disabled')
                 mobile.locator('.mk-mobile-menu summary').click()
                 mobile.locator('.mk-mobile-menu-panel a[href="/local/"]').click()
                 mobile.locator('#pwa-access-gate').wait_for()
                 assert not mobile.locator('.pwa-mobile-dock').is_visible()
                 check_no_horizontal_overflow(mobile)
-                mobile.screenshot(path=str(OUTPUT/'lhm-pwa-login-mobile.png'),full_page=True)
+                mobile.screenshot(path=str(OUTPUT/'lhm-pwa-login-mobile.png'),full_page=True,animations='disabled')
                 assert mobile.locator('#customer-google-signin').is_visible()
                 assert not mobile.locator('#lhm-vault-add').is_visible()
                 assert not mobile.locator('.pwa-page[data-view="accounts"]').is_visible()
-                mobile.screenshot(path=str(OUTPUT/'lhm-locked-studio-mobile.png'),full_page=True)
+                mobile.screenshot(path=str(OUTPUT/'lhm-locked-studio-mobile.png'),full_page=True,animations='disabled')
                 assert not mobile_errors,mobile_errors
                 mobile.close()
 
