@@ -388,6 +388,22 @@ test('pilot migration grants remaining days; transfer moves a plan between Gmail
  assert.equal(r.body.licenses.length,1);
 });
 
+test('Windows cannot consume a paid device seat when lease signing is not configured',async()=>{
+ const {db,admin,signIn,desktop}=setup();
+ const me=await signIn({sub:'sub-pc-no-signer',email:'pc-no-signer@gmail.com'});
+ const granted=await admin('/api/admin/grant',{email:'pc-no-signer@gmail.com',
+   confirm_email:'pc-no-signer@gmail.com',seat_limit:1,days:3,reference:'CK-NO-SIGNER'});
+ assert.equal(granted.status,201,JSON.stringify(granted.body));
+ const pc=await desktop(me.id);
+ const response=await pc('/api/auth/seat',{client_id:client()});
+ assert.equal(response.status,503,JSON.stringify(response.body));
+ assert.equal(response.body.code,'LEASE_SIGNING_UNAVAILABLE');
+ assert.notEqual(response.body.active,true);
+ assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM license_seats').get().n,0);
+ // A browser license is online-only, so no Windows signer is needed.
+ assert.equal((await me.call('/api/auth/seat',{client_id:client()})).status,200);
+});
+
 test('Windows app receives an Ed25519 lease bound to its seat that never outlives the plan',async()=>{
  const pair=await crypto.subtle.generateKey({name:'Ed25519'},true,['sign','verify']);
  const pkcs8=Buffer.from(await crypto.subtle.exportKey('pkcs8',pair.privateKey)).toString('base64');
