@@ -195,7 +195,8 @@ test('device takeover never deletes an occupied seat before installing its repla
  assert.equal((await me.call('/api/auth/seat',{client_id:phone})).status,200);
  assert.equal((await me.call('/api/auth/seat',{client_id:pc})).status,200);
  const license=db.sqlite.prepare('SELECT id FROM licenses WHERE customer_id=?').get(me.id);
- const old=sha(license.id+':'+phone),replacement=sha(license.id+':'+tablet);
+ const originals=new Set([sha(license.id+':'+phone),sha(license.id+':'+pc)]);
+ const replacement=sha(license.id+':'+tablet);
  // A separate DELETE used to run before a second INSERT. An interrupted INSERT
  // left the customer missing an active seat. No such statement may execute.
  const prepare=db.prepare;
@@ -209,8 +210,11 @@ test('device takeover never deletes an occupied seat before installing its repla
  assert.equal(result.body.occupied,2);
  const seats=db.sqlite.prepare('SELECT client_hash FROM license_seats WHERE license_id=?').all(license.id);
  assert.equal(seats.length,2);
- assert.ok(!seats.some(s=>s.client_hash===old));
  assert.ok(seats.some(s=>s.client_hash===replacement));
+ // Both original devices can have the same millisecond timestamp. The
+ // implementation resolves that tie by hash, not insertion order.
+ assert.equal(seats.filter(s=>originals.has(s.client_hash)).length,1);
+ assert.equal(new Set(seats.map(s=>s.client_hash)).size,2);
 });
 
 test('a heartbeat raced by a device takeover cannot return an active seat',async()=>{
