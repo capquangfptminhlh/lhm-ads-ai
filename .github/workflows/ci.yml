@@ -31,6 +31,7 @@ jobs:
       - run: node --check static/device-studio.js
       - run: node --check static/soft-motion-ui.js
       - run: node --check static/customer-login.js
+      - run: node --test tests/customer_login_failure.test.mjs
       - run: node --check workers/ads-api/src/google-subscription.js
       - run: node --check workers/ads-api/src/desktop-pair.js
       - run: node --check static/desktop-cloud-login.js
