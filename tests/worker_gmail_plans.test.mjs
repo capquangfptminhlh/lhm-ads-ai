@@ -185,6 +185,53 @@ test('self-service order -> QR -> admin activate -> seats -> renew -> expiry',as
  assert.equal(r.status,402);assert.equal(r.body.code,'SUBSCRIPTION_EXPIRED');
 });
 
+test('device takeover never deletes an occupied seat before installing its replacement',async()=>{
+ const {db,admin,signIn}=setup();
+ const grant=await admin('/api/admin/grant',{email:'atomic.seat@gmail.com',
+   confirm_email:'atomic.seat@gmail.com',plan_code:'personal-1m',reference:'CK-SEAT-ATOMIC'});
+ assert.equal(grant.status,201,JSON.stringify(grant.body));
+ const me=await signIn({sub:'sub-seat-atomic',email:'atomic.seat@gmail.com'});
+ const phone=client(),pc=client(),tablet=client();
+ assert.equal((await me.call('/api/auth/seat',{client_id:phone})).status,200);
+ assert.equal((await me.call('/api/auth/seat',{client_id:pc})).status,200);
+ const license=db.sqlite.prepare('SELECT id FROM licenses WHERE customer_id=?').get(me.id);
+ const old=sha(license.id+':'+phone),replacement=sha(license.id+':'+tablet);
+ // A separate DELETE used to run before a second INSERT. An interrupted INSERT
+ // left the customer missing an active seat. No such statement may execute.
+ const prepare=db.prepare;
+ db.prepare=sql=>{
+   if(sql.startsWith('DELETE FROM license_seats WHERE license_id=? AND client_hash='))
+     throw Error('unsafe delete-before-insert takeover');
+   return prepare(sql);
+ };
+ const result=await me.call('/api/auth/seat',{client_id:tablet,mode:'takeover'});
+ assert.equal(result.status,200,JSON.stringify(result.body));
+ assert.equal(result.body.occupied,2);
+ const seats=db.sqlite.prepare('SELECT client_hash FROM license_seats WHERE license_id=?').all(license.id);
+ assert.equal(seats.length,2);
+ assert.ok(!seats.some(s=>s.client_hash===old));
+ assert.ok(seats.some(s=>s.client_hash===replacement));
+});
+
+test('a heartbeat raced by a device takeover cannot return an active seat',async()=>{
+ const {db,admin,signIn}=setup();
+ const grant=await admin('/api/admin/grant',{email:'race.seat@gmail.com',
+   confirm_email:'race.seat@gmail.com',plan_code:'personal-1m',reference:'CK-SEAT-RACE'});
+ assert.equal(grant.status,201,JSON.stringify(grant.body));
+ const me=await signIn({sub:'sub-seat-race',email:'race.seat@gmail.com'});
+ const pc=client();
+ assert.equal((await me.call('/api/auth/seat',{client_id:pc})).status,200);
+ const prepare=db.prepare;
+ // Simulate a concurrent session eviction after SELECT but before UPDATE.
+ db.prepare=sql=>sql.startsWith('UPDATE license_seats SET last_seen_at=')
+   ?{bind:()=>({run:async()=>({meta:{changes:0}})})}
+   :prepare(sql);
+ const result=await me.call('/api/auth/seat',{client_id:pc,mode:'heartbeat'});
+ assert.equal(result.status,409,JSON.stringify(result.body));
+ assert.equal(result.body.code,'SEAT_REPLACED');
+ assert.equal(result.body.active,undefined);
+});
+
 test('legacy payment approval also atomically grants license, never marks paid alone',async()=>{
  const {db,admin,signIn}=setup();
  const buyer=await signIn({sub:'legacy-approve-sub',email:'legacy-approve@gmail.com'});
