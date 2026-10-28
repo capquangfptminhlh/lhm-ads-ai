@@ -125,6 +125,12 @@ export async function grantFromOrder(db,order,actor,{reference,note,action,
          datetime(CASE WHEN julianday(expires_at)>julianday('now') THEN expires_at ELSE 'now' END, ?)),
        seat_limit=?,plan_code=COALESCE(?,plan_code),updated_at=CURRENT_TIMESTAMP WHERE id=?`)
        .bind(step,order.seat_limit||1,order.plan_code||null,licenseId));
+   // A renewal may downgrade 5 seats to 1 or 2. Trim the least recently
+   // active devices INSIDE the same transaction as the license change;
+   // otherwise existing heartbeats could exceed the paid concurrency limit.
+   writes.push(db.prepare(
+     'DELETE FROM license_seats WHERE license_id=? AND client_hash IN (SELECT client_hash FROM license_seats WHERE license_id=? ORDER BY last_seen_at DESC,client_hash DESC LIMIT -1 OFFSET ?)'
+   ).bind(licenseId,licenseId,order.seat_limit||1));
  }else{
    licenseId=order.id;
    // Gmail-bound plans never hand out a key; the hash only satisfies the legacy column.
