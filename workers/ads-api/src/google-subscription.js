@@ -251,8 +251,12 @@ export async function googleSubscription(req,env){
    await db.prepare('DELETE FROM license_seats WHERE license_id=? AND last_seen_at<?').bind(plan.id,since).run();
    const old=await db.prepare('SELECT client_hash FROM license_seats WHERE license_id=? AND client_hash=?').bind(plan.id,clientHash).first();
    if(old){
-     await db.prepare('UPDATE license_seats SET last_seen_at=?,device_label=COALESCE(?,device_label) WHERE license_id=? AND client_hash=?')
+     // A concurrent takeover can replace this seat between SELECT and UPDATE.
+     // Never return an active lease after an UPDATE that matched no live seat.
+     const refreshed=await db.prepare('UPDATE license_seats SET last_seen_at=?,device_label=COALESCE(?,device_label) WHERE license_id=? AND client_hash=?')
        .bind(now,label,plan.id,clientHash).run();
+     if(refreshed.meta.changes!==1)
+       return json({error:'Gmail này đang dùng trên máy khác.',code:'SEAT_REPLACED'},409);
    }else{
      if(mode==='heartbeat')return json({error:'Gmail này đang dùng trên máy khác.',code:'SEAT_REPLACED'},409);
      const insert=()=>db.prepare('INSERT INTO license_seats(license_id,client_hash,last_seen_at,first_seen_at,platform,device_label) SELECT ?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM license_seats WHERE license_id=?)<?')
@@ -264,11 +268,14 @@ export async function googleSubscription(req,env){
          return json({error:'Đã dùng hết số máy của gói.',code:'SEAT_LIMIT',seat_limit:plan.seat_limit,
            devices:(await seatsOf(db,plan.id)).map(r=>deviceView(r,''))},409);
        }
-       // The customer confirmed: sign out the least recently active device.
-       await db.prepare('DELETE FROM license_seats WHERE license_id=? AND client_hash=(SELECT client_hash FROM license_seats WHERE license_id=? ORDER BY last_seen_at ASC,client_hash ASC LIMIT 1)')
-         .bind(plan.id,plan.id).run();
-       inserted=await insert();
-       if(inserted.meta.changes!==1)return json({error:'Seat limit reached. Please retry.',code:'SEAT_LIMIT'},409);
+       // Replace the oldest seat in ONE statement: DELETE + INSERT would create
+       // a gap where a failed insert leaves a paid customer with fewer seats.
+       // The count guard avoids evicting anyone if a seat was freed concurrently.
+       const replaced=await db.prepare(
+         'UPDATE license_seats SET client_hash=?,last_seen_at=?,first_seen_at=?,platform=?,device_label=? WHERE license_id=? AND client_hash=(SELECT client_hash FROM license_seats WHERE license_id=? ORDER BY last_seen_at ASC,client_hash ASC LIMIT 1) AND (SELECT COUNT(*) FROM license_seats WHERE license_id=?)>=?'
+       ).bind(clientHash,now,now,platform,label,plan.id,plan.id,plan.id,plan.seat_limit).run();
+       if(replaced.meta.changes!==1)
+         return json({error:'Seat limit changed. Please retry.',code:'SEAT_LIMIT'},409);
      }
    }
    const count=await db.prepare('SELECT COUNT(*) AS n FROM license_seats WHERE license_id=?').bind(plan.id).first();
