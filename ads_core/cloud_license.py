@@ -440,9 +440,9 @@ def heartbeat_loop(stop: threading.Event):
         session = current_cloud_license()
         if session and session.token:
             result = session.refresh_lease(heartbeat=bool(session.last_seen))
-            # A seat that simply timed out (PC slept) is re-attached when there is room;
-            # SEAT_LIMIT still waits for the user to choose "Dùng trên máy này".
-            if result.get("reason") == "SEAT_REPLACED":
-                session.refresh_lease(mode="attach")
+            # Never silently re-attach after SEAT_REPLACED. It also represents
+            # an explicit administrator kick or a seat taken over by another PC.
+            # Auto-reattaching as soon as space opens would undo that decision.
+            # The trusted window's "Tiếp tục" button can attach explicitly.
         if stop.wait(HEARTBEAT_SECONDS):
             break
