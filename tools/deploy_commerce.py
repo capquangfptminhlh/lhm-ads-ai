@@ -98,6 +98,27 @@ def make_config(database_id: str) -> str:
     )
 
 
+
+def confirm_pre_migration_restore_point(config_file: Path) -> str:
+    """Require D1 Time Travel rollback evidence before modifying production.
+
+    Bookmarks are metadata; do not export live customer data into CI artifacts.
+    """
+    result = subprocess.run(
+        ["npx", "wrangler", "d1", "time-travel", "info", DB_NAME,
+         "--config", str(config_file)],
+        cwd=ROOT, capture_output=True, text=True, check=True,
+    )
+    # Wrangler prints a suggested restore command containing the exact bookmark.
+    match = re.search(r"--bookmark=([0-9a-f]{8}(?:-[0-9a-f]{8}){2}-[0-9a-f]{32})\b",
+                      result.stdout, flags=re.IGNORECASE)
+    if not match:
+        raise RuntimeError("No D1 Time Travel restore bookmark; refusing production migrations")
+    bookmark = match.group(1)
+    print("Pre-migration D1 Time Travel restore point verified:", bookmark)
+    return bookmark
+
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--dry-run",action="store_true",help="Check and print binding name without deploying")
@@ -122,6 +143,7 @@ def main():
         generated=ROOT/"wrangler.commerce.generated.toml"
         try:
             generated.write_text(cfg,encoding="utf-8")
+            confirm_pre_migration_restore_point(generated)
             subprocess.run(["npx","wrangler","d1","migrations","apply",DB_NAME,
                 "--remote","--config",str(generated)],cwd=ROOT,check=True)
             subprocess.run(["npx","wrangler","deploy","--config",str(generated)],
