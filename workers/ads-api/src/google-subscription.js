@@ -246,6 +246,15 @@ export async function googleSubscription(req,env){
    const platform=actor.desktop?'windows':'pwa';
    const label=cleanLabel(data?.device_label);
    const clientHash=await hash(plan.id+':'+client);
+   // Windows cannot open a paid workspace without a signed, device-bound
+   // offline lease. Fail BEFORE touching seats if Worker signer is missing.
+   // Otherwise a broken Cloudflare secret consumes a paid device slot.
+   const signedLease=actor.desktop
+     ?await signLease(env,{customer:actor,license:plan,clientHash}).catch(()=>null)
+     :null;
+   if(actor.desktop&&!signedLease)
+     return json({error:'Dịch vụ ký bản quyền Windows chưa sẵn sàng. Liên hệ hỗ trợ.',
+       code:'LEASE_SIGNING_UNAVAILABLE'},503);
    const since=iso(Date.now()-SEAT_TTL_SECONDS*1000),now=iso(Date.now());
    // Remove expired seats; only licenses and random client IDs are stored.
    await db.prepare('DELETE FROM license_seats WHERE license_id=? AND last_seen_at<?').bind(plan.id,since).run();
@@ -282,11 +291,9 @@ export async function googleSubscription(req,env){
    const response={active:true,account_id:actor.id,account_email:actor.email,expires_at:plan.expires_at,
      seat_limit:plan.seat_limit,occupied:count?.n||0,ttl_seconds:SEAT_TTL_SECONDS,heartbeat_seconds:HEARTBEAT_SECONDS,
      plan:planView(plan)};
-   // Only the Windows app gets an offline lease; it is bound to this seat and plan.
-   if(actor.desktop){
-     const lease=await signLease(env,{customer:actor,license:plan,clientHash});
-     if(lease)response.lease=lease;
-   }
+   // Only the Windows app gets an offline lease. Its signature was validated
+   // as creatable BEFORE the device seat was touched.
+   if(actor.desktop)response.lease=signedLease;
    return json(response);
  }
  return json({error:'Unknown endpoint'},404);
