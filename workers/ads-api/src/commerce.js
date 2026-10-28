@@ -170,6 +170,12 @@ async function leaseKey(env){
  cachedSource=source;
  return cachedKey;
 }
+/* Hosting readiness must verify the signing key can actually be imported.
+ * Simply checking a non-empty secret creates false-positive commercial gates. */
+export async function leaseSignerReady(env){
+ try{return Boolean(await leaseKey(env));}
+ catch(_){return false;}
+}
 export async function signLease(env,{customer,license,clientHash}){
  const key=await leaseKey(env).catch(()=>null);
  if(!key)return null;
