@@ -232,6 +232,32 @@ test('a heartbeat raced by a device takeover cannot return an active seat',async
  assert.equal(result.body.active,undefined);
 });
 
+test('a paid seat downgrade immediately evicts excess devices within the license transaction',async()=>{
+ const {db,admin,signIn}=setup();
+ const email='downgrade.seat@gmail.com';
+ let r=await admin('/api/admin/grant',{email,confirm_email:email,
+   seat_limit:5,days:10,reference:'CK-PLAN-BIG'});
+ assert.equal(r.status,201,JSON.stringify(r.body));
+ const me=await signIn({sub:'sub-seat-downgrade',email});
+ const ids=Array.from({length:5},()=>client());
+ for(const id of ids)
+   assert.equal((await me.call('/api/auth/seat',{client_id:id})).status,200);
+ assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM license_seats').get().n,5);
+ r=await admin('/api/admin/grant',{email,confirm_email:email,
+   seat_limit:2,days:30,reference:'CK-PLAN-SMALL'});
+ assert.equal(r.status,201,JSON.stringify(r.body));
+ assert.equal(r.body.license.seat_limit,2);
+ const seats=db.sqlite.prepare('SELECT client_hash FROM license_seats').all().map(x=>x.client_hash);
+ assert.equal(seats.length,2);
+ const license=db.sqlite.prepare('SELECT id FROM licenses WHERE customer_id=?').get(me.id);
+ for(const id of ids){
+   const active=seats.includes(sha(license.id+':'+id));
+   const response=await me.call('/api/auth/seat',{client_id:id,mode:'heartbeat'});
+   assert.equal(response.status,active?200:409);
+   if(!active)assert.equal(response.body.code,'SEAT_REPLACED');
+ }
+});
+
 test('legacy payment approval also atomically grants license, never marks paid alone',async()=>{
  const {db,admin,signIn}=setup();
  const buyer=await signIn({sub:'legacy-approve-sub',email:'legacy-approve@gmail.com'});
