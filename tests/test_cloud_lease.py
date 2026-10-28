@@ -282,3 +282,38 @@ def test_locked_pc_api_returns_the_lock_reason(tmp_path, keys, monkeypatch):
     assert r.status_code == 402 and r.json()["code"] == "SUBSCRIPTION_EXPIRED"
     native.reason = "ACCOUNT_BLOCKED"
     assert client.get("/api/accounts").status_code == 403
+
+
+def test_background_heartbeat_never_reclaims_kicked_or_replaced_device(monkeypatch):
+    """Admin kicked devices must remain kicked until a user explicitly re-attaches.
+
+    SEAT_REPLACED also describes takeover by another device. The heartbeat
+    loop must not turn that definitive denial into a fresh 'attach'.
+    """
+    class RevokedSession:
+        token = "test-token"
+        last_seen = 42.0
+
+        def __init__(self):
+            self.modes = []
+
+        def refresh_lease(self, *, heartbeat=False, mode=None):
+            self.modes.append(("heartbeat" if heartbeat else mode))
+            return {"active": False, "reason": "SEAT_REPLACED"}
+
+    class StopAfterOne:
+        def __init__(self):
+            self.stopped = False
+
+        def is_set(self):
+            return self.stopped
+
+        def wait(self, interval):
+            assert interval == service.HEARTBEAT_SECONDS
+            self.stopped = True
+            return True
+
+    session = RevokedSession()
+    monkeypatch.setattr(service, "current_cloud_license", lambda: session)
+    service.heartbeat_loop(StopAfterOne())
+    assert session.modes == ["heartbeat"]
