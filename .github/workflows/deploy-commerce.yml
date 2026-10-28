@@ -27,6 +27,11 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       LHM_ADMIN_EMAIL: ${{ secrets.LHM_ADMIN_EMAIL }}
     steps:
+      - name: Refuse production deployment from unmerged branches
+        if: ${{ github.ref != 'refs/heads/main' }}
+        run: |
+          echo "::error::Production deploy requires a reviewed and merged main branch."
+          exit 1
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
@@ -65,15 +70,13 @@ jobs:
         run: python tools/deploy_commerce.py --provision-only --create-db
       - name: Verify existing commerce D1
         run: python tools/deploy_commerce.py --dry-run
-      - name: Persist verified non-secret D1 binding in source configuration
+      - name: Require reviewed D1 binding (never push from deployment)
         run: |
           python tools/persist_commerce_binding.py
           if ! git diff --quiet -- wrangler.toml; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add wrangler.toml
-            git commit -m "chore(cloudflare): persist verified COMMERCE_DB binding"
-            git push origin HEAD:main
+            echo "::error::Cloudflare D1 binding differs from reviewed wrangler.toml. Commit it via a PR first."
+            git diff -- wrangler.toml
+            exit 1
           fi
       - name: Create missing Access app only with explicit approval
         if: ${{ inputs.create_access_app }}
