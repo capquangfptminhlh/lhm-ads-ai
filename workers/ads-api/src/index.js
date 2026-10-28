@@ -2,6 +2,7 @@ import { adminApi, adminIdentity } from './admin.js';
 import { customerAuth } from './customer-auth.js';
 import { googleSubscription } from './google-subscription.js';
 import { desktopPair } from './desktop-pair.js';
+import { leaseSignerReady } from './commerce.js';
 /*
  * Cloudflare serves installable PWA assets plus LHM subscription/control-plane API.
  * STRICT device-only advertising credential custody:
@@ -130,7 +131,7 @@ export default {
         desktop_pairing_schema_ready,
         gmail_plans_schema_ready,
         payment_instructions_configured:Boolean(env?.BANK_BIN && env?.BANK_ACCOUNT_NO && env?.BANK_ACCOUNT_NAME),
-        desktop_lease_signing_configured:Boolean(env?.LEASE_SIGNING_KEY),
+        desktop_lease_signing_configured:await leaseSignerReady(env),
         customer_auth_schema_ready,
         auth_ready:false,
         device_only_ready:false,
