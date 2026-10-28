@@ -63,7 +63,7 @@ class StaticPagesTests(unittest.TestCase):
             worker=(out/'sw.js').read_text(encoding='utf-8')
             self.assertIn("'/local/'",worker)
             self.assertIn("caches.match('/local/')",worker)
-            self.assertIn("lhm-pwa-cloudflare-v9-20261024",worker)
+            self.assertIn("lhm-pwa-cloudflare-v11-20261025",worker)
             self.assertIn("url.pathname.startsWith('/api/')",worker)
             self.assertNotIn("'/studio/'",worker)
 
@@ -85,7 +85,8 @@ class StaticPagesTests(unittest.TestCase):
             self.assertIn('/static/pwa-refresh.css',local)
             self.assertTrue((out/'static/pwa-refresh.css').exists())
             self.assertIn('license-check.js',local)
-            self.assertIn('license-check-form',local)
+            self.assertIn('lhm-my-plan',local)
+            self.assertNotIn('id="license-check-form"',local)
             self.assertIn('data-view="dashboard"',local)
             self.assertIn('data-view="accounts"',local)
             self.assertIn('data-view="reports"',local)

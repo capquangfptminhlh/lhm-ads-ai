@@ -38,13 +38,13 @@ def build(output: Path) -> Path:
         "/static/device-insights.js","/static/device-mcp.js","/static/device-vault.css",
         "/static/device-insights.css","/static/device-local.css","/static/soft-motion-ui.css",
         "/static/device-studio.css","/static/device-studio.js",
-        "/static/license-check.js","/static/fonts.css",
+        "/static/license-check.js","/static/customer-login.js","/static/customer-login.css","/static/fonts.css",
         "/static/marketing.css","/static/marketing-refresh.css",
         "/static/pwa-refresh.css"
     ]
     sw=sw.replace("const SHELL = [","const SHELL = [\n"+
       "".join(f"  '{name}',\n" for name in pre_cache),1)
-    sw=sw.replace("lhm-pwa-v1-20261023","lhm-pwa-cloudflare-v9-20261024",1)
+    sw=sw.replace("lhm-pwa-v1-20261023","lhm-pwa-cloudflare-v11-20261025",1)
     sw=sw.replace("if (req.mode === 'navigate') {",
       "if (req.mode === 'navigate') {\n"+
       "    if (url.pathname === '/local/' || url.pathname === '/local') {\n"+
@@ -59,6 +59,12 @@ def build(output: Path) -> Path:
     local=output / "local"
     local.mkdir()
     (local / "index.html").write_text(local_html,encoding="utf-8")
+    # Google/Meta browser sign-in return here (registered redirect URIs). The same app
+    # shell reads the token from the URL fragment and immediately rewrites the URL.
+    for provider in ("google", "meta"):
+        target = local / "oauth" / provider
+        target.mkdir(parents=True)
+        (target / "index.html").write_text(local_html,encoding="utf-8")
     studio = (STATIC / "studio.html").read_text(encoding="utf-8")
     assert '<form id="login-form">' in studio and '</body>' in studio
     # Unlike the FastAPI-hosted Studio, this static bundle cannot authenticate anyone.
@@ -90,6 +96,11 @@ def build(output: Path) -> Path:
     page = output / "studio"
     page.mkdir()
     (page / "index.html").write_text(studio, encoding="utf-8")
+    # Terms and privacy (linked from the Google OAuth consent screen).
+    for slug, source in (("dieu-khoan", "legal-terms.html"), ("bao-mat", "legal-privacy.html")):
+        target = output / slug
+        target.mkdir()
+        (target / "index.html").write_text((STATIC / source).read_text(encoding="utf-8"), encoding="utf-8")
     # Cloudflare Access-protected admin page; API independently verifies signed Access JWT.
     admin = output / "admin"
     admin.mkdir()
@@ -110,8 +121,9 @@ def build(output: Path) -> Path:
         "  X-Frame-Options: DENY\n"
         "  Permissions-Policy: camera=(), microphone=(), geolocation=()\n"
         "  Content-Security-Policy: default-src 'self'; script-src 'self'; "
-        "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
-        "font-src 'self' data:; connect-src 'self'; object-src 'none'; "
+        "style-src 'self' 'unsafe-inline'; img-src 'self' data: https://img.vietqr.io https://*.googleusercontent.com; "
+        "font-src 'self' data:; connect-src 'self' https://googleads.googleapis.com "
+        "https://graph.facebook.com https://openrouter.ai; object-src 'none'; "
         "base-uri 'none'; frame-ancestors 'none'; form-action 'self'; "
         "upgrade-insecure-requests\n",
         encoding="utf-8"

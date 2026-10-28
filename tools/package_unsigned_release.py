@@ -61,11 +61,11 @@ def _private_key(private_file:Path, password:str)->Ed25519PrivateKey:
     return key
 
 def create_package(*,exe:Path,checksum:Path,manifest:Path,public_file:Path,
-                   acceptance:Path,private_file:Path,password:str,out:Path,
+                   lease_public_file:Path,acceptance:Path,private_file:Path,password:str,out:Path,
                    accept_unsigned:bool=False)->dict:
     if accept_unsigned is not True:
         raise ReleaseGateError('Owner must explicitly accept unsigned Windows EXE')
-    candidate=verify_candidate(exe,checksum,manifest,public_file)
+    candidate=verify_candidate(exe,checksum,manifest,public_file,lease_public_file)
     verify_approval(acceptance,candidate)
     key=_private_key(private_file,password)
     trusted=_trusted_key(public_file)
@@ -91,6 +91,9 @@ def create_package(*,exe:Path,checksum:Path,manifest:Path,public_file:Path,
         'executable':'LHM-Ads-AI.exe',
         'sha256':candidate['sha256'],
         'license_public_key_sha256':candidate['license_public_key_sha256'],
+        'lease_public_key_sha256':candidate['lease_public_key_sha256'],
+        'license_mode':candidate['license_mode'],
+        'builder':candidate['builder'],
         'authenticode':'UNSIGNED',
         'distribution':'OWNER_APPROVED_UNSIGNED',
         'manifest_signature_algorithm':'Ed25519 domain-separated LHM release v1',
@@ -123,7 +126,7 @@ def create_package(*,exe:Path,checksum:Path,manifest:Path,public_file:Path,
             archive.writestr('signed-release-manifest.json',
                              json.dumps(envelope,sort_keys=True,indent=2,ensure_ascii=True)+'\n')
             archive.writestr('README-CUSTOMER.txt',readme)
-        verify_package(out,public_file)
+        verify_package(out,public_file,lease_public_file)
     except Exception:
         out.unlink(missing_ok=True)
         raise
@@ -131,7 +134,7 @@ def create_package(*,exe:Path,checksum:Path,manifest:Path,public_file:Path,
             'authenticode':'UNSIGNED','manifest_signature':'Ed25519',
             'sha256':release['sha256']}
 
-def verify_package(package:Path,trusted_public:Path)->dict:
+def verify_package(package:Path,trusted_public:Path,lease_public_file:Path)->dict:
     package=Path(package)
     if not package.is_file() or not 0<package.stat().st_size<=MAX_PACKAGE:
         raise ReleaseGateError('Missing/oversized release ZIP')
@@ -151,8 +154,14 @@ def verify_package(package:Path,trusted_public:Path)->dict:
             raise ReleaseGateError('Unsigned commercial edition markers are required')
         if data.get('distribution')!='OWNER_APPROVED_UNSIGNED':
             raise ReleaseGateError('Distribution approval missing')
+        if data.get('builder')!='nuitka' or data.get('license_mode')!='google-only':
+            raise ReleaseGateError('Commercial release must be Nuitka with verified Gmail-only licensing')
+        if not isinstance(data.get('lease_public_key_sha256'),str) or not re.fullmatch(r'[0-9a-f]{64}',data['lease_public_key_sha256']):
+            raise ReleaseGateError('Missing signed Gmail lease public key fingerprint')
         if data.get('license_public_key_sha256')!=hashlib.sha256(trusted).hexdigest():
             raise ReleaseGateError('Untrusted vendor key fingerprint')
+        if data.get('lease_public_key_sha256')!=hashlib.sha256(_trusted_key(lease_public_file)).hexdigest():
+            raise ReleaseGateError('Untrusted Worker lease public key fingerprint')
         try:
             sig=base64.b64decode(envelope['signature'],validate=True)
             Ed25519PublicKey.from_public_bytes(trusted).verify(sig,DOMAIN+canonical(data))
@@ -170,22 +179,24 @@ def main(argv=None)->int:
     parser=argparse.ArgumentParser(description='LHM commercial WITHOUT Authenticode; signed Ed25519 manifest')
     commands=parser.add_subparsers(dest='command',required=True)
     pkg=commands.add_parser('package')
-    for flag in ('exe','checksum','manifest','vendor-public','acceptance','private','out'):
+    for flag in ('exe','checksum','manifest','vendor-public','lease-public','acceptance','private','out'):
         pkg.add_argument('--'+flag,required=True,type=Path)
     pkg.add_argument('--accept-unsigned-windows',action='store_true',
                      help='Explicit owner opt-out of Windows Authenticode')
     verify=commands.add_parser('verify')
     verify.add_argument('--zip',required=True,type=Path)
     verify.add_argument('--trusted-vendor-public',required=True,type=Path)
+    verify.add_argument('--trusted-lease-public',required=True,type=Path)
     args=parser.parse_args(argv)
     try:
         if args.command=='verify':
-            info=verify_package(args.zip,args.trusted_vendor_public)
+            info=verify_package(args.zip,args.trusted_vendor_public,args.trusted_lease_public)
             print('PASS: publisher Ed25519 release signature and EXE SHA256 valid; Windows Authenticode UNSIGNED')
         else:
             password=getpass('Mật khẩu mở khóa riêng của bên phát hành (ẩn): ')
             info=create_package(exe=args.exe,checksum=args.checksum,
                        manifest=args.manifest,public_file=args.vendor_public,
+                       lease_public_file=args.lease_public,
                        acceptance=args.acceptance,private_file=args.private,
                        password=password,out=args.out,
                        accept_unsigned=args.accept_unsigned_windows)

@@ -196,6 +196,7 @@ from . import desktop_onboarding  # noqa: E402,F401
 
 # Commercial Windows: locally signed licenses and read-only monitoring.
 from . import licensing, monitoring  # noqa: E402,F401
+from . import desktop_cloud_license  # noqa: E402,F401
 
 # Explicit, read-only OAuth/API permission diagnostics; no MCP access.
 from . import permissions  # noqa: E402,F401

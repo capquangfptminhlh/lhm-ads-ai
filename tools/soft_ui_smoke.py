@@ -56,9 +56,12 @@ def main():
                 desktop.locator('#login .lhm-soft-eye').evaluate('(el) => el.click()')
                 assert desktop.locator('#login #login-pass').get_attribute('type')=='password'
                 check_no_horizontal_overflow(desktop)
-                desktop.screenshot(path=str(OUTPUT/'lhm-soft-login-desktop.png'),full_page=True)
+                desktop.screenshot(path=str(OUTPUT/'lhm-soft-login-desktop.png'),full_page=True,animations='disabled')
                 desktop.close()
 
+                # Freeze visual transitions in screenshots: the sign-in panel has
+                # an entrance opacity animation; sampling its first frame falsely
+                # appears as washed-out typography on white cards.
                 # Public landing is a real marketing page. The PWA is inaccessible
                 # until the customer unlocks the encrypted local device vault.
                 site=browser.new_page(viewport={'width':1440,'height':900})
@@ -69,84 +72,41 @@ def main():
                 assert 'Quản lý quảng cáo' in site.locator('h1').first.inner_text()
                 assert 'lhmcrm.com' in site.locator('link[rel="canonical"]').get_attribute('href')
                 check_no_horizontal_overflow(site)
-                site.screenshot(path=str(OUTPUT/'lhm-public-marketing-desktop.png'),full_page=True)
-                # The header button is the admin entry; the hero CTA opens the PWA.
-                assert site.locator('.mk-nav-login').get_attribute('href')=='/admin/'
-                site.locator('.mk-actions .mk-btn-primary').click()
+                site.screenshot(path=str(OUTPUT/'lhm-public-marketing-desktop.png'),full_page=True,animations='disabled')
+                site.locator('.mk-nav-login').click()
                 assert site.url.endswith('/local/')
                 site.locator('#pwa-access-gate').wait_for()
-                # Without a customer session the account gate hides the device vault.
-                site.locator('#customer-login-box').wait_for()
-                assert not site.locator('#lhm-vault-password').is_visible()
+                site.locator('#customer-google-signin').wait_for()
                 assert site.locator('body.pwa-gated').count()==1
                 assert not site.locator('.pwa-sidebar').is_visible()
                 assert not site.locator('.pwa-page[data-view="dashboard"]').is_visible()
-                site.screenshot(path=str(OUTPUT/'lhm-pwa-login-desktop.png'),full_page=True)
-                # Simulate a signed-in customer; the vault is still unlocked locally.
-                site.route('**/api/customer/session',lambda route:route.fulfill(
-                    status=200,content_type='application/json',body='{"authenticated":true}'))
-                site.reload(wait_until='domcontentloaded')
-                site.locator('#lhm-vault-password').wait_for()
-                assert not site.locator('#customer-login-box').is_visible()
-                password='Demo-vault-2026-strong-passphrase!'
-                site.locator('#lhm-vault-password').fill(password)
-                site.locator('#lhm-vault-access-action').click()
-                site.locator('body.lhm-pwa:not(.pwa-gated)').wait_for(timeout=15000)
-                assert site.locator('.pwa-page.active[data-view="dashboard"]').is_visible()
-                assert site.locator('.pwa-sidebar').is_visible()
-                site.screenshot(path=str(OUTPUT/'lhm-independent-studio-desktop.png'),full_page=True)
-                site.locator('#pwa-signout').click()
-                site.locator('body.pwa-gated').wait_for(timeout=10000)
+                assert site.locator('#customer-google-signin').get_attribute('href')=='/api/auth/google/start'
+                assert not site.locator('#customer-purchase').is_visible()
+                site.screenshot(path=str(OUTPUT/'lhm-pwa-login-desktop.png'),full_page=True,animations='disabled')
+                # Without verified Google login and a paid license, Ads UI MUST stay locked.
+                assert not site.locator('#lhm-vault-add').is_visible()
                 assert not site.locator('.pwa-sidebar').is_visible()
-                assert site.locator('#lhm-vault-access-action').inner_text()=='Mở khóa kho'
-                site.locator('#lhm-vault-password').fill(password)
-                site.locator('#lhm-vault-access-action').click()
-                site.locator('body.lhm-pwa:not(.pwa-gated)').wait_for(timeout=15000)
-                assert site.locator('#pwa-overview-accounts').inner_text()=='0'
+                site.screenshot(path=str(OUTPUT/'lhm-locked-studio-desktop.png'),full_page=True,animations='disabled')
                 assert not errors,errors
                 site.close()
 
                 mobile=browser.new_page(viewport={'width':390,'height':844},device_scale_factor=1)
                 mobile_errors=[]
                 mobile.on('pageerror',lambda error:mobile_errors.append(str(error)))
-                mobile.route('**/api/customer/session',lambda route:route.fulfill(
-                    status=200,content_type='application/json',body='{"authenticated":true}'))
                 mobile.goto(origin+'/',wait_until='domcontentloaded')
-                mobile.locator('.mk-actions .mk-btn-primary').wait_for()
+                mobile.locator('.mk-mobile-menu summary').wait_for()
                 check_no_horizontal_overflow(mobile)
-                mobile.screenshot(path=str(OUTPUT/'lhm-public-marketing-mobile.png'),full_page=True)
-                mobile.locator('.mk-actions .mk-btn-primary').click()
+                mobile.screenshot(path=str(OUTPUT/'lhm-public-marketing-mobile.png'),full_page=True,animations='disabled')
+                mobile.locator('.mk-mobile-menu summary').click()
+                mobile.locator('.mk-mobile-menu-panel a[href="/local/"]').click()
                 mobile.locator('#pwa-access-gate').wait_for()
-                mobile.locator('#lhm-vault-password').wait_for()
                 assert not mobile.locator('.pwa-mobile-dock').is_visible()
                 check_no_horizontal_overflow(mobile)
-                mobile.screenshot(path=str(OUTPUT/'lhm-pwa-login-mobile.png'),full_page=True)
-                mobile.locator('#lhm-vault-password').fill(password)
-                mobile.locator('#lhm-vault-access-action').click()
-                mobile.locator('body.lhm-pwa:not(.pwa-gated)').wait_for(timeout=15000)
-                assert mobile.locator('.pwa-mobile-dock').is_visible()
-                assert mobile.locator('.pwa-page.active[data-view="dashboard"]').is_visible()
-                mobile.screenshot(path=str(OUTPUT/'lhm-studio-pwa-dashboard-mobile.png'),full_page=True)
-                mobile.locator('.pwa-mobile-dock [data-go="accounts"]').click()
-                mobile.locator('#lhm-vault-unlocked:not(.hidden)').wait_for()
-                mobile.locator('#lhm-vault-platform').select_option('google')
-                mobile.locator('#lhm-vault-account').fill('111-222-3333')
-                mobile.locator('#lhm-vault-label').fill('Tài khoản minh họa')
-                mobile.locator('#lhm-vault-add button[type="submit"]').click()
-                mobile.wait_for_function("window.LHMDeviceVault.listAccounts().length === 1")
-                mobile.locator('.pwa-mobile-dock [data-go="dashboard"]').click()
-                assert mobile.locator('#pwa-overview-accounts').inner_text()=='1'
-                mobile.locator('#pwa-account-preview').get_by_text('Tài khoản minh họa').wait_for()
-                check_no_horizontal_overflow(mobile)
-                mobile.screenshot(path=str(OUTPUT/'lhm-studio-unlocked-mobile.png'),full_page=True)
-                mobile.locator('#pwa-signout').click()
-                mobile.locator('body.pwa-gated').wait_for(timeout=10000)
-                assert not mobile.locator('.pwa-mobile-dock').is_visible()
-                assert not mobile.locator('.pwa-page[data-view="dashboard"]').is_visible()
-                mobile.locator('#lhm-vault-password').fill(password)
-                mobile.locator('#lhm-vault-access-action').click()
-                mobile.locator('body.lhm-pwa:not(.pwa-gated)').wait_for(timeout=15000)
-                assert mobile.locator('#pwa-overview-accounts').inner_text()=='1'
+                mobile.screenshot(path=str(OUTPUT/'lhm-pwa-login-mobile.png'),full_page=True,animations='disabled')
+                assert mobile.locator('#customer-google-signin').is_visible()
+                assert not mobile.locator('#lhm-vault-add').is_visible()
+                assert not mobile.locator('.pwa-page[data-view="accounts"]').is_visible()
+                mobile.screenshot(path=str(OUTPUT/'lhm-locked-studio-mobile.png'),full_page=True,animations='disabled')
                 assert not mobile_errors,mobile_errors
                 mobile.close()
 
@@ -164,7 +124,7 @@ def main():
             server.shutdown()
             server.server_close()
             os.chdir(old)
-    print("PASS: marketing landing, password-gated PWA, sign out, encrypted vault, responsive screenshots,"
+    print("PASS: marketing landing, Google-and-subscription-gated PWA, no Ads-add UI before licensing, responsive screenshots,"
           " reduced motion, responsive overflow; screenshots in artifacts/ui-preview")
 
 if __name__=='__main__': main()

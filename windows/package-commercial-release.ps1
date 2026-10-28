@@ -6,6 +6,7 @@
 param(
   [Parameter(Mandatory=$true)][string]$CandidateDir,
   [Parameter(Mandatory=$true)][string]$VendorPublicFile,
+  [Parameter(Mandatory=$true)][string]$LeasePublicFile,
   [Parameter(Mandatory=$true)][string]$AcceptanceFile,
   [Parameter(Mandatory=$true)][string]$PublisherThumbprint,
   [Parameter(Mandatory=$true)][string]$TimestampUrl,
@@ -20,6 +21,7 @@ if ($TimestampUrl -notmatch '^https://[A-Za-z0-9.-]+(?::443)?(?:/[A-Za-z0-9/_-]*
 }
 $candidate = (Resolve-Path -LiteralPath $CandidateDir -ErrorAction Stop).Path
 $vendorPublic = (Resolve-Path -LiteralPath $VendorPublicFile -ErrorAction Stop).Path
+$leasePublic = (Resolve-Path -LiteralPath $LeasePublicFile -ErrorAction Stop).Path
 $acceptance = (Resolve-Path -LiteralPath $AcceptanceFile -ErrorAction Stop).Path
 $exePath = Join-Path $candidate 'LHM-Ads-AI.exe'
 $checksumPath = Join-Path $candidate 'LHM-Ads-AI.sha256'
@@ -30,7 +32,7 @@ foreach ($path in @($exePath,$checksumPath,$manifestPath,$releaseGate)) {
 }
 if (Test-Path -LiteralPath $OutputDir) { throw 'OutputDir already exists: choose a new path to protect previous releases' }
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) { throw 'Python not found on vendor signing workstation' }
-& python $releaseGate verify-candidate --exe $exePath --checksum $checksumPath --manifest $manifestPath --vendor-public $vendorPublic --acceptance $acceptance
+& python $releaseGate verify-candidate --exe $exePath --checksum $checksumPath --manifest $manifestPath --vendor-public $vendorPublic --lease-public $leasePublic --acceptance $acceptance
 if ($LASTEXITCODE -ne 0) { throw 'Vendor public key, CI hash or manual acceptance is not valid' }
 $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $thumbprint = $PublisherThumbprint.ToUpperInvariant()
@@ -71,6 +73,9 @@ try {
     executable = 'LHM-Ads-AI.exe'
     sha256 = $signedHash
     license_public_key_sha256 = $manifest.license_public_key_sha256
+    lease_public_key_sha256 = $manifest.lease_public_key_sha256
+    license_mode = $manifest.license_mode
+    builder = $manifest.builder
     authenticode = 'SIGNED_VERIFIED'
     publisher_thumbprint = $thumbprint
     signed_at_utc = (Get-Date).ToUniversalTime().ToString('o')
@@ -85,6 +90,7 @@ try {
     "Source commit: $($manifest.source_commit)"
     "Publisher certificate SHA1: $thumbprint"
     "License public key SHA256: $($manifest.license_public_key_sha256)"
+    "Trusted Gmail Worker lease public SHA256: $($manifest.lease_public_key_sha256)"
     "Signed EXE SHA256: $signedHash"
     'Only download this file from the publisher-authorized distribution channel.'
     'Keep your Ads credentials local. Do not share token or backup passwords with support.'

@@ -11,6 +11,12 @@ keep_vars = true
 pattern = "ads.lhmcrm.com"
 custom_domain = true
 
+# Wrangler builds the PWA assets BEFORE bundling the Worker on both CI and
+# Cloudflare Workers Builds. This avoids missing ./_site on fresh checkouts.
+# No deployment, D1 migration or secret provisioning happens in this command.
+[build]
+command = "python3 tools/build_github_pages.py --output _site"
+
 [assets]
 directory = "./_site"
 binding = "ASSETS"
@@ -21,3 +27,7 @@ binding = "COMMERCE_DB"
 database_name = "lhm-ads-commerce"
 database_id = "6f706d72-e94a-47d7-83e4-86c112c122b6"
 migrations_dir = "migrations"
+
+# Daily cleanup of expired orders, sessions and seats (workers/ads-api/src/index.js).
+[triggers]
+crons = ["17 20 * * *"]

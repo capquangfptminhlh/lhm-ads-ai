@@ -21,6 +21,10 @@ def parts(tmp_path):
                                       serialization.PublicFormat.Raw)
     pub=tmp_path/'vendor-public.b64'
     pub.write_text(base64.b64encode(raw).decode(),encoding='ascii')
+    lease_raw=Ed25519PrivateKey.generate().public_key().public_bytes(
+        serialization.Encoding.Raw,serialization.PublicFormat.Raw)
+    leasepub=tmp_path/'trusted-worker-lease.b64'
+    leasepub.write_text(base64.b64encode(lease_raw).decode(),encoding='ascii')
     exe=tmp_path/'LHM-Ads-AI.exe'
     exe.write_bytes(b'CI-fixture-windows-exe')
     sha=hashlib.sha256(exe.read_bytes()).hexdigest()
@@ -28,7 +32,10 @@ def parts(tmp_path):
     ck.write_text(f'{sha}  LHM-Ads-AI.exe\n',encoding='ascii')
     manifest=tmp_path/'candidate.json'
     entry={'product':'LHM Ads AI','source_commit':'a'*40,'product_version':'0.3.0',
-            'edition':'commercial-candidate','authenticode':'UNSIGNED',
+            'edition':'commercial-candidate','builder':'nuitka',
+            'license_mode':'google-only',
+            'lease_public_key_sha256':hashlib.sha256(lease_raw).hexdigest(),
+            'authenticode':'UNSIGNED',
             'distribution':'NOT_APPROVED_FOR_SALE','executable':'LHM-Ads-AI.exe',
             'sha256':sha,'license_public_key_sha256':hashlib.sha256(raw).hexdigest()}
     manifest.write_text(json.dumps(entry),encoding='utf-8')
@@ -44,7 +51,7 @@ def parts(tmp_path):
 
 def run(p,**overrides):
     params=dict(exe=p['exe'],checksum=p['ck'],manifest=p['manifest'],
-                public_file=p['pub'],acceptance=p['acceptance'],
+                public_file=p['pub'],lease_public_file=p['leasepub'],acceptance=p['acceptance'],
                 private_file=p['private'],password=p['password'],out=p['out'],
                 accept_unsigned=True)
     params.update(overrides)
@@ -53,7 +60,7 @@ def run(p,**overrides):
 def test_unsigned_release_is_signed_by_vendor_key_and_checks_exe(parts):
     created=run(parts)
     assert created['authenticode']=='UNSIGNED'
-    data=pack.verify_package(parts['out'],parts['pub'])
+    data=pack.verify_package(parts['out'],parts['pub'],parts['leasepub'])
     assert data['sha256']==hashlib.sha256(parts['exe'].read_bytes()).hexdigest()
     assert data['edition']=='commercial-unsigned'
     with zipfile.ZipFile(parts['out']) as released:
@@ -82,6 +89,18 @@ def test_wrong_vendor_key_and_wrong_passphrase(parts):
     with pytest.raises(ReleaseGateError,match='does not match'):
         run(parts,private_file=alternative)
 
+def test_wrong_trusted_worker_key_stops_signing_and_verify(parts):
+    other=Ed25519PrivateKey.generate().public_key().public_bytes(
+        serialization.Encoding.Raw,serialization.PublicFormat.Raw)
+    wrong=parts['tmp_path']/'other-worker.b64'
+    wrong.write_text(base64.b64encode(other).decode(),encoding='ascii')
+    with pytest.raises(ReleaseGateError,match='trusted Worker public key'):
+        run(parts,lease_public_file=wrong)
+    assert not parts['out'].exists()
+    run(parts)
+    with pytest.raises(ReleaseGateError,match='Untrusted Worker lease'):
+        pack.verify_package(parts['out'],parts['pub'],wrong)
+
 def test_pilot_cannot_be_repackaged(parts):
     manifest=json.loads(parts['manifest'].read_text())
     manifest['edition']='pilot'
@@ -96,7 +115,7 @@ def test_package_tampering_and_untrusted_public_are_rejected(parts):
     alt=parts['tmp_path']/'other-pub.b64'
     alt.write_text(base64.b64encode(other).decode())
     with pytest.raises(ReleaseGateError,match='fingerprint'):
-        pack.verify_package(parts['out'],alt)
+        pack.verify_package(parts['out'],alt,parts['leasepub'])
     tampered=parts['tmp_path']/'tampered.zip'
     with zipfile.ZipFile(parts['out'],'r') as original:
         with zipfile.ZipFile(tampered,'w') as changed:
@@ -105,4 +124,4 @@ def test_package_tampering_and_untrusted_public_are_rejected(parts):
                 if name=='LHM-Ads-AI.exe':data+=b'sneaky'
                 changed.writestr(name,data)
     with pytest.raises(ReleaseGateError,match='SHA256 mismatch'):
-        pack.verify_package(tampered,parts['pub'])
+        pack.verify_package(tampered,parts['pub'],parts['leasepub'])

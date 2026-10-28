@@ -1,0 +1,34 @@
+name: Staging Gmail readiness (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'HTTPS LHM or Cloudflare preview origin (does not deploy)'
+        required: true
+        type: string
+        default: 'https://ads.lhmcrm.com'
+
+permissions:
+  contents: read
+
+jobs:
+  public-readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Probe public Gmail/PWA readiness (never log in or mutate)
+        env:
+          TARGET_URL: ${{ inputs.base_url }}
+        run: |
+          python tools/smoke_gmail_production.py --base-url "$TARGET_URL" --json | tee gmail-readiness.json
+      - name: Save readiness evidence even when staging is not ready
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gmail-readiness-${{ github.run_id }}
+          path: gmail-readiness.json
+          if-no-files-found: ignore

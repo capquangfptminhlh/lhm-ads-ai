@@ -24,6 +24,10 @@ async def handle(request, token):
     try:
         # Check key on EVERY request (including tools/list) for fast revocation.
         ident=resolve_mcp_identity(token)
+        from .cloud_license import licensing_required,entitlement
+        if licensing_required() and not entitlement()['active']:
+            # Gmail mode hard lock also covers this separate read-only process.
+            return {'jsonrpc':'2.0','id':identifier,'error':{'code':-32001,'message':'Gói đã hết hạn hoặc chưa kích hoạt'}}
         if method=='initialize':
             result={'protocolVersion':PROTOCOL,
                 'capabilities':{'tools':{'listChanged':False}},

@@ -18,6 +18,11 @@ def kit(tmp_path):
     pubfile=tmp_path/'public.b64'
     pubfile.write_text(base64.b64encode(public).decode(),encoding='ascii')
     fingerprint=hashlib.sha256(public).hexdigest()
+    lease_public=Ed25519PrivateKey.generate().public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,format=serialization.PublicFormat.Raw)
+    leasefile=tmp_path/'trusted-worker-lease-public.b64'
+    leasefile.write_text(base64.b64encode(lease_public).decode(),encoding='ascii')
+    lease_fingerprint=hashlib.sha256(lease_public).hexdigest()
     exe=tmp_path/'LHM-Ads-AI.exe'
     exe.write_bytes(b'fake unsigned EXE CI fixture')
     sha=hashlib.sha256(exe.read_bytes()).hexdigest()
@@ -25,7 +30,9 @@ def kit(tmp_path):
     checksum.write_text(f'{sha}  LHM-Ads-AI.exe\n',encoding='ascii')
     manifest=tmp_path/'release-manifest.json'
     payload={'product':'LHM Ads AI','source_commit':'a'*40,'product_version':'0.3.0',
-        'edition':'commercial-candidate','executable':exe.name,'sha256':sha,
+        'edition':'commercial-candidate','builder':'nuitka','license_mode':'google-only',
+        'lease_public_key_sha256':lease_fingerprint,
+        'executable':exe.name,'sha256':sha,
         'authenticode':'UNSIGNED','distribution':'NOT_APPROVED_FOR_SALE',
         'license_public_key_sha256':fingerprint}
     manifest.write_text(json.dumps(payload),encoding='utf-8')
@@ -35,42 +42,42 @@ def kit(tmp_path):
         'approved_at_utc':(datetime.now(timezone.utc)-timedelta(minutes=1)).isoformat(),
         'checks':{k:{'passed':True,'evidence_ref':'LOCAL-EVIDENCE-'+k} for k in gate.REQUIRED_CHECKS}}
     acceptance.write_text(json.dumps(approved),encoding='utf-8')
-    return exe,checksum,manifest,pubfile,acceptance
+    return exe,checksum,manifest,pubfile,leasefile,acceptance
 
 
 def test_gate_happy_path_checks_only_provenance_and_owner_attestation(kit):
-    exe,checksum,manifest,pubfile,acceptance=kit
-    assert gate.verify_candidate(exe,checksum,manifest,pubfile)['edition']=='commercial-candidate'
+    exe,checksum,manifest,pubfile,leasefile,acceptance=kit
+    assert gate.verify_candidate(exe,checksum,manifest,pubfile,leasefile)['edition']=='commercial-candidate'
     assert gate.verify_approval(acceptance,gate.read_json(manifest))['owner_approved']
 
 
 def test_gate_rejects_pilot_and_tampered_exe(kit):
-    exe,checksum,manifest,pubfile,acceptance=kit
+    exe,checksum,manifest,pubfile,leasefile,acceptance=kit
     item=gate.read_json(manifest)
     item['edition']='pilot'
     manifest.write_text(json.dumps(item))
     with pytest.raises(gate.ReleaseGateError,match='edition'):
-        gate.verify_candidate(exe,checksum,manifest,pubfile)
+        gate.verify_candidate(exe,checksum,manifest,pubfile,leasefile)
     item['edition']='commercial-candidate'
     manifest.write_text(json.dumps(item))
     exe.write_bytes(b'changed EXE!')
     with pytest.raises(gate.ReleaseGateError,match='SHA256'):
-        gate.verify_candidate(exe,checksum,manifest,pubfile)
+        gate.verify_candidate(exe,checksum,manifest,pubfile,leasefile)
 
 
 def test_gate_rejects_wrong_vendor_key(kit,tmp_path):
-    exe,checksum,manifest,pubfile,acceptance=kit
+    exe,checksum,manifest,pubfile,leasefile,acceptance=kit
     different=Ed25519PrivateKey.generate().public_key().public_bytes(
         encoding=serialization.Encoding.Raw,format=serialization.PublicFormat.Raw)
     wrong=tmp_path/'wrong.b64'
     wrong.write_text(base64.b64encode(different).decode())
     with pytest.raises(gate.ReleaseGateError,match='public key fingerprint'):
-        gate.verify_candidate(exe,checksum,manifest,wrong)
+        gate.verify_candidate(exe,checksum,manifest,wrong,leasefile)
 
 
 @pytest.mark.parametrize('key',gate.REQUIRED_CHECKS)
 def test_gate_rejects_any_unproven_acceptance_item(kit,key):
-    exe,checksum,manifest,pubfile,acceptance=kit
+    exe,checksum,manifest,pubfile,leasefile,acceptance=kit
     data=gate.read_json(acceptance)
     data['checks'][key]['passed']=False
     acceptance.write_text(json.dumps(data))
@@ -79,7 +86,7 @@ def test_gate_rejects_any_unproven_acceptance_item(kit,key):
 
 
 def test_gate_rejects_stale_commit_empty_evidence_and_no_owner(kit):
-    exe,checksum,manifest,pubfile,acceptance=kit
+    exe,checksum,manifest,pubfile,leasefile,acceptance=kit
     data=gate.read_json(acceptance)
     data['source_commit']='b'*40
     acceptance.write_text(json.dumps(data))
@@ -98,18 +105,52 @@ def test_gate_rejects_stale_commit_empty_evidence_and_no_owner(kit):
 
 
 def test_gate_rejects_missing_public_fingerprint(kit):
-    exe,checksum,manifest,pubfile,acceptance=kit
+    exe,checksum,manifest,pubfile,leasefile,acceptance=kit
     data=gate.read_json(manifest)
     del data['license_public_key_sha256']
     manifest.write_text(json.dumps(data))
     with pytest.raises(gate.ReleaseGateError,match='fingerprint'):
-        gate.verify_candidate(exe,checksum,manifest,pubfile)
+        gate.verify_candidate(exe,checksum,manifest,pubfile,leasefile)
 
 def test_candidate_inspection_never_claims_sale_approved(kit,capsys):
-    exe,checksum,manifest,pubfile,acceptance=kit
+    exe,checksum,manifest,pubfile,leasefile,acceptance=kit
     from tools import release_gate as gate
     assert gate.main(['inspect-candidate','--exe',str(exe),'--checksum',
-        str(checksum),'--manifest',str(manifest),'--vendor-public',str(pubfile)])==0
+        str(checksum),'--manifest',str(manifest),'--vendor-public',str(pubfile),
+        '--lease-public',str(leasefile)])==0
     output=capsys.readouterr().out
     assert 'PASS: unsigned Commercial Candidate verified' in output
     assert 'NOT_APPROVED_FOR_SALE' in output
+
+@pytest.mark.parametrize('field,bad,reason',[
+    ('builder','pyinstaller','builder'),
+    ('builder',None,'builder'),
+    ('license_mode','legacy-pilot','license_mode'),
+    ('license_mode',None,'license_mode'),
+    ('lease_public_key_sha256','','lease public key'),
+    ('lease_public_key_sha256',None,'lease public key'),
+])
+def test_commercial_gate_rejects_non_nuitka_non_gmail_or_missing_lease_proof(kit,field,bad,reason):
+    exe,checksum,manifest,pubfile,leasefile,acceptance=kit
+    data=gate.read_json(manifest)
+    data[field]=bad
+    manifest.write_text(json.dumps(data))
+    with pytest.raises(gate.ReleaseGateError,match=reason):
+        gate.verify_candidate(exe,checksum,manifest,pubfile,leasefile)
+
+def test_gate_rejects_wrong_independent_worker_lease_key(kit,tmp_path):
+    exe,checksum,manifest,pubfile,leasefile,acceptance=kit
+    wrong=tmp_path/'unexpected-worker-public.b64'
+    other=Ed25519PrivateKey.generate().public_key().public_bytes(
+        serialization.Encoding.Raw,serialization.PublicFormat.Raw)
+    wrong.write_text(base64.b64encode(other).decode(),encoding='ascii')
+    with pytest.raises(gate.ReleaseGateError,match='trusted Worker public key'):
+        gate.verify_candidate(exe,checksum,manifest,pubfile,wrong)
+
+def test_gate_rejects_self_declared_lease_hash_even_when_well_formed(kit):
+    exe,checksum,manifest,pubfile,leasefile,acceptance=kit
+    data=gate.read_json(manifest)
+    data['lease_public_key_sha256']='a'*64
+    manifest.write_text(json.dumps(data),encoding='utf-8')
+    with pytest.raises(gate.ReleaseGateError,match='trusted Worker public key'):
+        gate.verify_candidate(exe,checksum,manifest,pubfile,leasefile)

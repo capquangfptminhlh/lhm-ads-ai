@@ -12,6 +12,16 @@ import threading
 import time
 import urllib.request
 
+# Nuitka builds (commercial EXE) must behave exactly like the PyInstaller EXE:
+# the frozen flag gates the windowed logs, autostart and the online updater, and
+# in onefile mode sys.executable is the unpacked copy in a temp folder, while
+# autostart, the background agent and updates need the real LHM-Ads-AI.exe.
+if '__compiled__' in globals() and not getattr(sys, 'frozen', False):
+    sys.frozen = True
+    _onefile = os.path.abspath(sys.argv[0]) if sys.argv and sys.argv[0] else ''
+    if _onefile.lower().endswith('.exe') and os.path.isfile(_onefile):
+        sys.executable = _onefile
+
 if not getattr(sys, 'frozen', False):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -102,6 +112,18 @@ def main():
     os.environ['PUBLIC_BASE_URL'] = f'http://localhost:{args.port}'
     folder = configure_local_storage()
     configure_windowed_logs(folder)
+    # Gmail mode: on in commercial builds whose release_info pins a lease key, or
+    # with LHM_CLOUD_LICENSE_MODE=required for staging.
+    from ads_core.cloud_license import licensing_required
+    gmail_mode = licensing_required()
+    if gmail_mode:
+        from ads_core.cloud_license import init_cloud_license, heartbeat_loop
+        # Only the window process talks to the cloud; the background agent reads
+        # the signed lease it keeps current, so both lock at the same moment.
+        init_cloud_license(folder, live=not args.agent_only)
+        if not args.agent_only:
+            threading.Thread(target=heartbeat_loop, args=(threading.Event(),),
+                             name='lhm-cloud-license-heartbeat', daemon=True).start()
     if args.agent_only:
         if sys.platform == 'win32':
             import ctypes
@@ -120,6 +142,14 @@ def main():
         return
     from ads_core.desktop_onboarding import prepare_first_run
     setup_token = prepare_first_run()
+    # One ephemeral secret authorizes only the *native* WebView2 to request a
+    # local session AFTER its Google subscription was independently verified.
+    native_proof = None
+    if gmail_mode:
+        from ads_core.desktop_cloud_license import set_native_proof
+        native_proof = secrets.token_urlsafe(48)
+        set_native_proof(native_proof)
+        setup_token = None
     # Import routes after the onboarding token is created.
     from ads_core.extended import app
     import uvicorn
@@ -129,7 +159,8 @@ def main():
     else:
         from windows.desktop_window import run_window
         run_window(app, port=args.port, setup_token=setup_token,
-                   data_folder=folder, smoke_window=args.window_smoke)
+                   data_folder=folder, smoke_window=args.window_smoke,
+                   native_license_proof=native_proof)
 
 
 if __name__ == '__main__':

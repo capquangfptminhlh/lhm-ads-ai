@@ -61,6 +61,7 @@ class DesktopBridge:
         self.executable = executable
         self.install_requested = False
         self.window = None
+        self.native_license_proof = None
 
     def _can_update(self) -> bool:
         return (self.data_folder is not None and self.executable is not None
@@ -99,6 +100,30 @@ class DesktopBridge:
         threading.Thread(target=self.window.destroy, daemon=True).start()
         return {'status': 'restarting', 'message': 'Đang đóng để cài đặt bản mới.'}
 
+    def get_local_license_proof(self) -> str:
+        """Only a per-process local proof to authorize trusted WebView requests."""
+        return self.native_license_proof or ''
+
+    def open_license_url(self, url: str) -> bool:
+        """Open ONLY the first-party short-lived pairing page or the plan/renewal
+        page, never remote scripts."""
+        from urllib.parse import urlsplit, parse_qs
+        from uuid import UUID
+        if url == 'https://ads.lhmcrm.com/local/':
+            return bool(webbrowser.open(url, new=1))
+        try:
+            parsed = urlsplit(url)
+            if parsed.scheme != 'https' or parsed.netloc != 'ads.lhmcrm.com' or parsed.path != '/desktop/pair/':
+                return False
+            values = parse_qs(parsed.query)
+            if set(values) != {'id'} or len(values['id']) != 1 or parsed.fragment:
+                return False
+            if str(UUID(values['id'][0], version=4)) != values['id'][0].lower():
+                return False
+        except (ValueError, TypeError, KeyError):
+            return False
+        return bool(webbrowser.open(url, new=1))
+
     def open_oauth_url(self, url: str) -> bool:
         from urllib.parse import urlsplit
         if not isinstance(url, str) or len(url) > 4096:
@@ -130,7 +155,7 @@ def wait_for_service(port: int, thread: threading.Thread, *, timeout: float = 30
 
 
 def run_window(app, *, port: int, setup_token: str | None, data_folder: Path,
-               smoke_window: bool = False):
+               smoke_window: bool = False, native_license_proof: str | None = None):
     import uvicorn
     # The local API is a private implementation detail. The user sees only one
     # branded Windows window. Server lifetime follows GUI window lifetime.
@@ -145,6 +170,7 @@ def run_window(app, *, port: int, setup_token: str | None, data_folder: Path,
         data_folder=data_folder,
         executable=Path(sys.executable) if getattr(sys, 'frozen', False) else None,
     )
+    bridge.native_license_proof = native_license_proof
     try:
         wait_for_service(port, thread)
         import webview

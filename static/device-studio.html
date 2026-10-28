@@ -26,32 +26,53 @@
   <div class="pwa-access-feature">
    <span class="pwa-access-eyebrow">WELCOME TO YOUR WORKSPACE</span>
    <h1>Không gian quảng cáo.<br><em>Dữ liệu của bạn.</em></h1>
-   <p>Mở khóa kho cá nhân để sử dụng bản PWA thử nghiệm. Tài khoản quản trị khách hàng và cấp key là một hệ thống riêng.</p>
+   <p>Đăng nhập bằng Google để truy cập không gian PWA. Gói dịch vụ và giới hạn thiết bị được quản lý theo Gmail; dữ liệu quảng cáo được lưu riêng trên thiết bị.</p>
    <div class="pwa-access-benefits"><span>✓ Giao diện dùng thử trên điện thoại và PC</span><span>✓ Không cần máy Windows đang mở</span><span>✓ Kho mã hóa riêng cho từng trình duyệt</span></div>
   </div>
   <div class="pwa-access-panel">
     <div class="pwa-access-panel-head"><span class="pwa-access-tag">SECURE DEVICE ACCESS</span>
-      <h2>Mở khóa kho dữ liệu trên thiết bị</h2>
-      <p>Nhập mật khẩu kho trên thiết bị này. Lần đầu sử dụng, hãy tạo kho mới bằng mật khẩu riêng ít nhất 12 ký tự.</p>
+      <h2>Đăng nhập để mở không gian Ads</h2>
+      <p>Đăng nhập Gmail, chọn gói còn hạn. Kho dữ liệu được mã hóa tự động ngay trên thiết bị.</p>
     </div>
-    <section id="customer-login-box" aria-label="Đăng nhập khách hàng">
-      <h3>Tài khoản khách hàng LHM</h3>
-      <p class="customer-help">Đăng nhập để xác nhận tài khoản và thời hạn bản quyền trên máy chủ. Sau đó mở kho mã hóa riêng trên thiết bị.</p>
-      <form id="customer-form">
-        <label for="customer-mode">Thao tác</label>
-        <select id="customer-mode" style="width:100%;padding:10px;border-radius:9px"><option value="login">Đăng nhập</option><option value="activate">Kích hoạt lần đầu bằng key</option></select>
-        <label for="customer-email">Email tài khoản</label>
-        <input type="email" id="customer-email" autocomplete="username" required>
-        <label for="customer-password">Mật khẩu (tối thiểu 12 ký tự)</label>
-        <input type="password" id="customer-password" autocomplete="current-password" minlength="12" maxlength="128" required>
-        <input type="text" id="customer-activation-key" aria-label="Key kích hoạt LHM" placeholder="LHM-..." autocomplete="off" hidden>
-        <button type="submit" id="customer-submit">Đăng nhập</button>
-        <p id="customer-login-status" role="status" aria-live="polite"></p>
-      </form>
+    <section id="customer-login-box" aria-label="Đăng nhập Google và chọn gói">
+      <h3>Tài khoản LHM Ads AI</h3>
+      <p class="customer-help">Đăng nhập bằng Google. Chỉ khách hàng có gói còn hạn mới được thêm tài khoản quảng cáo.</p>
+      <a href="/api/auth/google/start" id="customer-google-signin" class="customer-google-btn">Đăng nhập bằng Google</a>
+      <div id="customer-account" class="customer-account" hidden>
+        <img id="customer-avatar" class="customer-avatar" alt="" hidden>
+        <div><b id="customer-email"></b><small id="customer-plan-line"></small></div>
+        <button type="button" id="customer-switch" class="customer-link">Đổi Gmail</button>
+      </div>
+      <p id="customer-state-note" class="customer-note" hidden></p>
+      <div id="customer-purchase" hidden>
+        <h4>Chọn gói</h4>
+        <div id="customer-plans" class="customer-plans" role="radiogroup" aria-label="Chọn gói dịch vụ"></div>
+        <button id="customer-plan-submit" type="button" disabled>Đặt gói và thanh toán</button>
+        <p class="customer-help">Sau khi chuyển khoản, quản trị viên xác nhận và gói được kích hoạt cho đúng Gmail này. Không tự trừ tiền.</p>
+      </div>
+      <div id="customer-payment" class="customer-payment" hidden>
+        <h4>Chuyển khoản để kích hoạt</h4>
+        <img id="customer-qr" class="customer-qr" alt="Mã QR chuyển khoản" hidden>
+        <dl class="customer-pay-lines">
+          <dt>Gói</dt><dd id="customer-pay-plan"></dd>
+          <dt>Số tiền</dt><dd><b id="customer-pay-amount"></b></dd>
+          <dt>Ngân hàng</dt><dd id="customer-pay-bank"></dd>
+          <dt>Nội dung CK</dt><dd><b id="customer-pay-code"></b> <button type="button" class="customer-link" data-copy="customer-pay-code">Sao chép</button></dd>
+        </dl>
+        <p class="customer-help" id="customer-pay-note">Ghi đúng nội dung chuyển khoản. Trang này tự cập nhật khi gói được kích hoạt.</p>
+        <button type="button" id="customer-order-cancel" class="customer-secondary">Huỷ đơn / chọn gói khác</button>
+      </div>
+      <div id="customer-seat-limit" class="customer-seats" hidden>
+        <h4>Gmail này đang dùng trên đủ số máy của gói</h4>
+        <ul id="customer-seat-list"></ul>
+        <button type="button" id="customer-takeover">Dùng trên máy này</button>
+        <p class="customer-help">Máy hoạt động lâu nhất sẽ bị đăng xuất. Dữ liệu trên máy đó vẫn còn nguyên.</p>
+      </div>
+      <p id="customer-login-status" role="status" aria-live="polite">Đang xác minh giấy phép…</p>
     </section>
     <div id="pwa-login-portal" hidden></div>
     <button type="button" id="customer-cloud-logout" hidden>Đăng xuất tài khoản LHM</button>
-    <p class="pwa-access-explain">Đây là mật khẩu riêng để mở kho dữ liệu trên máy này, <strong>không phải đăng nhập tài khoản LHM Cloud</strong>. Không nhập mật khẩu Google hoặc Facebook tại đây.</p>
+    <p class="pwa-access-explain">Sau khi đăng nhập Google và có gói còn hạn, ứng dụng tự mở kho mã hóa trên thiết bị. Mật khẩu khôi phục chỉ cần khi xuất hoặc nhập bản sao lưu.</p>
   </div>
  </div>
  <footer class="pwa-access-footer">LHM Ads AI · Bảo vệ dữ liệu trên thiết bị · <a href="/">Giới thiệu dịch vụ</a></footer>
@@ -72,7 +93,7 @@
       <button type="button" data-go="accounts"><span aria-hidden="true">▤</span> Tài khoản Ads</button>
       <button type="button" data-go="reports"><span aria-hidden="true">▥</span> Báo cáo</button>
       <button type="button" data-go="alerts"><span aria-hidden="true">♧</span> Cảnh báo <small id="pwa-alert-count" class="pwa-limited">0</small></button>
-      <button type="button" data-go="assistant"><span aria-hidden="true">✧</span> AI Center <small class="pwa-limited">Chưa kết nối</small></button>
+      <button type="button" data-go="assistant"><span aria-hidden="true">✧</span> AI Center <small class="pwa-limited">Trên thiết bị</small></button>
       <button type="button" data-go="settings"><span aria-hidden="true">⚙</span> Cài đặt</button>
     </nav>
     <div class="pwa-sidebar-bottom">
@@ -94,6 +115,10 @@
       </div>
     </header>
     <main class="pwa-content">
+      <div id="lhm-plan-banner" class="lhm-plan-banner" role="status" hidden>
+        <span id="lhm-plan-banner-text"></span>
+        <button type="button" class="pwa-btn primary" id="lhm-plan-banner-renew">Gia hạn</button>
+      </div>
       <section class="pwa-page active" data-view="dashboard" aria-labelledby="pwa-dashboard-heading">
         <div class="pwa-heading">
           <div><span class="pwa-eyebrow">OVERVIEW · DEVICE-ONLY</span>
@@ -103,7 +128,7 @@
         </div>
         <div class="pwa-notice"><span aria-hidden="true">✳</span>
           <div><strong>Studio PWA độc lập</strong> — giao diện đồng bộ với bản PC, không cần mở Windows.
-            Các chỉ số được nhập bằng CSV, chưa phải báo cáo trực tiếp từ API quảng cáo.</div>
+            Kết nối Google/Meta ở mục Tài khoản Ads để xem số liệu trực tiếp; các ô bên dưới là dữ liệu CSV nhập tay.</div>
         </div>
         <div class="pwa-kpis">
           <article class="pwa-card pwa-kpi"><span class="pwa-kpi-icon" aria-hidden="true">▤</span>
@@ -141,7 +166,7 @@
       <section class="pwa-page" data-view="reports" aria-labelledby="pwa-reports-heading" hidden>
         <div class="pwa-heading"><div><span class="pwa-eyebrow">LOCAL ANALYTICS</span>
           <h1 id="pwa-reports-heading">Báo cáo quảng cáo</h1>
-          <p>Dữ liệu CSV đã nhập, không tự đồng bộ từ các nền tảng quảng cáo.</p></div>
+          <p>Báo cáo trực tiếp từ Google/Meta (API) và dữ liệu CSV đã nhập.</p></div>
           <button class="pwa-btn primary" type="button" data-go="accounts">Nhập CSV / đặt ngân sách →</button>
         </div>
         <div class="pwa-notice" id="pwa-report-locked"><span>🔒</span>
@@ -169,9 +194,9 @@
       <section class="pwa-page" data-view="assistant" aria-labelledby="pwa-ai-heading" hidden>
         <div class="pwa-heading"><div><span class="pwa-eyebrow">AI CENTER</span>
           <h1 id="pwa-ai-heading">Trung tâm AI</h1>
-          <p>Giao diện thống nhất với bản PC; tính năng AI từ xa chưa được kết nối.</p></div></div>
-        <article class="pwa-card"><h2>Trạng thái tích hợp</h2>
-          <p>Phiên PWA hiện tại không có kết nối OpenRouter, Google Ads API, Meta Ads API hoặc TikTok Ads API.</p>
+          <p>Cùng bộ quy tắc tối ưu với bản PC, chạy ngay trên thiết bị. Không có giám sát nền hay autopilot trên PWA.</p></div></div>
+        <article class="pwa-card" data-live-hide><h2>Trạng thái tích hợp</h2>
+          <p>PWA có mô-đun kết nối Google Ads và Meta Ads khi ứng dụng OAuth/API được cấu hình và cấp quyền hợp lệ; tính năng đọc dữ liệu thật vẫn cần nghiệm thu. PWA chưa tích hợp OpenRouter hoặc TikTok Ads API.</p>
           <div class="pwa-callout">Không có tài khoản, token hay dữ liệu khách hàng được gửi tới một AI server. Các chức năng tự chỉnh giá thầu, thay đổi chiến dịch và theo dõi 24/7 chưa bật.</div>
           <button class="pwa-btn" type="button" data-go="reports">Xem dữ liệu CSV đang có →</button>
         </article>
@@ -182,20 +207,19 @@
           <p>PWA độc lập trên trình duyệt, không cần chạy máy PC.</p></div></div>
         <div class="pwa-dashboard-grid">
           <article class="pwa-card"><h2>Lưu trữ dữ liệu</h2>
-            <p class="pwa-muted">Tài khoản và báo cáo được mã hóa bằng mật khẩu kho trong IndexedDB của trình duyệt hiện tại.
+            <p class="pwa-muted">Tài khoản và báo cáo được mã hóa bằng khóa không thể xuất (non-extractable) trong IndexedDB của trình duyệt hiện tại.
               Xóa dữ liệu trình duyệt có thể xóa kho. Hãy xuất bản sao lưu mã hóa định kỳ.</p>
             <p id="pwa-offline-total" class="pwa-muted">0 tài khoản · 0 ngày CSV</p>
             <button class="pwa-btn primary" type="button" data-go="accounts">Sao lưu / khôi phục / khóa kho →</button>
           </article>
-          <article class="pwa-card"><h2>Kiểm tra key bản quyền</h2>
-            <p class="pwa-muted">Nhập key LHM để xác minh tình trạng và thời hạn trên máy chủ. Key không được lưu trong trình duyệt sau khi kiểm tra.</p>
-            <form id="license-check-form" style="display:flex;gap:10px;flex-wrap:wrap">
-              <input id="license-key" type="password" autocomplete="off" spellcheck="false" required
-                 placeholder="LHM-..." aria-label="Key bản quyền LHM" style="min-width:180px;flex:1;background:#20252e;color:#fff;border:1px solid #465165;border-radius:10px;padding:11px">
-              <button class="pwa-btn primary" type="submit">Kiểm tra key</button>
-            </form>
-            <p id="license-check-result" class="pwa-muted" role="status" aria-live="polite">Cần kết nối Internet để kiểm tra.</p>
-            <p class="pwa-muted">Chức năng này chỉ kiểm tra hiệu lực key. Phân quyền tính năng trả phí chưa được kích hoạt ở bản PWA thử nghiệm.</p>
+          <article class="pwa-card"><h2>Gói dịch vụ của tôi</h2>
+            <p id="lhm-my-plan" class="pwa-muted">Đang kiểm tra gói theo Gmail đã đăng nhập…</p>
+            <ul id="lhm-my-devices" class="lhm-devices"></ul>
+            <div class="lhm-plan-actions">
+              <button class="pwa-btn primary" type="button" id="lhm-renew">Gia hạn gói</button>
+              <button class="pwa-btn" type="button" id="lhm-signout-all">Đăng xuất mọi máy</button>
+            </div>
+            <p class="pwa-muted">Không cần nhập key. Gói gắn với Gmail; dữ liệu Ads vẫn chỉ nằm trên từng máy.</p>
           </article>
           <article class="pwa-card"><h2>Ứng dụng cài đặt</h2>
             <p class="pwa-muted">iPhone: Safari → Chia sẻ → Thêm vào Màn hình chính. Android: Chrome → Cài ứng dụng.</p>
@@ -226,4 +250,5 @@
 <script src="/static/device-studio.js" defer></script>
 <script src="/static/license-check.js" defer></script>
 <script src="/static/customer-login.js" defer></script>
+<script type="module" src="/static/core/ads-app.js"></script>
 </body></html>

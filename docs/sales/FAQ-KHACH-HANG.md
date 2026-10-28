@@ -6,7 +6,9 @@
 
 ### 1. Một license dùng chung cho nhiều máy được không?
 
-Không. Mỗi license gắn với **một máy** thông qua mã máy (Device ID) mà phần mềm hiển thị ở trang **Bản quyền**. Muốn dùng thêm máy, bạn cần đăng ký thêm license cho máy đó. File license gửi cho máy này sẽ không kích hoạt được trên máy khác.
+Gói gắn với **Gmail** bạn dùng để đăng ký, không gắn với một máy. Đăng nhập đúng Gmail đó trên máy tính (bản Windows) hoặc điện thoại/trình duyệt (bản PWA) là dùng được, tối đa **số máy cùng lúc** của gói (gói Cá nhân: 2 máy). Khi mở trên máy vượt số này, phần mềm hỏi bạn có muốn đăng xuất máy lâu không dùng nhất hay không. Không cần nhập key.
+
+*(Khách mua trước đây theo license từng máy: license cũ vẫn dùng được đến hết hạn; bên bán chuyển số ngày còn lại sang Gmail của bạn.)*
 
 ### 2. Vì sao phần mềm cần mã máy? Mã máy có chứa dữ liệu cá nhân không?
 
@@ -41,7 +43,7 @@ Không tự ý. Các thay đổi đối với chiến dịch luôn cần ngườ
 
 ### 8. Tôi đổi máy tính thì sao?
 
-Bạn cài phần mềm trên máy mới, lấy mã máy mới ở trang Bản quyền và gửi cho bên bán để được cấp lại license theo mã máy mới; dữ liệu thì bạn tự chuyển bằng bản sao lưu có mã hóa xuất từ máy cũ. Chi tiết chính sách đổi máy: **[CHU SAN PHAM QUYET DINH: số lần đổi máy miễn phí trong một kỳ thuê bao, phí đổi máy nếu vượt, và cách tính số ngày còn lại khi cấp lại]**.
+Chỉ cần cài/mở phần mềm trên máy mới và **đăng nhập đúng Gmail** — không phải xin cấp lại. Dữ liệu quảng cáo nằm riêng trên từng máy: trên máy mới, bạn kết nối lại Google Ads/Meta hoặc khôi phục từ **bản sao lưu mã hóa** xuất từ máy cũ. Máy cũ không dùng nữa sẽ tự rời khỏi danh sách sau một thời gian, hoặc bạn bấm **Đăng xuất mọi máy** trong Cài đặt.
 
 ### 9. Nếu máy bị chỉnh sai giờ thì có dùng được không?
 
@@ -61,7 +63,7 @@ Hiện phần mềm **chưa có cơ chế tự cập nhật có ký số**. Khi 
 
 ### 13. Bên bán có tắt license của tôi từ xa được không?
 
-Không. License là file ký số hoạt động ngoại tuyến trên máy của bạn; bên bán **không có cơ chế thu hồi hay tắt license từ xa**. License của bạn dùng được tới đúng ngày hết hạn ghi trong file.
+Có, trong các trường hợp ghi ở Điều khoản dịch vụ (ví dụ hoàn tiền, gian lận, chia sẻ tài khoản trái phép). Khi gói hết hạn, bị thu hồi hoặc tài khoản bị tạm khoá, phần mềm **khoá ở lần kiểm tra tiếp theo** (bản Windows đang ngoại tuyến: muộn nhất 72 giờ và không quá ngày hết hạn). **Dữ liệu trên máy của bạn không bị xóa**; gia hạn xong là mở lại như cũ.
 
 ### 14. Tôi liên hệ hỗ trợ ở đâu và trong bao lâu thì được trả lời?
 

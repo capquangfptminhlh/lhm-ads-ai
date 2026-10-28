@@ -30,6 +30,16 @@ jobs:
       - run: node --check static/device-mcp.js
       - run: node --check static/device-studio.js
       - run: node --check static/soft-motion-ui.js
+      - run: node --check static/customer-login.js
+      - run: node --test tests/customer_login_failure.test.mjs
+      - run: node --check workers/ads-api/src/google-subscription.js
+      - run: node --check workers/ads-api/src/desktop-pair.js
+      - run: node --check static/desktop-cloud-login.js
+      - run: node --test tests/desktop_pairing_contract.test.mjs
+      - run: node --test tests/google_subscription_contract.test.mjs
+      - run: node --check workers/ads-api/src/commerce.js
+      - run: node --test tests/worker_gmail_plans.test.mjs
+      - run: node --test tests/core_parity.test.mjs
       - run: node --check workers/ads-api/src/index.js
       - run: python -m unittest discover -s tests -p 'test_github_pages_build_unittest.py' -v
       - run: node --check static/provider-studio.js
@@ -60,8 +70,18 @@ jobs:
           done
       - name: Validate local encrypted Ads vault in real Chromium
         run: python -m tools.device_vault_smoke
+      - name: Verify Gmail-only PWA and isolated encrypted vaults in Chromium
+        run: python -m tools.google_pwa_smoke
       - name: Verify soft-depth responsive UI and capture new visual previews
         run: python -m tools.soft_ui_smoke
+      - name: Walk the Gmail plan gate of the PWA in real Chromium
+        run: python -m tools.pwa_plans_smoke
+      - name: End-to-end PWA order and Admin activation on the real Worker + SQLite
+        run: python -m tools.e2e_gmail_flow
+      - name: Windows Gmail gate in Chromium (expired, device limit, offline)
+        run: python -m tools.pc_gate_smoke
+      - name: PWA runs Google Ads like the PC (real Worker, faked Google APIs)
+        run: python -m tools.pwa_ads_smoke
       - name: Test provider selection with real Chromium and capture screenshots
         run: python tools/ui-smoke.py
       - name: Test actual first-run setup on desktop/mobile and redirect to Studio

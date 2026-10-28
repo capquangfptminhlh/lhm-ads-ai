@@ -144,3 +144,12 @@ def test_installer_waits_for_parent_and_maintains_rollback():
     assert '.backup-0.3.1' in script
     assert 'Start-Process -FilePath $target' in script
     assert 'Remove-Item -LiteralPath $target' not in script
+
+
+def test_commercial_build_requires_signed_update_configuration_in_ci():
+    workflow = (Path(__file__).resolve().parents[1] /
+                '.github' / 'workflows' / 'windows-exe.yml').read_text(encoding='utf-8')
+    assert 'Require signed online updates for commercial Windows releases' in workflow
+    assert "github.event_name == 'workflow_dispatch' && inputs.commercial" in workflow
+    assert 'from windows.online_update import configuration' in workflow
+    assert 'Commercial release blocked: signed online updates not configured' in workflow

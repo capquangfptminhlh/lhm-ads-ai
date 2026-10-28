@@ -6,7 +6,10 @@
 'use strict';
 (() => {
   const DATABASE='lhm-ads-device-only-v1';
-  const STORE='vaults', KEY='default', VERSION=1, MAX_ACCOUNTS=100;
+  const STORE='vaults', KEYRING='deviceKeys', VERSION=1, DB_VERSION=2, MAX_ACCOUNTS=100;
+  let KEY='default';
+  const cloudPwa=Boolean(document.getElementById('lhm-local-workspace'));
+  let namespaceSet=!cloudPwa;
   const ITERATIONS=450000;
   const CTX=new TextEncoder().encode('LHM-Ads-AI:device-only:v1');
   let cryptoKey=null, memory=null;
@@ -28,9 +31,13 @@
   };
   function open(){
     requireSecure();
+    if(!namespaceSet)throw Error('Đăng nhập Google và mua gói để mở kho riêng.');
     return new Promise((resolve,reject)=>{
-      const req=indexedDB.open(DATABASE,VERSION);
-      req.onupgradeneeded=()=>{req.result.createObjectStore(STORE,{keyPath:'id'});};
+      const req=indexedDB.open(DATABASE,DB_VERSION);
+      req.onupgradeneeded=()=>{
+        if(!req.result.objectStoreNames.contains(STORE))req.result.createObjectStore(STORE,{keyPath:'id'});
+        if(!req.result.objectStoreNames.contains(KEYRING))req.result.createObjectStore(KEYRING,{keyPath:'id'});
+      };
       req.onsuccess=()=>resolve(req.result);
       req.onerror=()=>reject(new Error('Không mở được kho dữ liệu trên thiết bị.'));
       req.onblocked=()=>reject(new Error('Kho đang mở ở tab khác.'));
@@ -63,6 +70,53 @@
       tx.onerror=()=>reject(new Error('Không xóa được kho dữ liệu.'));
     });}finally{db.close();}
   }
+  async function deviceKey(){
+    if(!cloudPwa||!namespaceSet)throw Error('Cần đăng nhập tài khoản Google hợp lệ.');
+    const db=await open();
+    try{
+      const existing=await new Promise((resolve,reject)=>{
+        const req=db.transaction(KEYRING,'readonly').objectStore(KEYRING).get(KEY);
+        req.onsuccess=()=>resolve(req.result?.key||null);
+        req.onerror=()=>reject(Error('Không đọc được khóa bảo mật thiết bị.'));
+      });
+      if(existing)return existing;
+      // The key is NON-EXTRACTABLE, never sent to Cloudflare. A separate recovery
+      // password is only requested when exporting/importing a backup.
+      const key=await crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+      try{
+        await new Promise((resolve,reject)=>{
+          const tx=db.transaction(KEYRING,'readwrite');
+          tx.objectStore(KEYRING).add({id:KEY,key}); // add, NEVER overwrite another tab's key
+          tx.oncomplete=resolve;
+          tx.onabort=()=>reject(tx.error||Error('Không lưu được khóa thiết bị.'));
+        });
+        return key;
+      }catch(e){
+        if(e?.name!=='ConstraintError')throw e;
+        // Another tab won the race; read its established key instead.
+        return await new Promise((resolve,reject)=>{
+          const req=db.transaction(KEYRING,'readonly').objectStore(KEYRING).get(KEY);
+          req.onsuccess=()=>req.result?.key?resolve(req.result.key):reject(Error('Mất khóa thiết bị.'));
+          req.onerror=()=>reject(Error('Không đọc được khóa thiết bị.'));
+        });
+      }
+    }finally{db.close();}
+  }
+  async function autoUnlock(){
+    requireSecure();
+    if(!cloudPwa||!namespaceSet)throw Error('Chưa có Gmail đăng nhập.');
+    if(cryptoKey&&memory)return {unlocked:true};
+    const record=await read();
+    if(record && record.kdf!=='DEVICE-KEY-AES256')return {legacy_password_required:true};
+    const key=await deviceKey();
+    if(record){
+      const value=await decrypt(record,key);
+      cryptoKey=key;memory=value;return {unlocked:true,count:value.accounts.length};
+    }
+    const value=empty();
+    await write(await encrypt(value,key,null));
+    cryptoKey=key;memory=value;return {created:true,unlocked:true};
+  }
   async function derive(password,salt){
     return crypto.subtle.deriveKey({
       name:'PBKDF2',salt,iterations:ITERATIONS,hash:'SHA-256'
@@ -70,30 +124,45 @@
     {name:'AES-GCM',length:256},false,['encrypt','decrypt']);
   }
   const verifyPassword=p=>typeof p==='string'&&p.length>=12&&p.length<=512;
-  const empty=()=>({version:VERSION,accounts:[],reports:[],budgetRules:[],createdAt:new Date().toISOString()});
+  const empty=()=>({version:VERSION,accounts:[],reports:[],budgetRules:[],connections:{},snapshots:[],goals:{},audit:[],
+    createdAt:new Date().toISOString()});
+  const MAX_SNAPSHOTS=600, MAX_AUDIT=300, SNAPSHOTS_PER_ACCOUNT=12;
+  const isPlain=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+  // Older vaults predate API connections; fill the new sections without losing data.
+  function normalize(value){
+    value.reports=Array.isArray(value.reports)?value.reports:[];
+    value.budgetRules=Array.isArray(value.budgetRules)?value.budgetRules:[];
+    value.connections=isPlain(value.connections)?value.connections:{};
+    value.snapshots=Array.isArray(value.snapshots)?value.snapshots:[];
+    value.goals=isPlain(value.goals)?value.goals:{};
+    value.audit=Array.isArray(value.audit)?value.audit:[];
+    if(value.reports.length>2000||value.budgetRules.length>MAX_ACCOUNTS||
+       value.snapshots.length>MAX_SNAPSHOTS||value.audit.length>MAX_AUDIT)
+      throw Error('Kho dữ liệu vượt giới hạn an toàn.');
+    return value;
+  }
   const aad={name:'AES-GCM',additionalData:CTX,tagLength:128};
   async function encrypt(data,key,salt){
     const iv=crypto.getRandomValues(new Uint8Array(12));
     const ciphertext=await crypto.subtle.encrypt({...aad,iv},key,encoder.encode(JSON.stringify(data)));
-    return {id:KEY,version:VERSION,kdf:'PBKDF2-SHA256',iterations:ITERATIONS,
-      salt:base64(salt),iv:base64(iv),ciphertext:base64(new Uint8Array(ciphertext))};
+    return salt===null
+      ? {id:KEY,version:VERSION,kdf:'DEVICE-KEY-AES256',iv:base64(iv),
+         ciphertext:base64(new Uint8Array(ciphertext))}
+      : {id:KEY,version:VERSION,kdf:'PBKDF2-SHA256',iterations:ITERATIONS,
+         salt:base64(salt),iv:base64(iv),ciphertext:base64(new Uint8Array(ciphertext))};
   }
   async function decrypt(record,key){
     const plaintext=await crypto.subtle.decrypt({...aad,iv:unbase64(record.iv)},key,unbase64(record.ciphertext));
     const value=JSON.parse(decoder.decode(plaintext));
     if(!value||value.version!==VERSION||!Array.isArray(value.accounts)||value.accounts.length>MAX_ACCOUNTS)
       throw Error('Kho dữ liệu không hợp lệ.');
-    value.reports=Array.isArray(value.reports)?value.reports:[];
-    value.budgetRules=Array.isArray(value.budgetRules)?value.budgetRules:[];
-    if(value.reports.length>2000||value.budgetRules.length>MAX_ACCOUNTS)
-      throw Error('Kho dữ liệu vượt giới hạn an toàn.');
-    return value;
+    return normalize(value);
   }
   function validateRecord(record){
     if(!record||record.id!==KEY||record.version!==VERSION||
-      record.kdf!=='PBKDF2-SHA256'||record.iterations!==ITERATIONS||
-      unbase64(record.salt).length!==16||unbase64(record.iv).length!==12||
-      unbase64(record.ciphertext).length<32)
+      !(record.kdf==='DEVICE-KEY-AES256'||
+       (record.kdf==='PBKDF2-SHA256'&&record.iterations===ITERATIONS&&unbase64(record.salt).length===16))||
+      unbase64(record.iv).length!==12||unbase64(record.ciphertext).length<32)
       throw Error('Tệp sao lưu không đúng định dạng kho LHM.');
   }
   function requireUnlocked(){
@@ -125,8 +194,9 @@
        !Array.isArray(next.reports)||next.reports.length>2000||
        !Array.isArray(next.budgetRules)||next.budgetRules.length>MAX_ACCOUNTS)
       throw Error('Số tài khoản vượt giới hạn kho cục bộ.');
+    normalize(next);
     const old=await read();validateRecord(old);
-    const encrypted=await encrypt(next,cryptoKey,unbase64(old.salt));
+    const encrypted=await encrypt(next,cryptoKey,old.kdf==='DEVICE-KEY-AES256'?null:unbase64(old.salt));
     await write(encrypted);
     memory=next;
   }
@@ -154,8 +224,11 @@
       const currency=info.currency==null?(existing?.currency||'VND'):sanitize(info.currency,3).toUpperCase();
       if(!/^[A-Z]{3}$/.test(currency))throw Error('Mã tiền tệ phải có 3 chữ cái.');
       const data={...memory,accounts:memory.accounts.map(x=>({...x}))};
+      const loginCustomerId=info.loginCustomerId==null?(existing?.loginCustomerId||''):sanitize(String(info.loginCustomerId),20);
+      if(loginCustomerId&&!/^\d{8,20}$/.test(loginCustomerId))throw Error('Mã tài khoản quản lý Google không hợp lệ.');
+      const source=info.source==='api'?'api':(existing?.source||'manual');
       const item={localId:existing?.localId||crypto.randomUUID(),platform:info.platform,
-        accountId:id,label,currency,accessToken,refreshToken,
+        accountId:id,label,currency,accessToken,refreshToken,loginCustomerId,source,
         updatedAt:new Date().toISOString()};
       if(existing){
         const index=data.accounts.findIndex(x=>x.localId===existing.localId);
@@ -166,17 +239,19 @@
   }
   function listAccounts(){
     requireUnlocked();
-    return memory.accounts.map(({localId,platform,accountId,label,currency,accessToken,refreshToken,updatedAt})=>({
-      localId,platform,accountId,label,currency:currency||'VND',
+    return memory.accounts.map(({localId,platform,accountId,label,currency,accessToken,refreshToken,loginCustomerId,source,updatedAt})=>({
+      localId,platform,accountId,label,currency:currency||'VND',loginCustomerId:loginCustomerId||'',source:source||'manual',
       hasAccessToken:Boolean(accessToken),hasRefreshToken:Boolean(refreshToken),updatedAt
     }));
   }
   function removeAccount(localId){
     return serial(async()=>{
       requireUnlocked();
+      const goals={...memory.goals};delete goals[localId];
       const data={...memory,accounts:memory.accounts.filter(x=>x.localId!==localId),
         reports:memory.reports.filter(x=>x.localId!==localId),
-        budgetRules:memory.budgetRules.filter(x=>x.localId!==localId)};
+        budgetRules:memory.budgetRules.filter(x=>x.localId!==localId),
+        snapshots:memory.snapshots.filter(x=>x.localId!==localId),goals};
       if(data.accounts.length===memory.accounts.length)throw Error('Không có tài khoản cần xóa.');
       await persist(data);return {removed:true};
     });
@@ -254,13 +329,97 @@
       source:'manual_csv',note:'Phát hiện từ CSV đã nhập, KHÔNG phải cảnh báo realtime.'
     })).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30);
   }
-  async function encryptedBackup(){
+  /* Provider sessions from browser OAuth. Short-lived access tokens only (no
+   * refresh tokens on the PWA); they stay encrypted in this vault, never sent to LHM. */
+  function setConnection(platform,{accessToken,expiresAt,email}){
+    return serial(async()=>{
+      requireUnlocked();
+      if(!['google','meta'].includes(platform))throw Error('Nền tảng không hợp lệ.');
+      const token=sanitize(accessToken,8192);
+      if(!token||!Number.isFinite(expiresAt))throw Error('Phiên kết nối không hợp lệ.');
+      const connections={...memory.connections,[platform]:{accessToken:token,expiresAt,
+        email:email?sanitize(String(email),200):'',connectedAt:new Date().toISOString()}};
+      await persist({...memory,connections});return {saved:true};
+    });
+  }
+  function getConnection(platform){
     requireUnlocked();
-    const data=await read();validateRecord(data);
-    // The returned object contains ONLY ciphertext; no plaintext credentials.
+    const c=memory.connections[platform];
+    if(!c)return null;
+    return {accessToken:c.accessToken,expiresAt:c.expiresAt,email:c.email||'',expired:Date.now()>=c.expiresAt-60000};
+  }
+  function clearConnection(platform){
+    return serial(async()=>{
+      requireUnlocked();
+      const connections={...memory.connections};delete connections[platform];
+      await persist({...memory,connections});return {cleared:true};
+    });
+  }
+  function accountRef(localId){
+    requireUnlocked();
+    const a=memory.accounts.find(x=>x.localId===localId);
+    if(!a)throw Error('Không tìm thấy tài khoản trên thiết bị.');
+    return {localId:a.localId,platform:a.platform,accountId:a.accountId,label:a.label,
+      currency:a.currency||'VND',loginCustomerId:a.loginCustomerId||''};
+  }
+  // Campaign history for the playbook's per-campaign baselines (cpa/roas only).
+  function saveSnapshot(localId,campaigns){
+    return serial(async()=>{
+      requireUnlocked();
+      if(!memory.accounts.some(x=>x.localId===localId))throw Error('Không có tài khoản.');
+      const day=new Date().toISOString().slice(0,10);
+      const rows=(Array.isArray(campaigns)?campaigns:[]).slice(0,500).map(c=>({id:String(c.id),
+        cpa:Number.isFinite(c.cpa)?c.cpa:null,roas:Number.isFinite(c.roas)?c.roas:null}));
+      let snaps=memory.snapshots.filter(x=>!(x.localId===localId&&x.period===day));
+      snaps.push({localId,period:day,campaigns:rows});
+      const mine=snaps.filter(x=>x.localId===localId).sort((a,b)=>a.period.localeCompare(b.period));
+      const drop=new Set(mine.slice(0,Math.max(0,mine.length-SNAPSHOTS_PER_ACCOUNT)));
+      snaps=snaps.filter(x=>!drop.has(x)).slice(-MAX_SNAPSHOTS);
+      await persist({...memory,snapshots:snaps});return {saved:true};
+    });
+  }
+  function listSnapshots(localId,{excludeToday=true}={}){
+    requireUnlocked();
+    const day=new Date().toISOString().slice(0,10);
+    return memory.snapshots.filter(x=>x.localId===localId&&(!excludeToday||x.period!==day))
+      .flatMap(x=>x.campaigns.map(c=>({...c,period:x.period})));
+  }
+  function setGoal(localId,goal){
+    return serial(async()=>{
+      requireUnlocked();
+      if(!memory.accounts.some(x=>x.localId===localId))throw Error('Không có tài khoản.');
+      const clean={enabled:Boolean(goal.enabled),objective:goal.objective==='roas'?'roas':'cpa',
+        target:Number(goal.target),min_conversions:Number.isInteger(goal.min_conversions)?goal.min_conversions:5,
+        currency:goal.currency?sanitize(String(goal.currency),3).toUpperCase():null,
+        meta_action_type:goal.meta_action_type?sanitize(String(goal.meta_action_type),80):null};
+      if(!Number.isFinite(clean.target)||clean.target<=0||clean.target>1e12)throw Error('Mục tiêu phải là số dương.');
+      await persist({...memory,goals:{...memory.goals,[localId]:clean}});return {saved:true};
+    });
+  }
+  function getGoal(localId){requireUnlocked();const g=memory.goals[localId];return g?{...g}:null;}
+  function appendAudit(entry){
+    return serial(async()=>{
+      requireUnlocked();
+      const item={at:new Date().toISOString(),action:sanitize(String(entry.action),60),
+        localId:entry.localId?sanitize(String(entry.localId),64):'',target:entry.target?sanitize(String(entry.target),64):'',
+        result:sanitize(String(entry.result||''),300)};
+      await persist({...memory,audit:[...memory.audit,item].slice(-MAX_AUDIT)});return {saved:true};
+    });
+  }
+  function listAudit(){requireUnlocked();return memory.audit.map(x=>({...x})).reverse();}
+  async function encryptedBackup(recoveryPassword){
+    requireUnlocked();
+    let data=await read();validateRecord(data);
+    // Non-extractable browser device keys cannot travel to another machine.
+    // Re-encrypt the backup with an explicit recovery passphrase, ONLY on export.
+    if(data.kdf==='DEVICE-KEY-AES256'){
+      if(!verifyPassword(recoveryPassword))throw Error('Mật khẩu sao lưu cần tối thiểu 12 ký tự.');
+      const salt=crypto.getRandomValues(new Uint8Array(16));
+      data=await encrypt(memory,await derive(recoveryPassword,salt),salt);
+    }
     return JSON.stringify({format:'lhm-ads-encrypted-backup',version:1,vault:data});
   }
-  async function importBackup(raw){
+  async function importBackup(raw,recoveryPassword){
     requireSecure();
     if(typeof raw!=='string'||raw.length>4_000_000)throw Error('Tệp sao lưu quá lớn.');
     const parsed=JSON.parse(raw);
@@ -268,6 +427,15 @@
       throw Error('Tệp sao lưu không phải của LHM Ads AI.');
     validateRecord(parsed.vault);
     // Caller must confirm destructive replacement. No server operations performed.
+    if(cloudPwa&&parsed.vault.kdf==='PBKDF2-SHA256'){
+      if(!verifyPassword(recoveryPassword))throw Error('Cần mật khẩu bản sao lưu (tối thiểu 12 ký tự).');
+      const oldKey=await derive(recoveryPassword,unbase64(parsed.vault.salt));
+      const value=await decrypt(parsed.vault,oldKey);
+      const key=await deviceKey();
+      await write(await encrypt(value,key,null));
+      cryptoKey=key;memory=value;
+      return {imported:true,unlocked:true};
+    }
     cryptoKey=null;memory=null;
     await write(parsed.vault);
     return {imported:true};
@@ -278,11 +446,18 @@
     return {deleted:true};
   }
   function lock(){cryptoKey=null;memory=null;return {locked:true};}
+  function setNamespace(customerId){
+    if(typeof customerId!=='string'||!/^[0-9a-f-]{36}$/i.test(customerId))throw Error('Invalid customer workspace ID');
+    if(KEY!=='google:'+customerId)lock();
+    KEY='google:'+customerId;namespaceSet=true;
+  }
   Object.defineProperty(window,'LHMDeviceVault',{
     value:Object.freeze({
-      exists:async()=>Boolean(await read()),create,unlock,lock,isUnlocked:()=>Boolean(cryptoKey&&memory),
+      setNamespace,autoUnlock,exists:async()=>Boolean(await read()),create,unlock,lock,isUnlocked:()=>Boolean(cryptoKey&&memory),
       listAccounts,upsertAccount,removeAccount,importDailyReport,listDailyReports,
-      setDailyBudget,listDailyBudgets,listLocalAlerts,encryptedBackup,importBackup,destroy
+      setDailyBudget,listDailyBudgets,listLocalAlerts,encryptedBackup,importBackup,destroy,
+      setConnection,getConnection,clearConnection,accountRef,saveSnapshot,listSnapshots,
+      setGoal,getGoal,appendAudit,listAudit
     }),writable:false,configurable:false
   });
 })();

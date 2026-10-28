@@ -113,6 +113,14 @@ def identify(request: Request):
                  FROM sessions s JOIN users u ON u.id=s.user_id
                  WHERE s.hash=? AND s.expires_at>?''', (hash_secret(token),int(time.time()))).fetchone()
             if row and not row['disabled']:
+                # The signed-in Gmail must own this PC tenant; never reuse a
+                # previous owner's local cookie after switching Google account.
+                from .cloud_license import current_cloud_license, licensing_required
+                if licensing_required():
+                    native = current_cloud_license()
+                    if (not native or not native.active() or
+                            row['org_id'] != 'google:' + str(native.customer_id)):
+                        raise HTTPException(401, 'Cần đăng nhập Gmail hợp lệ')
                 ident = dict(row); ident['auth_type']='browser'
                 return ident
     raise HTTPException(401, 'Cần đăng nhập tài khoản nội bộ')

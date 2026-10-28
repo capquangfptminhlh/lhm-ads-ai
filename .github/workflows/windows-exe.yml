@@ -15,6 +15,7 @@ on:
       - 'tools/release_gate.py'
       - 'tools/package_unsigned_release.py'
       - 'tools/check_customer_bundle.py'
+      - 'tools/check_commercial_legal.py'
       - 'windows/vendor-start.ps1'
       - 'windows/package-commercial-release.ps1'
       - 'tools/vendor_ledger.py'
@@ -33,8 +34,14 @@ concurrency:
   cancel-in-progress: true
 jobs:
   windows-exe:
+    # PyInstaller stays for pilot/dev builds; the commercial candidate is built with
+    # Nuitka (modules compiled to C, much harder to read back or patch than PyInstaller).
+    strategy:
+      fail-fast: false
+      matrix:
+        builder: ${{ (github.event_name == 'workflow_dispatch' && inputs.commercial) && fromJSON('["nuitka"]') || fromJSON('["pyinstaller","nuitka"]') }}
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 75
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -48,6 +55,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pytest pyinstaller pillow pywebview==5.4
+          if ('${{ matrix.builder }}' -eq 'nuitka') { python -m pip install "nuitka>=2.6,<3" ordered-set zstandard }
       - name: Run Python tests on Windows
         shell: pwsh
         run: python -m pytest -q
@@ -62,11 +70,19 @@ jobs:
           node --check static/customer-help.js
           node --check static/openrouter-diagnostics.js
           node --check static/report-date-ranges.js
+      - name: Block commercial build when legal terms are draft
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.commercial }}
+        shell: pwsh
+        run: |
+          python tools/check_commercial_legal.py
+          if ($LASTEXITCODE -ne 0) { throw 'Legal/privacy publication preflight failed; commercial candidate blocked' }
       - name: Pin vendor public key for manual COMMERCIAL build only
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.commercial }}
         shell: pwsh
         env:
           LHM_COMMERCIAL_PUBLIC_KEY_B64: ${{ secrets.LHM_COMMERCIAL_PUBLIC_KEY_B64 }}
+          # Public half of the Worker's LEASE_SIGNING_KEY. Set => Gmail sign-in build.
+          LHM_LEASE_PUBLIC_KEY_B64: ${{ vars.LHM_LEASE_PUBLIC_KEY_B64 }}
         run: |
           python tools/prepare_commercial_build.py --commercial
           if ($LASTEXITCODE -ne 0) { throw 'Commercial key provisioning failed, EXE must not be shipped' }
@@ -88,7 +104,7 @@ jobs:
         run: |
           $tokens = $null
           $errors = $null
-          foreach ($file in @('windows/package-commercial-release.ps1', 'windows/vendor-start.ps1')) {
+          foreach ($file in @('windows/package-commercial-release.ps1', 'windows/vendor-start.ps1', 'windows/smoke-test.ps1')) {
             $tokens = $null
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile(
@@ -102,10 +118,43 @@ jobs:
           LHM_UPDATE_MANIFEST_URL: ${{ vars.LHM_UPDATE_MANIFEST_URL }}
           LHM_UPDATE_PUBLIC_KEY_B64: ${{ vars.LHM_UPDATE_PUBLIC_KEY_B64 }}
         run: python tools/configure_desktop_update.py
+      - name: Require signed online updates for commercial Windows releases
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.commercial }}
+        shell: pwsh
+        run: |
+          python -c "from windows.online_update import configuration; assert configuration() is not None, 'Commercial EXE must pin HTTPS update manifest and Ed25519 public key'"
+          if ($LASTEXITCODE -ne 0) { throw 'Commercial release blocked: signed online updates not configured' }
       - name: Make branded Windows icon
         shell: pwsh
         run: python windows/make_icon.py
+      - name: Cache Nuitka C compilation
+        if: ${{ matrix.builder == 'nuitka' }}
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\Nuitka\Nuitka\Cache
+          key: nuitka-${{ runner.os }}-${{ hashFiles('requirements.txt') }}-${{ github.sha }}
+          restore-keys: nuitka-${{ runner.os }}-${{ hashFiles('requirements.txt') }}-
+      - name: Build EXE with Nuitka (onefile, no console)
+        if: ${{ matrix.builder == 'nuitka' }}
+        shell: pwsh
+        run: |
+          # tools/* and the seller GUI are seller-only and must never be compiled in.
+          python -m nuitka --onefile --windows-console-mode=disable --assume-yes-for-downloads --msvc=latest `
+            --output-dir=build-nuitka --output-filename=LHM-Ads-AI.exe `
+            --windows-icon-from-ico=windows/lhm-ads-ai.ico `
+            --include-data-dir=static=static `
+            --include-package=ads_core --include-package=windows --include-package=uvicorn `
+            --include-module=windows.desktop_window --include-module=clr `
+            --include-package-data=webview --include-package-data=pythonnet --include-package-data=clr_loader `
+            --nofollow-import-to=tools --nofollow-import-to=windows.vendor_manager `
+            --report=build-nuitka/nuitka-report.xml `
+            windows/launcher.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item build-nuitka/LHM-Ads-AI.exe dist/LHM-Ads-AI.exe
+          if (-not (Test-Path dist/LHM-Ads-AI.exe)) { throw 'Nuitka EXE not generated' }
       - name: Build EXE with NO console window
+        if: ${{ matrix.builder == 'pyinstaller' }}
         shell: pwsh
         run: |
           python -m PyInstaller --noconfirm --clean --onefile --windowed --name LHM-Ads-AI --icon windows/lhm-ads-ai.ico --paths . --add-data "static;static" --collect-submodules uvicorn --collect-submodules ads_core --collect-all cryptography --collect-all webview --collect-all clr_loader --collect-all pythonnet --hidden-import clr --hidden-import windows.desktop_window windows/launcher.py
@@ -113,9 +162,22 @@ jobs:
           if (-not (Test-Path dist/LHM-Ads-AI.exe)) { throw 'EXE not generated' }
       - name: Audit actual packaged customer EXE for vendor-only code
         shell: pwsh
-        run: python tools/check_customer_bundle.py --exe dist/LHM-Ads-AI.exe
+        run: |
+          if ('${{ matrix.builder }}' -eq 'nuitka') { python tools/check_customer_bundle.py --nuitka-report build-nuitka/nuitka-report.xml }
+          else { python tools/check_customer_bundle.py --exe dist/LHM-Ads-AI.exe }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Launch actual Windows EXE and check onboarding
         shell: pwsh
+        run: ./windows/smoke-test.ps1
+      - name: Smoke-test EXE in mandatory Gmail-only mode (staging)
+        # Reuse the EXACT built binary with the supported staging flag so CI
+        # tests the Google-only security path without embedding fake public
+        # keys into a customer-distributable artifact. Real commercial builds
+        # already exercise Gmail-only through their pinned release_info.
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.commercial }}
+        shell: pwsh
+        env:
+          LHM_CLOUD_LICENSE_MODE: required
         run: ./windows/smoke-test.ps1
       - name: Validate native WebView2 desktop dependencies
         shell: pwsh
@@ -151,8 +213,17 @@ jobs:
             throw 'Invalid canonical product semver'
           }
           $edition = 'pilot'
+          $licenseMode = 'legacy-pilot'
+          $leaseKeyFingerprint = ''
           if ('${{ github.event_name }}' -eq 'workflow_dispatch' -and '${{ inputs.commercial }}' -eq 'true') {
             $edition = 'commercial-candidate'
+            if ('${{ matrix.builder }}' -ne 'nuitka') { throw 'Commercial candidates must use Nuitka, never PyInstaller' }
+            # Public Ed25519 signing key fingerprint from the exact sources compiled.
+            $leaseKeyFingerprint = (python -c "import base64,hashlib; from ads_core.release_info import CLOUD_LICENSE_MODE, LEASE_PUBLIC_KEY_B64; assert CLOUD_LICENSE_MODE == 'required'; raw=base64.b64decode(LEASE_PUBLIC_KEY_B64,validate=True); assert len(raw)==32; print(hashlib.sha256(raw).hexdigest())").Trim()
+            if ($LASTEXITCODE -ne 0 -or $leaseKeyFingerprint -notmatch '^[0-9a-f]{64}$') {
+              throw 'Commercial EXE missing validated Gmail-only Ed25519 lease trust anchor'
+            }
+            $licenseMode = 'google-only'
           }
           $manifest = @{
             product = 'LHM Ads AI'
@@ -163,6 +234,9 @@ jobs:
             executable = 'LHM-Ads-AI.exe'
             sha256 = $hash
             created_at_utc = (Get-Date).ToUniversalTime().ToString('o')
+            builder = '${{ matrix.builder }}'
+            license_mode = $licenseMode
+            lease_public_key_sha256 = $leaseKeyFingerprint
             authenticode = 'UNSIGNED'
             distribution = 'NOT_APPROVED_FOR_SALE'
           }
@@ -192,7 +266,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ (github.event_name == 'workflow_dispatch' && inputs.commercial) && 'LHM-Ads-AI-COMMERCIAL-CANDIDATE-UNSIGNED' || 'LHM-Ads-AI-PILOT' }}
+          name: ${{ (github.event_name == 'workflow_dispatch' && inputs.commercial) && 'LHM-Ads-AI-COMMERCIAL-CANDIDATE-UNSIGNED' || (matrix.builder == 'nuitka' && 'LHM-Ads-AI-PILOT-NUITKA' || 'LHM-Ads-AI-PILOT') }}
           path: |
             dist/LHM-Ads-AI.exe
             dist/LHM-Ads-AI.sha256

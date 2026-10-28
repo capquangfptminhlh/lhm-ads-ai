@@ -10,8 +10,8 @@ const names={dashboard:'Tổng quan',accounts:'Tài khoản Ads',campaigns:'Chi�
 let session=null, cache=[], current='dashboard', actions=[], toastTimeout;
 function notify(msg,error=false){const el=$('toast');el.textContent=msg;el.classList.remove('hidden');el.classList.toggle('error',error);clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>el.classList.add('hidden'),5500)}
 async function api(url,options={}){const headers={'Accept':'application/json',...options.headers};if(options.body)headers['Content-Type']='application/json';if(session?.csrf&&options.method&&!['GET','HEAD'].includes(options.method))headers['X-CSRF-Token']=session.csrf;let r;try{r=await fetch(url,{credentials:'same-origin',...options,headers})}catch{throw Error('Không thể kết nối server')};const ct=r.headers.get('content-type')||'';const data=ct.includes('application/json')?await r.json():await r.text();if(!r.ok){if(r.status===401){session=null;showLogin()}throw Error(typeof data==='object'?(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||data)):String(data).slice(0,220))}return data}
-function isAdmin(){return session?.role==='admin'}function showLogin(){stopNetworkMonitor();$('shell').classList.add('hidden');$('login').classList.remove('hidden')}
-function showApp(){$('login').classList.add('hidden');$('shell').classList.remove('hidden');for(const id of ['global-account-search','account-list-search']){if($(id))$(id).value='';}$('user-name').textContent=session.email;document.querySelectorAll('.admin-only').forEach(x=>x.classList.toggle('hidden',!isAdmin()));const oauth=new URLSearchParams(location.search).get('oauth');history.replaceState(null,'','/studio');go(oauth?'accounts':'dashboard');beginNetworkMonitor();if(oauth&&oauth!=='ready')notify(({cancelled:'Đã hủy đăng nhập OAuth',no_accounts:'Không tìm thấy tài khoản quảng cáo được cấp quyền',provider_error:'Không kết nối được API quảng cáo. Kiểm tra quyền OAuth và ứng dụng.'})[oauth]||'Không hoàn thành kết nối OAuth',true)}
+function isAdmin(){return session?.role==='admin'}function showLogin(){window.dispatchEvent(new Event('lhm:local-logout'));stopNetworkMonitor();$('shell').classList.add('hidden');$('login').classList.remove('hidden')}
+function showApp(){$('login').classList.add('hidden');$('shell').classList.remove('hidden');for(const id of ['global-account-search','account-list-search']){if($(id))$(id).value='';}$('user-name').textContent=session.email;document.querySelectorAll('.admin-only').forEach(x=>x.classList.toggle('hidden',!isAdmin()));const oauth=new URLSearchParams(location.search).get('oauth');history.replaceState(null,'','/studio');go(oauth?'accounts':'dashboard');beginNetworkMonitor();window.dispatchEvent(new Event('lhm:local-login'));if(oauth&&oauth!=='ready')notify(({cancelled:'Đã hủy đăng nhập OAuth',no_accounts:'Không tìm thấy tài khoản quảng cáo được cấp quyền',provider_error:'Không kết nối được API quảng cáo. Kiểm tra quyền OAuth và ứng dụng.'})[oauth]||'Không hoàn thành kết nối OAuth',true)}
 function go(page){if(!names[page])return;if(['team','audit'].includes(page)&&!isAdmin())return;
   // Deep links, command palette and mobile routes reveal the active page
   // under Nâng cao, without expanding the sidebar for everyday users.
@@ -414,4 +414,8 @@ function beginNetworkMonitor() {
 window.addEventListener('online', () => { if (session) checkInternet(); });
 window.addEventListener('offline', () => {
   if (session) { networkWasOnline = false; renderNetworkStatus(false); }
+});
+
+window.addEventListener('lhm:cloud-license-active',()=>{
+  if(session){if(current==='accounts')loadAccounts();else loadDashboard();}
 });

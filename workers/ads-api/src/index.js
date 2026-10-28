@@ -1,5 +1,8 @@
 import { adminApi, adminIdentity } from './admin.js';
 import { customerAuth } from './customer-auth.js';
+import { googleSubscription } from './google-subscription.js';
+import { desktopPair } from './desktop-pair.js';
+import { leaseSignerReady } from './commerce.js';
 /*
  * Cloudflare serves installable PWA assets plus LHM subscription/control-plane API.
  * STRICT device-only advertising credential custody:
@@ -19,6 +22,9 @@ const json=(payload,status=200)=>new Response(JSON.stringify(payload),{
 export default {
   async fetch(request,env){
     const path=new URL(request.url).pathname;
+    // Hosted Studio demo cannot bypass the Google subscription gate.
+    if(path==='/studio'||path.startsWith('/studio/'))
+      return Response.redirect(new URL('/local/',request.url),302);
     // Admin UI is NEVER a publicly downloadable static page.
     // This requires Worker-first asset routing for /admin and /admin/*.
     if(path==='/admin' || path.startsWith('/admin/')){
@@ -98,8 +104,34 @@ export default {
           customer_auth_schema_ready=(tables.results||[]).length===2;
         }catch(_){customer_auth_schema_ready=false;}
       }
+      let google_seats_schema_ready=false,desktop_pairing_schema_ready=false;
+      if(commerce_binding_present){
+        try{
+          const check=await env.COMMERCE_DB.prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('license_seats','desktop_pairings','desktop_sessions')"
+          ).all();
+          const have=new Set((check.results||[]).map(row=>row.name));
+          google_seats_schema_ready=have.has('license_seats');
+          desktop_pairing_schema_ready=have.has('desktop_pairings')&&have.has('desktop_sessions');
+        }catch(_){google_seats_schema_ready=false;desktop_pairing_schema_ready=false;}
+      }
+      let gmail_plans_schema_ready=false;
+      if(commerce_binding_present){
+        try{
+          const check=await env.COMMERCE_DB.prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('plans','customer_notes')"
+          ).all();
+          gmail_plans_schema_ready=(check.results||[]).length===2;
+        }catch(_){gmail_plans_schema_ready=false;}
+      }
       return json({
         service:'lhm-ads-cloudflare',
+        google_login_configured:Boolean(env?.GOOGLE_CLIENT_ID && env?.GOOGLE_CLIENT_SECRET),
+        google_seats_schema_ready,
+        desktop_pairing_schema_ready,
+        gmail_plans_schema_ready,
+        payment_instructions_configured:Boolean(env?.BANK_BIN && env?.BANK_ACCOUNT_NO && env?.BANK_ACCOUNT_NAME),
+        desktop_lease_signing_configured:await leaseSignerReady(env),
         customer_auth_schema_ready,
         auth_ready:false,
         device_only_ready:false,
@@ -113,6 +145,17 @@ export default {
         commerce_access_policy_verified:false,
         ads_credential_custody:'device_only',
         message:'Cloudflare control plane and local-only Ads access not yet implemented.'
+      });
+    }
+    // Public, non-secret settings for the PWA's browser-side Google/Meta sign-in.
+    // OAuth client IDs are public by design; no secret or token is ever served here.
+    if(path==='/api/public/ads-config' && request.method==='GET'){
+      return json({
+        google_client_id:String(env?.GOOGLE_ADS_WEB_CLIENT_ID||''),
+        meta_app_id:String(env?.META_APP_ID||''),
+        google_ads_version:/^v\d+$/.test(env?.GOOGLE_ADS_API_VERSION||'')?env.GOOGLE_ADS_API_VERSION:'v25',
+        meta_graph_version:/^v\d+\.\d+$/.test(env?.META_GRAPH_VERSION||'')?env.META_GRAPH_VERSION:'v24.0',
+        meta_scopes:/^[a-z_,]+$/.test(env?.META_OAUTH_SCOPES||'')?env.META_OAUTH_SCOPES:'ads_read'
       });
     }
     // Public read-only key validation. Never returns customer PII or Ads data.
@@ -139,7 +182,11 @@ export default {
       }catch{return json({error:'License database unavailable'},503);}
     }
     if(path.startsWith('/api/admin/'))return adminApi(request,env);
-    if(path.startsWith('/api/customer/'))return customerAuth(request,env);
+    if(path==='/desktop/pair/' || path.startsWith('/api/desktop/'))return desktopPair(request,env);
+    if(path.startsWith('/api/auth/'))return googleSubscription(request,env);
+    // Disable the obsolete password-based customer entry point in Google-only mode.
+    // Existing customers must migrate via a verified Google account, never a shared key.
+    if(path.startsWith('/api/customer/'))return json({code:'GOOGLE_LOGIN_REQUIRED',error:'Đăng nhập bằng Google'},410);
     if(path.startsWith('/api/')){
       return json({
         detail:'Cloudflare Ads API is not enabled. Do not send Ads credentials to this service.',
@@ -148,5 +195,21 @@ export default {
     }
     if(env && env.ASSETS) return env.ASSETS.fetch(request);
     return json({detail:'Static asset binding unavailable'},503);
+  },
+  // Daily housekeeping (wrangler.toml [triggers]). Subscription metadata only.
+  async scheduled(_event,env,ctx){
+    if(!env?.COMMERCE_DB)return;
+    ctx.waitUntil(cleanup(env.COMMERCE_DB));
   }
 };
+
+export async function cleanup(db,now=new Date()){
+  const at=now.toISOString(),dayAgo=new Date(now.getTime()-86400000).toISOString();
+  await db.batch([
+    db.prepare("UPDATE orders SET status='cancelled' WHERE status='pending' AND expires_at IS NOT NULL AND expires_at<=?").bind(at),
+    db.prepare('DELETE FROM customer_sessions WHERE expires_at<=?').bind(at),
+    db.prepare('DELETE FROM desktop_sessions WHERE expires_at<=?').bind(at),
+    db.prepare('DELETE FROM desktop_pairings WHERE expires_at<=?').bind(at),
+    db.prepare('DELETE FROM license_seats WHERE last_seen_at<?').bind(dayAgo)
+  ]);
+}
