@@ -204,7 +204,10 @@
    catch(e){
      session=null;renderAccount(null);
      if(e.code==='ACCOUNT_BLOCKED'){stateNote(e.message);show(logout,true);msg('');return;}
-     msg(e.code==='OFFLINE'?e.message:'Đăng nhập bằng Google để bắt đầu.');
+     if(e.code==='OFFLINE')msg(e.message);
+     else if(e.status===401&&e.code==='SIGNIN_REQUIRED')msg('Đăng nhập bằng Google để bắt đầu.');
+     else if(e.status>=500)msg('Dịch vụ đăng nhập hoặc bản quyền chưa sẵn sàng: '+e.message+'. Vui lòng thử lại sau.');
+     else msg(e.message||'Không kiểm tra được tài khoản Google.');
      return;
    }
    renderAccount(session);
@@ -247,14 +250,16 @@
    const id=e.target?.dataset?.copy;if(!id)return;
    navigator.clipboard?.writeText($(id).textContent).then(()=>msg('Đã sao chép nội dung chuyển khoản.')).catch(()=>{});
  });
- const signOut=async()=>{
-   try{await post('/api/auth/logout',{});}catch(_){}
-   session=null;lock();location.assign('/local/');
+ // Never claim a server-side sign-out succeeded when the request failed:
+ // an HttpOnly cookie could still be valid and automatically unlock on reload.
+ const endSession=async(target,allDevices=false)=>{
+   lock('Đang xác nhận đăng xuất với máy chủ…');
+   try{await post(allDevices?'/api/auth/devices/signout-all':'/api/auth/logout',{});}
+   catch(e){msg('Chưa thể đăng xuất trên máy chủ: '+e.message+'. Vui lòng kiểm tra mạng và thử lại.');return;}
+   session=null;location.assign(target);
  };
- $('customer-switch')?.addEventListener('click',async()=>{
-   try{await post('/api/auth/logout',{});}catch(_){}
-   location.assign('/api/auth/google/start');
- });
+ const signOut=()=>endSession('/local/');
+ $('customer-switch')?.addEventListener('click',()=>endSession('/api/auth/google/start'));
  logout?.addEventListener('click',signOut);
  window.addEventListener('lhm:pwa-signout',signOut);
 
@@ -265,8 +270,7 @@
  $('lhm-plan-banner-renew')?.addEventListener('click',renew);
  $('lhm-signout-all')?.addEventListener('click',async()=>{
    if(!confirm('Đăng xuất Gmail này trên mọi máy và trình duyệt?'))return;
-   try{await post('/api/auth/devices/signout-all',{});}catch(_){}
-   session=null;lock();location.assign('/local/');
+   await endSession('/local/',true);
  });
  window.addEventListener('lhm:pwa-view',async e=>{
    if(e.detail!=='settings'||!ready)return;
